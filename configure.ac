@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-sybase-modules], [0.0.1],
+AC_INIT([qore-sybase-modules], [1.0],
         [David Nichols <nicholsman@gmail.com>],
         [qore-sybase-modules])
 AM_INIT_AUTOMAKE
@@ -641,3 +641,7 @@ show_library_feature()
 show_library_feature optimizations $enable_optimization
 show_library_feature debug $enable_debug
 show_library_feature profiling $enable_profile
+
+echo "*** MODULES ***"
+show_library_feature sybase $with_sybase
+show_library_feature freetds $with_freetds

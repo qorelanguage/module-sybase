@@ -24,7 +24,7 @@
 */
 
 #include <qore/Qore.h>
-#include <qore/minitest.hpp>
+#include "minitest.hpp"
 
 #include <cstypes.h>
 #include <ctpublic.h>

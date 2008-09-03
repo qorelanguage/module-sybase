@@ -73,13 +73,13 @@ contain any files.
 Summary: Sybase DBI module for Qore
 Group: Development/Languages
 
-%description sybase-module
+%description -n sybase-module
 Sybase DBI driver module for the Qore Programming Language. The Sybase driver is
 character set aware, supports multithreading, transaction management, stored
 prodedure and function execution, etc.
 
 
-%files sybase-module
+%files -n sybase-module
 %defattr(-,root,root,-)
 %{module_dir}/sybase.qmod
 %doc COPYING README ChangeLog AUTHORS test/db-test.q
@@ -101,7 +101,7 @@ execution, etc, and can be used to connect to Sybase and Microsoft SQL Server
 databases.
 
 
-%files freetds-module
+%files -n freetds-module
 %defattr(-,root,root,-)
 %{module_dir}/freetds.qmod
 %doc COPYING README ChangeLog AUTHORS test/db-test.q

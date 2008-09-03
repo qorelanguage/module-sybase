@@ -24,7 +24,7 @@
 */
 
 #include <qore/Qore.h>
-#include <qore/minitest.hpp>
+#include "minitest.hpp"
 
 #include <ctpublic.h>
 #include <assert.h>
@@ -42,7 +42,7 @@
 DLLEXPORT char qore_module_name[] = "sybase";
 DLLEXPORT char qore_module_description[] = "Sybase database driver";
 #else
-DLLEXPORT char qore_module_name[] = "mssql";
+DLLEXPORT char qore_module_name[] = "freetds";
 DLLEXPORT char qore_module_description[] = "FreeTDS-based database driver for MS-SQL Server and Sybase";
 #endif
 DLLEXPORT char qore_module_version[] = "1.0";
@@ -265,7 +265,7 @@ static void init_namespace()
 #ifdef SYBASE
       new QoreNamespace("Sybase");
 #else
-      new QoreNamespace("MSSQL");
+      new QoreNamespace("FreeTDS");
 #endif
    add_constants(sybase);
 }
@@ -297,7 +297,7 @@ QoreStringNode *sybase_module_init()
 #ifdef SYBASE
    DBID_SYBASE = DBI.registerDriver("sybase", methods, DBI_SYBASE_CAPS);
 #else
-   DBID_SYBASE = DBI.registerDriver("mssql", methods, DBI_SYBASE_CAPS);
+   DBID_SYBASE = DBI.registerDriver("freetds", methods, DBI_SYBASE_CAPS);
 #endif
 
 
