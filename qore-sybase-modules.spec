@@ -69,31 +69,30 @@ contain any files.
 %endif
 
 %if 0%{?with_sybase}
-%package -n sybase-module
+%package -n qore-sybase-module
 Summary: Sybase DBI module for Qore
 Group: Development/Languages
 
-%description -n sybase-module
+%description -n qore-sybase-module
 Sybase DBI driver module for the Qore Programming Language. The Sybase driver is
 character set aware, supports multithreading, transaction management, stored
 prodedure and function execution, etc.
 
 
-%files -n sybase-module
+%files -n qore-sybase-module
 %defattr(-,root,root,-)
 %{module_dir}/sybase.qmod
 %doc COPYING README ChangeLog AUTHORS test/db-test.q
 %endif
 
 
-%package -n freetds-module
+%package -n qore-freetds-module
 Summary: FreeTDS-based MS-SQL and Sybase DBI module for Qore
 Group: Development/Languages
-Requires: %{name}-libs = %{version}-%{release}
 Requires: freetds
 BuildRequires: freetds-devel
 
-%description -n freetds-module
+%description -n qore-freetds-module
 FreeTDS-based MS-SQL Server and Sybase DBI driver module for the Qore
 Programming Language. This driver is character set aware, supports
 multithreading, transaction management, stored prodedure and function
@@ -101,7 +100,7 @@ execution, etc, and can be used to connect to Sybase and Microsoft SQL Server
 databases.
 
 
-%files -n freetds-module
+%files -n qore-freetds-module
 %defattr(-,root,root,-)
 %{module_dir}/freetds.qmod
 %doc COPYING README ChangeLog AUTHORS test/db-test.q
