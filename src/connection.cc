@@ -39,8 +39,8 @@
 static QoreString ver_str("begin tran select @@version commit tran");
 
 //------------------------------------------------------------------------------
-connection::connection()
-   : m_context(0), m_connection(0), connected(false)
+connection::connection(ExceptionSink *xsink)
+   : m_context(xsink), m_connection(0), connected(false)
 {
 }
 
@@ -62,15 +62,11 @@ connection::~connection()
       assert(ret == CS_SUCCEED);
    }
 
+/*
    if (m_context) {
-      ret = ct_exit(m_context, CS_UNUSED);
-      if (ret != CS_SUCCEED) {
-	 ret = ct_exit(m_context, CS_FORCE_EXIT);
-	 assert(ret == CS_SUCCEED);
-      }
-      ret = cs_ctx_drop(m_context);
-      assert(ret == CS_SUCCEED);
+      delete m_context;
    }
+*/
 }
 
 int connection::direct_execute(const char* sql_text, ExceptionSink* xsink)
@@ -174,24 +170,11 @@ int connection::rollback(ExceptionSink *xsink)
 // Post-constructor initialization 
 int connection::init(const char* username, const char* password, const char* dbname, const char *db_encoding, const QoreEncoding *n_enc, ExceptionSink* xsink)
 {
-  assert(!m_connection);
-  assert(!m_context);
+   assert(!m_connection);
 
-  printd(5, "connection::init() user=%s pass=%s dbname=%s, db_enc=%s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
+   printd(5, "connection::init() user=%s pass=%s dbname=%s, db_enc=%s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
 
-  enc = n_enc;
-
-  CS_RETCODE ret = cs_ctx_alloc(CS_VERSION_100, &m_context);
-  if (ret != CS_SUCCEED) {
-    xsink->raiseException("DBI:SYBASE:CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);
-    return -1;
-  }
-
-  ret = ct_init(m_context, CS_VERSION_100);
-  if (ret != CS_SUCCEED) {
-    xsink->raiseException("DBI:SYBASE:CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
-    return -1;
-  }
+   enc = n_enc;
 
 /*
   // add callbacks
@@ -206,7 +189,7 @@ int connection::init(const char* username, const char* password, const char* dbn
     return -1;
   }
 */  
-   ret = ct_con_alloc(m_context, &m_connection);
+   CS_RETCODE ret = ct_con_alloc(m_context.get_context(), &m_connection);
    if (ret != CS_SUCCEED) {
       xsink->raiseException("DBI:SYBASE:CT-LIB-CREATE-CONNECTION", "ct_con_alloc() failed with error %d", ret);
       return -1;
@@ -236,17 +219,17 @@ int connection::init(const char* username, const char* password, const char* dbn
 #if defined(SYBASE) || defined(FREETDS_LOCALE)
    CS_LOCALE *m_charset_locale = 0;
 
-   ret = cs_loc_alloc(m_context, &m_charset_locale);
+   ret = cs_loc_alloc(m_context.get_context(), &m_charset_locale);
    if (ret != CS_SUCCEED) {
       xsink->raiseException("DBI-EXEC-EXCEPTION", "cs_loc_alloc() returned error %d", (int)ret);
       return -1;
    }
-   ret = cs_locale(m_context, CS_SET, m_charset_locale, CS_LC_ALL, 0, CS_NULLTERM, 0);
+   ret = cs_locale(m_context.get_context(), CS_SET, m_charset_locale, CS_LC_ALL, 0, CS_NULLTERM, 0);
    if (ret != CS_SUCCEED) {
       xsink->raiseException("DBI-EXEC-EXCEPTION", "cs_locale(CS_LC_ALL) returned error %d", (int)ret);
       return -1;
    }
-   ret = cs_locale(m_context, CS_SET, m_charset_locale, CS_SYB_CHARSET, (CS_CHAR*)db_encoding, CS_NULLTERM, 0);
+   ret = cs_locale(m_context.get_context(), CS_SET, m_charset_locale, CS_SYB_CHARSET, (CS_CHAR*)db_encoding, CS_NULLTERM, 0);
    if (ret != CS_SUCCEED) {
       xsink->raiseException("DBI-EXEC-EXCEPTION", "cs_locale(CS_SYB_CHARSET, '%s') failed with error %d", db_encoding, (int)ret);
       return -1;
@@ -257,7 +240,7 @@ int connection::init(const char* username, const char* password, const char* dbn
       return -1;
    }
 
-   ret = cs_loc_drop(m_context, m_charset_locale);
+   ret = cs_loc_drop(m_context.get_context(), m_charset_locale);
    assert(ret == CS_SUCCEED);
 #endif
 
@@ -279,7 +262,7 @@ int connection::init(const char* username, const char* password, const char* dbn
    // Set default type of string representation of DATETIME to long (like Jan 1 1990 12:32:55:0000 PM)
    // Without this some routines in conversions.cc would fail.
    CS_INT aux = CS_DATES_LONG;
-   ret = cs_dt_info(m_context, CS_SET, NULL, CS_DT_CONVFMT, CS_UNUSED, (CS_VOID*)&aux, sizeof(aux), 0);
+   ret = cs_dt_info(m_context.get_context(), CS_SET, NULL, CS_DT_CONVFMT, CS_UNUSED, (CS_VOID*)&aux, sizeof(aux), 0);
    if (ret != CS_SUCCEED)
       return do_exception(xsink, "DBI:SYBASE:INIT-ERROR", "cs_dt_info(CS_DT_CONVFMT) failed");
 
@@ -444,19 +427,9 @@ CS_RETCODE connection::servermsg_callback(CS_CONTEXT* ctx, CS_CONNECTION* conn, 
 */
 
 // get client version
-#define CLIENT_VER_LEN 240
 QoreStringNode *connection::get_client_version(ExceptionSink *xsink)
 {
-   char *buf = (char *)malloc(sizeof(char) * CLIENT_VER_LEN);
-   CS_INT olen;
-   CS_RETCODE ret = ct_config(m_context, CS_GET, CS_VER_STRING, buf, CLIENT_VER_LEN, &olen);
-   //printd(0, "olen=%d, ret=%d\n", olen, ret);
-   if (ret != CS_SUCCEED) {
-      do_exception(xsink, "DBI:SYBASE:GET-CLIENT-VERSION-ERROR", "ct_config(CS_VER_STRING) failed with error %d", (int)ret);
-      return 0;
-   }  
-   //printd(5, "client version=%s\n", buf);
-   return new QoreStringNode(buf);
+   return m_context.get_client_version(xsink);
 }
 
 AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink)

@@ -130,7 +130,9 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink)
    }
   
    // create the connection object
-   std::auto_ptr<connection> sc(new connection);
+   std::auto_ptr<connection> sc(new connection(xsink));
+   if (*xsink)
+      return -1;
   
    // make the actual connection to the database
    sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), xsink);
@@ -186,13 +188,16 @@ static int sybase_rollback(Datasource *ds, ExceptionSink *xsink)
    return conn->rollback(xsink);
 }
 
-static class AbstractQoreNode *sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink)
+static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink)
 {
-   connection* conn = (connection*)ds->getPrivateData();
-   return conn->get_client_version(xsink);
+   context m_context(xsink);
+   if (!m_context)
+      return 0;
+
+   return m_context.get_client_version(xsink);
 }
 
-static class AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink)
+static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink)
 {
    connection* conn = (connection*)ds->getPrivateData();
    return conn->get_server_version(xsink);
@@ -202,72 +207,69 @@ static class AbstractQoreNode *sybase_get_server_version(Datasource *ds, Excepti
 // constants are not needed now as specifying placeholder buffer types is not necessary
 static void add_constants(QoreNamespace* ns)
 {
-   ns->addConstant("CS_CHAR_TYPE", new QoreBigIntNode(CS_CHAR_TYPE));
-   ns->addConstant("CS_BINARY_TYPE", new QoreBigIntNode(CS_BINARY_TYPE));
-   ns->addConstant("CS_LONGCHAR_TYPE", new QoreBigIntNode(CS_LONGCHAR_TYPE));
-   ns->addConstant("CS_LONGBINARY_TYPE", new QoreBigIntNode(CS_LONGBINARY_TYPE));
-   ns->addConstant("CS_TEXT_TYPE", new QoreBigIntNode(CS_TEXT_TYPE));
-   ns->addConstant("CS_IMAGE_TYPE", new QoreBigIntNode(CS_IMAGE_TYPE));
-   ns->addConstant("CS_TINYINT_TYPE", new QoreBigIntNode(CS_TINYINT_TYPE));
-   ns->addConstant("CS_SMALLINT_TYPE", new QoreBigIntNode(CS_SMALLINT_TYPE));
-   ns->addConstant("CS_INT_TYPE", new QoreBigIntNode(CS_INT_TYPE));
-   ns->addConstant("CS_REAL_TYPE", new QoreBigIntNode(CS_REAL_TYPE));
-   ns->addConstant("CS_FLOAT_TYPE", new QoreBigIntNode(CS_FLOAT_TYPE));
-   ns->addConstant("CS_BIT_TYPE", new QoreBigIntNode(CS_BIT_TYPE));
-   ns->addConstant("CS_DATETIME_TYPE", new QoreBigIntNode(CS_DATETIME_TYPE));
-   ns->addConstant("CS_DATETIME4_TYPE", new QoreBigIntNode(CS_DATETIME4_TYPE));
-   ns->addConstant("CS_MONEY_TYPE", new QoreBigIntNode(CS_MONEY_TYPE));
-   ns->addConstant("CS_MONEY4_TYPE", new QoreBigIntNode(CS_MONEY4_TYPE));
-   ns->addConstant("CS_NUMERIC_TYPE", new QoreBigIntNode(CS_NUMERIC_TYPE));
-   ns->addConstant("CS_DECIMAL_TYPE", new QoreBigIntNode(CS_DECIMAL_TYPE));
-   ns->addConstant("CS_VARCHAR_TYPE", new QoreBigIntNode(CS_VARCHAR_TYPE));
-   ns->addConstant("CS_VARBINARY_TYPE", new QoreBigIntNode(CS_VARBINARY_TYPE));
-   ns->addConstant("CS_LONG_TYPE", new QoreBigIntNode(CS_LONG_TYPE));
-   ns->addConstant("CS_SENSITIVITY_TYPE", new QoreBigIntNode(CS_SENSITIVITY_TYPE));
-   ns->addConstant("CS_BOUNDARY_TYPE", new QoreBigIntNode(CS_BOUNDARY_TYPE));
-   ns->addConstant("CS_VOID_TYPE", new QoreBigIntNode(CS_VOID_TYPE));
-   ns->addConstant("CS_USHORT_TYPE", new QoreBigIntNode(CS_USHORT_TYPE));
-   ns->addConstant("CS_UNICHAR_TYPE", new QoreBigIntNode(CS_UNICHAR_TYPE));
-#ifdef CS_BLOB_TYPE
-   ns->addConstant("CS_BLOB_TYPE", new QoreBigIntNode(CS_BLOB_TYPE));
-#endif
-#ifdef CS_DATE_TYPE
-   ns->addConstant("CS_DATE_TYPE", new QoreBigIntNode(CS_DATE_TYPE));
-#endif
-#ifdef CS_TIME_TYPE
-   ns->addConstant("CS_TIME_TYPE", new QoreBigIntNode(CS_TIME_TYPE));
-#endif
-#ifdef CS_UNITEXT_TYPE
-   ns->addConstant("CS_UNITEXT_TYPE", new QoreBigIntNode(CS_UNITEXT_TYPE));
-#endif
-#ifdef CS_BIGINT_TYPE
-   ns->addConstant("CS_BIGINT_TYPE", new QoreBigIntNode(CS_BIGINT_TYPE));
-#endif
-#ifdef CS_USMALLINT_TYPE
-   ns->addConstant("CS_USMALLINT_TYPE", new QoreBigIntNode(CS_USMALLINT_TYPE));
-#endif
-#ifdef CS_UINT_TYPE
-   ns->addConstant("CS_UINT_TYPE", new QoreBigIntNode(CS_UINT_TYPE));
-#endif
-#ifdef CS_UBIGINT_TYPE
-   ns->addConstant("CS_UBIGINT_TYPE", new QoreBigIntNode(CS_UBIGINT_TYPE));
-#endif
-#ifdef CS_XML_TYPE
-   ns->addConstant("CS_XML_TYPE", new QoreBigIntNode(CS_XML_TYPE));
-#endif
 }
 
-static QoreNamespace *sybase;
+#ifdef SYBASE
+static QoreNamespace sybase_ns("Sybase");
+#else
+static QoreNamespace sybase_ns("FreeTDS");
+#endif
  
 static void init_namespace()
 {
-   QoreNamespace *sybase = 
-#ifdef SYBASE
-      new QoreNamespace("Sybase");
-#else
-      new QoreNamespace("FreeTDS");
+   sybase_ns.addConstant("CS_CHAR_TYPE", new QoreBigIntNode(CS_CHAR_TYPE));
+   sybase_ns.addConstant("CS_BINARY_TYPE", new QoreBigIntNode(CS_BINARY_TYPE));
+   sybase_ns.addConstant("CS_LONGCHAR_TYPE", new QoreBigIntNode(CS_LONGCHAR_TYPE));
+   sybase_ns.addConstant("CS_LONGBINARY_TYPE", new QoreBigIntNode(CS_LONGBINARY_TYPE));
+   sybase_ns.addConstant("CS_TEXT_TYPE", new QoreBigIntNode(CS_TEXT_TYPE));
+   sybase_ns.addConstant("CS_IMAGE_TYPE", new QoreBigIntNode(CS_IMAGE_TYPE));
+   sybase_ns.addConstant("CS_TINYINT_TYPE", new QoreBigIntNode(CS_TINYINT_TYPE));
+   sybase_ns.addConstant("CS_SMALLINT_TYPE", new QoreBigIntNode(CS_SMALLINT_TYPE));
+   sybase_ns.addConstant("CS_INT_TYPE", new QoreBigIntNode(CS_INT_TYPE));
+   sybase_ns.addConstant("CS_REAL_TYPE", new QoreBigIntNode(CS_REAL_TYPE));
+   sybase_ns.addConstant("CS_FLOAT_TYPE", new QoreBigIntNode(CS_FLOAT_TYPE));
+   sybase_ns.addConstant("CS_BIT_TYPE", new QoreBigIntNode(CS_BIT_TYPE));
+   sybase_ns.addConstant("CS_DATETIME_TYPE", new QoreBigIntNode(CS_DATETIME_TYPE));
+   sybase_ns.addConstant("CS_DATETIME4_TYPE", new QoreBigIntNode(CS_DATETIME4_TYPE));
+   sybase_ns.addConstant("CS_MONEY_TYPE", new QoreBigIntNode(CS_MONEY_TYPE));
+   sybase_ns.addConstant("CS_MONEY4_TYPE", new QoreBigIntNode(CS_MONEY4_TYPE));
+   sybase_ns.addConstant("CS_NUMERIC_TYPE", new QoreBigIntNode(CS_NUMERIC_TYPE));
+   sybase_ns.addConstant("CS_DECIMAL_TYPE", new QoreBigIntNode(CS_DECIMAL_TYPE));
+   sybase_ns.addConstant("CS_VARCHAR_TYPE", new QoreBigIntNode(CS_VARCHAR_TYPE));
+   sybase_ns.addConstant("CS_VARBINARY_TYPE", new QoreBigIntNode(CS_VARBINARY_TYPE));
+   sybase_ns.addConstant("CS_LONG_TYPE", new QoreBigIntNode(CS_LONG_TYPE));
+   sybase_ns.addConstant("CS_SENSITIVITY_TYPE", new QoreBigIntNode(CS_SENSITIVITY_TYPE));
+   sybase_ns.addConstant("CS_BOUNDARY_TYPE", new QoreBigIntNode(CS_BOUNDARY_TYPE));
+   sybase_ns.addConstant("CS_VOID_TYPE", new QoreBigIntNode(CS_VOID_TYPE));
+   sybase_ns.addConstant("CS_USHORT_TYPE", new QoreBigIntNode(CS_USHORT_TYPE));
+   sybase_ns.addConstant("CS_UNICHAR_TYPE", new QoreBigIntNode(CS_UNICHAR_TYPE));
+#ifdef CS_BLOB_TYPE
+   sybase_ns.addConstant("CS_BLOB_TYPE", new QoreBigIntNode(CS_BLOB_TYPE));
 #endif
-   add_constants(sybase);
+#ifdef CS_DATE_TYPE
+   sybase_ns.addConstant("CS_DATE_TYPE", new QoreBigIntNode(CS_DATE_TYPE));
+#endif
+#ifdef CS_TIME_TYPE
+   sybase_ns.addConstant("CS_TIME_TYPE", new QoreBigIntNode(CS_TIME_TYPE));
+#endif
+#ifdef CS_UNITEXT_TYPE
+   sybase_ns.addConstant("CS_UNITEXT_TYPE", new QoreBigIntNode(CS_UNITEXT_TYPE));
+#endif
+#ifdef CS_BIGINT_TYPE
+   sybase_ns.addConstant("CS_BIGINT_TYPE", new QoreBigIntNode(CS_BIGINT_TYPE));
+#endif
+#ifdef CS_USMALLINT_TYPE
+   sybase_ns.addConstant("CS_USMALLINT_TYPE", new QoreBigIntNode(CS_USMALLINT_TYPE));
+#endif
+#ifdef CS_UINT_TYPE
+   sybase_ns.addConstant("CS_UINT_TYPE", new QoreBigIntNode(CS_UINT_TYPE));
+#endif
+#ifdef CS_UBIGINT_TYPE
+   sybase_ns.addConstant("CS_UBIGINT_TYPE", new QoreBigIntNode(CS_UBIGINT_TYPE));
+#endif
+#ifdef CS_XML_TYPE
+   sybase_ns.addConstant("CS_XML_TYPE", new QoreBigIntNode(CS_XML_TYPE));
+#endif
 }
  */
 
@@ -283,7 +285,7 @@ QoreStringNode *sybase_module_init()
 #endif
    
    // register driver with DBI subsystem
-   class qore_dbi_method_list methods;
+   qore_dbi_method_list methods;
    methods.add(QDBI_METHOD_OPEN, sybase_open);
    methods.add(QDBI_METHOD_CLOSE, sybase_close);
    methods.add(QDBI_METHOD_SELECT, sybase_select);
@@ -300,7 +302,6 @@ QoreStringNode *sybase_module_init()
    DBID_SYBASE = DBI.registerDriver("freetds", methods, DBI_SYBASE_CAPS);
 #endif
 
-
    return 0;
 }
 
@@ -310,13 +311,11 @@ void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns)
   // this is commented out because the constants are not needed (or documented) at the moment
   // maybe later we can use them
    QORE_TRACE("sybase_module_ns_init()");
-   qns->addInitialNamespace(sybase->copy());
-
+   qns->addInitialNamespace(sybase_ns.copy());
 */
 }
 
 void sybase_module_delete()
 {
    QORE_TRACE("sybase_module_delete()");
-
 }

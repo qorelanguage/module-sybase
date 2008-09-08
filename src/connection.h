@@ -37,13 +37,73 @@
 #undef SYB_HAVE_LOCALE
 #endif
 
+#ifndef CLIENT_VER_LEN
+#define CLIENT_VER_LEN 240
+#endif
+
+class context {
+   private:
+      CS_CONTEXT *m_context;
+
+      DLLLOCAL void del() {
+	 CS_RETCODE ret = ct_exit(m_context, CS_UNUSED);
+	 if (ret != CS_SUCCEED) {
+	    ret = ct_exit(m_context, CS_FORCE_EXIT);
+	    assert(ret == CS_SUCCEED);
+	 }
+	 ret = cs_ctx_drop(m_context);
+	 assert(ret == CS_SUCCEED);
+      }
+
+   public:
+      DLLLOCAL context(ExceptionSink *xsink) {
+	 CS_RETCODE ret = cs_ctx_alloc(CS_VERSION_100, &m_context);
+	 if (ret != CS_SUCCEED) {
+	    xsink->raiseException("DBI:SYBASE:CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);   
+	    return;
+	 }
+
+	 ret = ct_init(m_context, CS_VERSION_100);
+	 if (ret != CS_SUCCEED) {
+	    del();
+	    xsink->raiseException("DBI:SYBASE:CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
+	    return;
+	 }
+      }
+
+      DLLLOCAL ~context() {
+	 if (m_context)
+	    del();
+      }
+
+      DLLLOCAL operator bool() const {
+	 return (bool)m_context;
+      }
+
+      DLLLOCAL CS_CONTEXT *get_context() { return m_context; }
+
+      DLLLOCAL QoreStringNode *get_client_version(ExceptionSink *xsink) {
+	 char *buf = (char *)malloc(sizeof(char) * CLIENT_VER_LEN);
+	 CS_INT olen;
+	 CS_RETCODE ret = ct_config(m_context, CS_GET, CS_VER_STRING, buf, CLIENT_VER_LEN, &olen);
+	 //printd(0, "olen=%d, ret=%d\n", olen, ret);
+	 if (ret != CS_SUCCEED) {
+	    free(buf);
+	    xsink->raiseException("DBI:SYBASE:GET-CLIENT-VERSION-ERROR", "ct_config(CS_VER_STRING) failed with error %d", (int)ret);
+	    return 0;
+	 }  
+	 //printd(5, "client version=%s\n", buf);
+	 return new QoreStringNode(buf, olen, CLIENT_VER_LEN, QCS_DEFAULT);
+      }
+};
+
 // Instantiated class is kept as private data of the Datasource
 // for the time the Datasource exists. All other Sybase
 // resources are shortlived (including CS_COMMAND* and its wrapper).
 class connection
 {
    private:
-      CS_CONTEXT* m_context;
+      context m_context;
       CS_CONNECTION* m_connection;
       bool connected;
       const QoreEncoding *enc;
@@ -51,7 +111,7 @@ class connection
       class AbstractQoreNode *exec_intern(class QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, class ExceptionSink* xsink);
 
 public:
-      DLLLOCAL connection();
+      DLLLOCAL connection(ExceptionSink *xsink);
       DLLLOCAL ~connection();
 
       // to be called after the object is constructed
@@ -72,7 +132,7 @@ public:
       DLLLOCAL class AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, class ExceptionSink *xsink);
 
       DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
-      DLLLOCAL CS_CONTEXT* getContext() const { return m_context; }
+      DLLLOCAL CS_CONTEXT* getContext() { return m_context.get_context(); }
       DLLLOCAL const QoreEncoding *getEncoding() const { return enc; }
 
       DLLLOCAL class QoreStringNode *get_client_version(class ExceptionSink *xsink);
