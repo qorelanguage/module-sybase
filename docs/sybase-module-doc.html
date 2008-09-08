@@ -568,7 +568,7 @@ Note that the charset value is ignored; connection character encoding is set dir
 
 See the [[FreeTDS User's Guide|http://www.freetds.org/userguide]] for more information on the {{{freetds.conf}}} file and choosing a protocol version for each connection.</pre>
 </div>
-<div title="Introduction" modifier="DavidNichols" created="200808200719" modified="200809081346" changecount="55">
+<div title="Introduction" modifier="DavidNichols" created="200808200719" modified="200809081351" changecount="57">
 <pre>Both the {{{sybase}}} and {{{freetds}}} (formerly called {{{mssql}}}) modules are built from the same sources; this documentation will describe both modules.  They share most of their functionality, but there are differences, both depending on the client libraries used, and according to the database server being connected to.
 
 Both modules provide drivers to Qore's DBI system, allowing Qore programs to take access databases through the Qore's {{{Datasource}}} and {{{DatasourcePool}}} classes.  The sybase module provides access only to [[Sybase|http://www.sybase.com]] servers, while the [[FreeTDS|http://www.freetds.org]] module provides access to Sybase and Microsoft SQL Server database servers.
@@ -616,7 +616,7 @@ This driver allows all types of statements to be executed through {{{Datasource:
 Unlike many other Qore DBI drivers, this driver allows and can return results from multiple select statements issued with a single call. Additionally, it's possible for a stored procedure to return output paramters as well as one or more result sets from select statements. The output format for commands like this differs from standard Qore DBI formats as follows:
 
 |!Query Type|!Result Format|h
-|Multiple Selects|A hash is returned with a key giving the results from each select statement. The key names have the format &quot;query#&quot;, where # is an increasing integer starting with 0.|
+|Multiple Selects|A hash is returned with a key giving the results from each select statement. The key names have the format {{{query#}}}, where # is an increasing integer starting with 0.|
 |Return Parameters Only|A hash is returned with keys giving the output parameter values, as long as the placeholder format (ex: {{{:name}}}) was used for the output parameters, otherwise the key names in the output will be an increasing integer starting with 0 (i.e. 0, 1, etc). If a count of affected rows is available, it's returned in the {{{rowcount}}} key.|
 |Return Parameters and Result Set(s)|As above, but with an addition key: {{{query}}}, giving the result set. If multiple result sets are returned, then the {{{query}}} key will be a hash with {{{query#}}} keys giving the results for each query in order.|</pre>
 </div>

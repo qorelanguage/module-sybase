@@ -20,9 +20,7 @@ User --with-freetds or set the FREETDS environment variable to your FreeTDS inst
 only tested so far with freetds 0.64 through 0.82, sybase ASE 15.0.1 and MS SQL Server 2005 SP2 (express edition)
 FreeTDS website: http://www.freetds.org
 
-
-Documentation TBD
-
+Documentation in docs/sybase-module-doc.html
 
 test/example script: test/db-test.q
 
