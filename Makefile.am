@@ -14,6 +14,7 @@ noinst_HEADERS = src/command.h \
 
 EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	test/db-test.q \
+	docs/sybase-module-doc.html \
 	qore-sybase-modules.spec
 
 libtool: $(LIBTOOL_DEPS)

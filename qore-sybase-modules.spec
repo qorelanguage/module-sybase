@@ -82,7 +82,7 @@ prodedure and function execution, etc.
 %files -n qore-sybase-module
 %defattr(-,root,root,-)
 %{module_dir}/sybase.qmod
-%doc COPYING README ChangeLog AUTHORS test/db-test.q
+%doc COPYING README ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 %endif
 
 
@@ -103,8 +103,7 @@ databases.
 %files -n qore-freetds-module
 %defattr(-,root,root,-)
 %{module_dir}/freetds.qmod
-%doc COPYING README ChangeLog AUTHORS test/db-test.q
-
+%doc COPYING README ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 
 %prep
 %setup -q
@@ -124,11 +123,6 @@ make install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
-
-%files
-%defattr(-,root,root,-)
-%{module_dir}/sybase.qmod
-%doc COPYING README ChangeLog AUTHORS
 
 %changelog
 * Tue Sep 2 2008 David Nichols <david_nichols@users.sourceforge.net>

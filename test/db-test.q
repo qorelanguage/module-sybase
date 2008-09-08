@@ -47,8 +47,8 @@ const object_map =
    "sybase" : 
    ( "tables" : syb_tables,
      "procs"  : sybase_procs ),
-   "mssql"  : 
-   ( "tables" : mssql_sybase_tables,
+   "freetds"  : 
+   ( "tables" : freetds_sybase_tables,
      "procs"  : sybase_procs ) );
 
 const ora_tables = ( 
@@ -225,7 +225,7 @@ commit -- to maintain transaction count
 "
  );
 
-const mssql_sybase_tables = (
+const freetds_sybase_tables = (
     "family" : "create table family (
    family_id int not null,
    name varchar(80) not null
@@ -272,7 +272,7 @@ const mssql_sybase_tables = (
 	image_f image not null
 )" );
 
-const mssql_mssql_tables = (
+const freetds_mssql_tables = (
     "family" : "create table family (
    family_id int not null,
    name varchar(80) not null
@@ -344,11 +344,11 @@ sub create_datamodel($db)
     my $driver = $db.getDriverName();
     # create tables
     my $tables = object_map.$driver.tables;
-    if ($driver == "mssql")
+    if ($driver == "freetds")
 	if ($db.is_sybase)
-	    $tables = mssql_sybase_tables;
+	    $tables = freetds_sybase_tables;
         else
-	    $tables = mssql_mssql_tables;
+	    $tables = freetds_mssql_tables;
 
     foreach my $table in (keys $tables)
     {
@@ -597,7 +597,7 @@ sub transaction_test($db)
 
     # now we verify that the new row is not visible to the other datasource
     # unless it's a sybase/ms sql server datasource, in which case this would deadlock :-(
-    if ($o.type != "sybase" && $o.type != "mssql")
+    if ($o.type != "sybase" && $o.type != "freetds")
     {
 	$r = $ndb.selectRow("select name from family where family_id = 3").name;
 	test_value($r, NOTHING, "first transaction");
@@ -809,7 +809,7 @@ exec get_values_and_multiple_select :string output, :int output");
     $db.commit();
 }
 
-sub mssql_test($db)
+sub freetds_test($db)
 {
     # simple stored proc test, bind by name
     my $x = $db.exec("exec find_family %v", "Smith");
@@ -817,7 +817,7 @@ sub mssql_test($db)
 
     # we cannot retrieve parameters from newer SQL Servers with the approach we use;
     # Microsoft changed the handling of the protocol and require us to use RPC calls,
-    # this will be implemented in the next version of qore where the "mssql" driver will
+    # this will be implemented in the next version of qore where the "freetds" driver will
     # be able to add custom methods to the Datasource class.  For now, we skip these tests
 
     if ($db.is_sybase)
@@ -860,7 +860,7 @@ exec get_values_and_multiple_select :string output, :int output");
     $x = $db.selectRows("exec multiple_select");
     test_value($x, ("query0":family_q,"query1":person_q), "multiple_select");
 
-    # the mssql driver does not work with the following sybase column types:
+    # the freetds driver does not work with the following sybase column types:
     # unichar, univarchar
 
     my $args = ( "null_f"          : NULL,
@@ -926,7 +926,7 @@ sub main()
 {
     my $test_map = 
 	( "sybase" : \sybase_test(),
-	  "mssql"  : \mssql_test(),
+	  "freetds"  : \freetds_test(),
 	  "mysql"  : \mysql_test(),
 	  "pgsql"  : \pgsql_test(),
 	  "oracle" : \oracle_test());
@@ -941,7 +941,7 @@ sub main()
 	tprintf(2, "client version=%n\nserver version=%n\n", $db.getClientVersion(), $sv);
 
     # determine if the server is a sybase or sql server dataserver
-    if ($driver == "mssql")
+    if ($driver == "freetds")
 	if ($sv !~ /microsoft/i)
 	    $db.is_sybase = True;
 
