@@ -136,6 +136,7 @@ if test "$enable_64bit" = "yes"; then
    SYBLIBSUFFIX=64
    RVLIBSUFFIX=64
    bits=64
+   AC_DEFINE(SYB_LP64, 1, [define if this is a 64-bit compile so that Sybase types will be correctly understood])
 else
    case "${host_os}" in
      *linux*)	if test "$GXX" = "yes"; then
@@ -225,7 +226,7 @@ check_sybase()
 	return
     fi
 
-    if test -f "$dir/lib/libsybcs_r.${SHLIB_SUFFIX}"; then
+    if test -f "$dir/lib/libsybcs.${SHLIB_SUFFIX}"; then
        with_sybase_libs=$dir/lib
     else
        unset with_sybase_includes
@@ -270,7 +271,7 @@ fi
 
 if test "${with_sybase}" = yes; then
    SYBASE_INCLUDES="-I$with_sybase_includes"
-   SYBASE_LIBS="-L$with_sybase_libs -lsybdb${SYBLIBSUFFIX} -lsybcs_r${SYBLIBSUFFIX} -lsybintl_r${SYBLIBSUFFIX} -lsybblk_r${SYBLIBSUFFIX} -lsybcomn_r${SYBLIBSUFFIX} -lsybct_r${SYBLIBSUFFIX} -lsybunic${SYBLIBSUFFIX} -lsybtcl_r${SYBLIBSUFFIX}"
+   SYBASE_LIBS="-L$with_sybase_libs -lsybdb${SYBLIBSUFFIX} -lsybcs${SYBLIBSUFFIX} -lsybintl${SYBLIBSUFFIX} -lsybblk${SYBLIBSUFFIX} -lsybcomn${SYBLIBSUFFIX} -lsybct${SYBLIBSUFFIX} -lsybunic${SYBLIBSUFFIX} -lsybtcl${SYBLIBSUFFIX}"
    if test -f $with_sybase_libs/libsybunic${SYBLIBSUFFIX}.${SHLIB_SUFFIX} ; then
       SYBASE_LIBS="$SYBASE_LIBS -lsybunic${SYBLIBSUFFIX}"
    fi

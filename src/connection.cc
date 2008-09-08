@@ -23,7 +23,8 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include <qore/Qore.h>
+#include "sybase.h"
+
 #include "minitest.hpp"
 
 #include <assert.h>
@@ -37,6 +38,12 @@
 #include "command.h"
 
 static QoreString ver_str("begin tran select @@version commit tran");
+
+#ifdef SYBASE
+// to serialize calls to ct_init() and ct_exit()
+QoreThreadLock ct_lock;
+QoreThreadLock cs_lock;
+#endif
 
 //------------------------------------------------------------------------------
 connection::connection(ExceptionSink *xsink)
@@ -285,7 +292,7 @@ int connection::purge_messages(ExceptionSink *xsink)
 	 QoreStringNode *desc = new QoreStringNode();
 	 desc->sprintf("client message %d, severity %d: %s", CS_NUMBER(cmsg.msgnumber), CS_SEVERITY(cmsg.msgnumber), cmsg.msgstring);
 	 if (cmsg.osstringlen)
-	    desc->sprintf(": %s", cmsg.osstring);
+	    desc->sprintf(" (%d): '%s'", cmsg.osnumber, cmsg.osstring);
 	 xsink->raiseException("DBI:SYBASE:CLIENT-ERROR", desc);
 	 rc = -1;
       }
@@ -303,15 +310,15 @@ int connection::purge_messages(ExceptionSink *xsink)
       assert(ret == CS_SUCCEED);
       if (smsg.severity > 10) {
 	 QoreStringNode *desc = new QoreStringNode();
-	 desc->sprintf("server message %d, ", smsg.msgnumber);
+	 desc->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
 	 if (smsg.line)
 	    desc->sprintf("line %d, ", smsg.line);
-	 desc->sprintf("severity %d: %s", smsg.severity, smsg.text);
+	 desc->sprintf("severity %ld: %s", smsg.severity, smsg.text);
 	 desc->trim_trailing('\n');
 	 xsink->raiseException("DBI:SYBASE:SERVER-ERROR", desc);
 	 rc = -1;
       }
-      printd(1, "server: line:%d, severity:%d, n:%d: %s", smsg.line, smsg.severity, smsg.msgnumber, smsg.text);
+      printd(1, "server: line:%ld, severity:%ld, n:%d: %s", smsg.line, smsg.severity, smsg.msgnumber, smsg.text);
    }
    ret = ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
    assert(ret == CS_SUCCEED);
@@ -339,7 +346,8 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
    CS_CLIENTMSG cmsg;
    for (int i = 1; i <= num; ++i) {
       ret = ct_diag(m_connection, CS_GET, CS_CLIENTMSG_TYPE, i, &cmsg);
-      assert(ret == CS_SUCCEED);
+      if (ret != CS_SUCCEED)
+	 continue;
       int severity = CS_SEVERITY(cmsg.msgnumber);
       if (severity <= 10)
 	 continue;
@@ -348,8 +356,8 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
 	 estr->concat(", ");
       estr->sprintf("client message %d: severity %d: %s", CS_NUMBER(cmsg.msgnumber), severity, cmsg.msgstring);
       estr->trim_trailing('.');
-      if (cmsg.osstringlen > 0)
-	 estr->sprintf(", OS error: %s", cmsg.osstring);
+      if (cmsg.osnumber && cmsg.osstringlen > 0)
+	 estr->sprintf(", OS error %d: %s", cmsg.osnumber, cmsg.osstring);
       count++;
    }
    ret = ct_diag(m_connection, CS_STATUS, CS_SERVERMSG_TYPE, CS_UNUSED, &num);
@@ -357,16 +365,19 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
    CS_SERVERMSG smsg;
    for (int i = 1; i <= num; ++i) {
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
-      assert(ret == CS_SUCCEED);
-      if (smsg.severity <= 10)
+      if (ret != CS_SUCCEED || smsg.severity <= 10)
 	 continue;
       
       if (count)
 	 estr->concat(", ");
-      estr->sprintf("server message %d, ", smsg.msgnumber);
+      if (smsg.svrnlen)
+	 estr->sprintf("%s: ", smsg.svrname);
+      estr->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
       if (smsg.line)
 	 estr->sprintf("line %d, ", smsg.line);
-      estr->sprintf("severity %d: %s", smsg.severity, smsg.text);
+      estr->sprintf("severity %d", smsg.severity);
+      if (smsg.textlen)
+	 estr->sprintf(": %s", smsg.text);
       estr->trim_trailing("\n.");
       ++count;
    }
