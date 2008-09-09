@@ -1,0 +1,73 @@
+2008-09-08 13:53  david_nichols
+
+	* README, docs/sybase-module-doc.html: minor doc updates
+
+2008-09-08 13:50  david_nichols
+
+	* Makefile.am, docs, docs/sybase-module-doc.html,
+	  qore-sybase-modules.spec, test/db-test.q: added module
+	  documentation
+
+2008-09-08 12:27  david_nichols
+
+	* configure.ac, src/command.cc, src/connection.cc,
+	  src/connection.h, src/conversions.cc, src/encoding_helpers.cc,
+	  src/row_output_buffers.cc, src/sybase.cc, src/sybase.h,
+	  src/sybase_query.cc: error reporting fixes, fixed Sybase 64-bit
+	  compiles
+
+2008-09-08 07:42  david_nichols
+
+	* src/connection.cc, src/connection.h, src/sybase.cc: added a
+	  context class to manage CS_CONTEXT pointers; updated the
+	  get_client_version DBI method to no longer require a connection
+	  to the server; fixed 2 memory leaks in the get_client_version
+	  function
+
+2008-09-04 16:37  david_nichols
+
+	* README: module updates, moved oracle to separate module, qore
+	  library updates
+
+2008-09-03 14:03  david_nichols
+
+	* qore-sybase-modules.spec: corrected module names
+
+2008-09-03 14:01  david_nichols
+
+	* src/tests, src/tests/arguments_tests.cc,
+	  src/tests/command_tests.cc, src/tests/common.h,
+	  src/tests/connection_tests.cc, src/tests/conversions_tests.cc,
+	  src/tests/direct_execute_tests.cc,
+	  src/tests/encoding_helpers_tests.cc,
+	  src/tests/executor_rpc_tests.cc, src/tests/executor_tests.cc,
+	  src/tests/initiate_language_command_tests.cc,
+	  src/tests/initiate_rpc_command_tests.cc,
+	  src/tests/read_output_image_tests.cc,
+	  src/tests/read_output_simple_tests.cc,
+	  src/tests/read_output_text_tests.cc,
+	  src/tests/send_command_tests.cc, src/tests/transactions_tests.cc:
+	  added old minitest tests
+
+2008-09-03 13:52  david_nichols
+
+	* Makefile.am, configure.ac, qore-sybase-modules.spec,
+	  src/Makefile.am, src/command.cc, src/connection.cc,
+	  src/conversions.cc, src/encoding_helpers.cc, src/minitest.hpp,
+	  src/sybase.cc, src/sybase_query.cc: build and packaging fixes,
+	  renamed "mssql" module to "freetds"
+
+2008-09-03 13:35  david_nichols
+
+	* ., AUTHORS, COPYING, ChangeLog, FreeTDS_differences.txt, INSTALL,
+	  Makefile.am, NEWS, README, configure.ac, ltmain.sh, m4,
+	  m4/acx_pthread.m4, qore-sybase-modules.spec, reconf.sh, src,
+	  src/Makefile.am, src/command.cc, src/command.h,
+	  src/common_constants.h, src/connection.cc, src/connection.h,
+	  src/conversions.cc, src/conversions.h, src/encoding_helpers.cc,
+	  src/encoding_helpers.h, src/row_output_buffers.cc,
+	  src/row_output_buffers.h, src/single-compilation-unit.cc,
+	  src/sybase.cc, src/sybase.h, src/sybase_query.cc,
+	  src/sybase_query.h, test, test/db-test.q: initial repository
+	  import of independent project
+
