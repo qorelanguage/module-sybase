@@ -568,8 +568,10 @@ Note that the charset value is ignored; connection character encoding is set dir
 
 See the [[FreeTDS User's Guide|http://www.freetds.org/userguide]] for more information on the {{{freetds.conf}}} file and choosing a protocol version for each connection.</pre>
 </div>
-<div title="Introduction" modifier="DavidNichols" created="200808200719" modified="200809081351" changecount="57">
+<div title="Introduction" modifier="DavidNichols" created="200808200719" modified="200809090900" changecount="58">
 <pre>Both the {{{sybase}}} and {{{freetds}}} (formerly called {{{mssql}}}) modules are built from the same sources; this documentation will describe both modules.  They share most of their functionality, but there are differences, both depending on the client libraries used, and according to the database server being connected to.
+
+Both modules are released under the [[LGPL 2.1|http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html]] and are tagged as such in the modules' headers (meaning they can be loaded unconditionally regardless of how the Qore library was initialized).
 
 Both modules provide drivers to Qore's DBI system, allowing Qore programs to take access databases through the Qore's {{{Datasource}}} and {{{DatasourcePool}}} classes.  The sybase module provides access only to [[Sybase|http://www.sybase.com]] servers, while the [[FreeTDS|http://www.freetds.org]] module provides access to Sybase and Microsoft SQL Server database servers.
 
