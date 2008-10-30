@@ -1,7 +1,7 @@
 %define with_sybase     1
 
-%define module_api 0.4
-%define module_dir %{_libdir}/qore-module-api-%{module_api}
+%define module_api %(qore --module-api 2>/dev/null)
+%define module_dir %(qore --module-dir 2>/dev/null)
 
 %if 0%{?sles_version}
 
@@ -54,7 +54,7 @@ Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.gz
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
-Requires: qore-module-api-0.4
+Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
 BuildRequires: qore-devel
 BuildRequires: qore
