@@ -1,4 +1,4 @@
-%define with_sybase     1
+%define with_sybase 0
 
 %define module_api %(qore --module-api 2>/dev/null)
 %define module_dir %(qore --module-dir 2>/dev/null)
@@ -45,7 +45,7 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.0
+Version: 1.0.1
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages

@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-sybase-modules], [1.0],
+AC_INIT([qore-sybase-modules], [1.0.1],
         [David Nichols <nicholsman@gmail.com>],
         [qore-sybase-modules])
 AM_INIT_AUTOMAKE
