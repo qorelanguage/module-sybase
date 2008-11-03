@@ -30,10 +30,10 @@ endif
 
 install-exec-hook:
 if COND_SYBASE
-	mv $(DESTDIR)$(libdir)/sybase.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/sybase.qmod
+	mv $(DESTDIR)$(libdir)/sybase.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/sybase-api-$(MODULE_API).qmod
 	rm -f $(DESTDIR)$(libdir)/sybase.la
 endif
 if COND_FREETDS
-	mv $(DESTDIR)$(libdir)/freetds.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/freetds.qmod
+	mv $(DESTDIR)$(libdir)/freetds.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/freetds-api-$(MODULE_API).qmod
 	rm -f $(DESTDIR)$(libdir)/freetds.la
 endif

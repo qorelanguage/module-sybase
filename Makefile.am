@@ -13,6 +13,7 @@ noinst_HEADERS = src/command.h \
 	src/minitest.hpp
 
 EXTRA_DIST = COPYING ChangeLog AUTHORS README \
+	RELEASE-NOTES \
 	test/db-test.q \
 	docs/sybase-module-doc.html \
 	qore-sybase-modules.spec
