@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-sybase-modules], [1.0.1],
+AC_INIT([qore-sybase-modules], [1.0.2],
         [David Nichols <nicholsman@gmail.com>],
         [qore-sybase-modules])
 AM_INIT_AUTOMAKE
@@ -243,7 +243,7 @@ check_sybase()
 AC_ARG_WITH([sybase],
     [AS_HELP_STRING([--with-sybase@<:@=DIR@:>@],
                     [Sybase or Sybase OCS base directory])],
-    [if test ! -d "${with_sybase}"; then AC_MSG_ERROR(directory ${with_sybase} does not exist for --with-sybase); unset with_sybase; fi])
+    [if test "${with_sybase}" != "no" -a ! -d "${with_sybase}"; then AC_MSG_ERROR(directory ${with_sybase} does not exist for --with-sybase); unset with_sybase; fi])
 
 # see if we can figure out where the sybase include files and libraries are
 if test "${with_sybase}" != "no"; then
@@ -315,7 +315,7 @@ fi
 AC_ARG_WITH([freetds],
     [AS_HELP_STRING([--with-freetds@<:@=DIR@:>@],
                     [FreeTDS base directory])],
-    [if test ! -d "${with_freetds}"; then AC_MSG_ERROR(directory ${with_freetds} does not exist for --with-freetds); unset with_freetds; fi])
+    [if test "${with_freetds}" != "no" -a ! -d "${with_freetds}"; then AC_MSG_ERROR(directory ${with_freetds} does not exist for --with-freetds); unset with_freetds; fi])
 
 # see if we can figure out where the freetds include files and libraries are
 if test "${with_freetds}" != "no"; then

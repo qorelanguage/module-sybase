@@ -45,7 +45,7 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.0.1
+Version: 1.0.2
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
