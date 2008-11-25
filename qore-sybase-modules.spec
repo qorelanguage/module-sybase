@@ -82,7 +82,7 @@ prodedure and function execution, etc.
 %files -n qore-sybase-module
 %defattr(-,root,root,-)
 %{module_dir}/sybase-api-%{module_api}.qmod
-%doc COPYING README ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
+%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 %endif
 
 
@@ -103,7 +103,7 @@ databases.
 %files -n qore-freetds-module
 %defattr(-,root,root,-)
 %{module_dir}/freetds-api-%{module_api}.qmod
-%doc COPYING README ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
+%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 
 %prep
 %setup -q
