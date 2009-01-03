@@ -5,6 +5,10 @@
 
 %if 0%{?sles_version}
 
+%if 0%{?sles_version} == 11
+%define dist .sle11
+%endif
+
 %if 0%{?sles_version} == 10
 %define dist .sle10
 %endif
@@ -15,6 +19,10 @@
 
 %else
 %if 0%{?suse_version}
+
+%if 0%{?suse_version} == 1110
+%define dist .opensuse11_1
+%endif
 
 %if 0%{?suse_version} == 1100
 %define dist .opensuse11
@@ -45,7 +53,7 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.0.2
+Version: 1.0.3
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -125,5 +133,8 @@ make install DESTDIR=$RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Sat Jan 3 2008 David Nichols <david_nichols@users.sourceforge.net>
+- updated version to 1.0.3
+
 * Tue Sep 2 2008 David Nichols <david_nichols@users.sourceforge.net>
 - initial spec file for separate sybase and freetds module release
