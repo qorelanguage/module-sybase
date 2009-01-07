@@ -18,5 +18,7 @@ EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	docs/sybase-module-doc.html \
 	qore-sybase-modules.spec
 
+ACLOCAL_AMFLAGS=-I m4
+
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status --recheck
