@@ -1,3 +1,55 @@
+2009-02-10 13:47  david_nichols
+
+	* README: minor updates
+
+2009-01-08 15:13  david_nichols
+
+	* qore-sybase-modules.spec: commented-out additional "Source0" line
+	  so that packages will build on Fedora 10 (OBS)
+
+2009-01-08 14:44  david_nichols
+
+	* reconf.sh: updated reconf.sh to look for glibtoolize as well as
+	  libtoolize
+
+2009-01-07 13:15  david_nichols
+
+	* Makefile.am, configure.ac, ltmain.sh, qore-sybase-modules.spec,
+	  reconf.sh: upadted reconf.sh to generate ltmain.sh using
+	  libtoolize
+
+2009-01-03 22:43  david_nichols
+
+	* RELEASE-NOTES, configure.ac, qore-sybase-modules.spec: fixed
+	  version to be 1.0.2 instead of 1.0.3
+
+2009-01-03 22:42  david_nichols
+
+	* RELEASE-NOTES, configure.ac, qore-sybase-modules.spec: updated
+	  configure to check the directory specified with --prefix first
+	  when looking for dependent libraries
+
+2008-11-25 16:42  david_nichols
+
+	* qore-sybase-modules.spec: add release notes to rpm
+
+2008-11-24 16:48  david_nichols
+
+	* configure.ac, qore-sybase-modules.spec: updated for next version
+	  (sometime in the future), minor configure fixes to respect
+	  --without-freetds and --without-sybase
+
+2008-11-18 14:46  david_nichols
+
+	* qore-sybase-modules.spec: sybase module will be expected if the
+	  environment variable $SYBASE is set when the module is built
+
+2008-11-03 14:07  david_nichols
+
+	* ChangeLog, RELEASE-NOTES, configure.ac, qore-sybase-modules.spec,
+	  src/sybase.cc: updated to new module handling; make module
+	  version reflect package version
+
 2008-11-03 13:54  david_nichols
 
 	* Makefile.am, configure.ac, qore-sybase-modules.spec,
