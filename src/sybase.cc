@@ -99,8 +99,7 @@ AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink
 }
 #endif
 
-static int sybase_open(Datasource *ds, ExceptionSink *xsink)
-{
+static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
    // username is a required parameter
    if (!ds->getUsername()) {
       xsink->raiseException("DATASOURCE-MISSING-USERNAME", "Datasource has an empty username parameter");
@@ -130,7 +129,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink)
    }
   
    // create the connection object
-   std::auto_ptr<connection> sc(new connection(xsink));
+   std::auto_ptr<connection> sc(new connection(ds, xsink));
    if (*xsink)
       return -1;
   

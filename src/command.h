@@ -38,10 +38,10 @@ typedef std::vector<CS_DATAFMT> row_result_t;
 
 // Wrapper for Sybase CS_COMMAND. When the wrapper object
 // is destroyed it automatically cleans up held resources.
-class command
-{ 
+class command {
       connection& m_conn;
       CS_COMMAND* m_cmd;
+      bool canceled;
 
       // returns 0=OK, -1=error (exception raised)
       int get_row_description(row_result_t &result, unsigned column_count, class ExceptionSink *xsink);
@@ -68,7 +68,7 @@ class command
       DLLLOCAL unsigned get_column_count(ExceptionSink *xsink);
       // returns 0=OK, -1=error (exception raised)
       DLLLOCAL int set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink);
-      DLLLOCAL AbstractQoreNode *read_output(PlaceholderList &placeholder_list, bool list, ExceptionSink* xsink);
+      DLLLOCAL AbstractQoreNode *read_output(PlaceholderList &placeholder_list, bool list, bool &disconnect, ExceptionSink* xsink);
 };
 
 #endif

@@ -2,6 +2,10 @@
 Version 1.0.2
 -------------
 
+added auto-reconnect feature to driver; will automatically reconnect to the
+server if the connection is dropped while not in a transaction.  
+Auto-reconnect has been tested with both sybase and freetds drivers.
+
 updated configure to check the directory specified with --prefix first when
 looking for dependent libraries
 

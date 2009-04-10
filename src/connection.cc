@@ -45,22 +45,17 @@ QoreThreadLock ct_lock;
 QoreThreadLock cs_lock;
 #endif
 
-//------------------------------------------------------------------------------
-connection::connection(ExceptionSink *xsink)
-   : m_context(xsink), m_connection(0), connected(false)
-{
+connection::connection(Datasource *n_ds, ExceptionSink *xsink)
+   : m_context(xsink), m_connection(0), connected(false), ds(n_ds) {
 }
 
-//------------------------------------------------------------------------------
-connection::~connection()
-{
+connection::~connection() {
    CS_RETCODE ret = CS_SUCCEED;
 
    if (m_connection) {
       if (connected) {
 	 ret = ct_close(m_connection, CS_UNUSED);
-	 if (ret != CS_SUCCEED)
-	 {
+	 if (ret != CS_SUCCEED) {
 	    ret = ct_close(m_connection, CS_FORCE_CLOSE);
 	    assert(ret == CS_SUCCEED);
 	 }
@@ -68,16 +63,10 @@ connection::~connection()
       ret = ct_con_drop(m_connection);
       assert(ret == CS_SUCCEED);
    }
-
-/*
-   if (m_context) {
-      delete m_context;
-   }
-*/
 }
 
-int connection::direct_execute(const char* sql_text, ExceptionSink* xsink)
-{
+// FIXME: check for auto-reconnect here if ct_command fails
+int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
    assert(sql_text && sql_text[0]);
 
    CS_COMMAND* cmd = 0;
@@ -101,10 +90,10 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink)
    CS_INT result_type;
    err = ct_results(cmd, &result_type);
    if (err != CS_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_results() failed");
+      return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() returned error code %d", err);
    
    if (result_type != CS_CMD_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_results() failed");
+      return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() failed with result_type = %d", result_type);
 
    while((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
    canceller.Dismiss();
@@ -112,36 +101,67 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink)
    return purge_messages(xsink);
 }
 
-AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink)
-{
+AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink) {
    sybase_query query;
    if (query.init(cmd_text, qore_args, xsink))
       return 0;
 
-   printd(5, "connection::exec_intern() sql='%s'\n", cmd_text->getBuffer());
-   command cmd(*this, xsink);
-   if (xsink->isException())
-      return 0;
+   while (true) {
+      printd(5, "connection::exec_intern() sql='%s'\n", cmd_text->getBuffer());
+      command cmd(*this, xsink);
+      if (xsink->isException())
+	 return 0;
 
-   if (cmd.initiate_language_command(query.m_cmd->getBuffer(), xsink))
-      return 0;
+      if (cmd.initiate_language_command(query.m_cmd->getBuffer(), xsink))
+	 return 0;
 
-   if (!query.param_list.empty() && cmd.set_params(query, qore_args, xsink))
-      return 0;
+      if (!query.param_list.empty() && cmd.set_params(query, qore_args, xsink))
+	 return 0;
 
-   if (cmd.send(xsink))
-      return 0;
+      if (cmd.send(xsink))
+	 return 0;
 
-   ReferenceHolder<AbstractQoreNode> result(cmd.read_output(query.placeholder_list, need_list, xsink), xsink);
-   if (*xsink)
-      return 0;
+      bool disconnect = false;
+      ReferenceHolder<AbstractQoreNode> result(cmd.read_output(query.placeholder_list, need_list, disconnect, xsink), xsink);
+      if (*xsink)
+	 return 0;
 
-   //printd(5, "execute_command_impl() result=%08p (%lld)\n", result, result && result->getType() == NT_INT ? result->getAsBigInt() : 0LL);
-   return result.release();
+      if (!disconnect) {
+	 //printd(5, "execute_command_impl() result=%08p (%lld)\n", result, result && result->getType() == NT_INT ? result->getAsBigInt() : 0LL);
+	 return result.release();
+      }
+
+      // see if we need to reconnect and try again
+      ct_close(m_connection, CS_FORCE_CLOSE);
+      connected = false;
+
+      // discard all current messages
+      discard_messages();
+
+      if (ds->isInTransaction()) {
+	 ds->connectionAborted();
+	 xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
+	 return 0;
+      }
+	 
+      // otherwise try to reconnect
+      ct_con_drop(m_connection);
+      m_connection = 0;
+
+      // make the actual connection to the database
+      init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), xsink);
+      // return with an error if it didn't work
+      if (*xsink)
+	 return 0;
+
+      printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
+   }
+
+   // to avoid warnings
+   return 0;
 }
 
-AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink)
-{
+AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink) {
    // copy the string here for intrusive editing, convert encoding too if necessary
    QoreString *query = cmd->convertEncoding(enc, xsink);
    if (!query)
@@ -151,8 +171,7 @@ AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode *pa
    return exec_intern(query, parameters, false, xsink);
 }
 
-AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink)
-{
+AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink) {
    // copy the string here for intrusive editing, convert encoding too if necessary
    QoreString *query = cmd->convertEncoding(enc, xsink);
    if (!query)
@@ -163,20 +182,17 @@ AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNod
 }
 
 // returns 0=OK, -1=error (exception raised)                                                                                                                                      
-int connection::commit(ExceptionSink *xsink)
-{
+int connection::commit(ExceptionSink *xsink) {
    return direct_execute("commit", xsink);
 }
 
 // returns 0=OK, -1=error (exception raised)                                                                                                                                      
-int connection::rollback(ExceptionSink *xsink)
-{
+int connection::rollback(ExceptionSink *xsink) {
    return direct_execute("rollback", xsink);
 }
 
 // Post-constructor initialization 
-int connection::init(const char* username, const char* password, const char* dbname, const char *db_encoding, const QoreEncoding *n_enc, ExceptionSink* xsink)
-{
+int connection::init(const char* username, const char* password, const char* dbname, const char *db_encoding, const QoreEncoding *n_enc, ExceptionSink* xsink) {
    assert(!m_connection);
 
    printd(5, "connection::init() user=%s pass=%s dbname=%s, db_enc=%s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
@@ -187,38 +203,37 @@ int connection::init(const char* username, const char* password, const char* dbn
   // add callbacks
   ret = ct_callback(m_context, 0, CS_SET, CS_CLIENTMSG_CB, (CS_VOID*)clientmsg_callback);
   if (ret != CS_SUCCEED) {
-    xsink->raiseException("DBI:SYBASE:CT-LIB-SET-CALLBACK", "ct_callback(CS_CLIENTMSG_CB) failed with error %d", ret);
+    xsink->raiseException("DBI:SYBASE:CTLIB-SET-CALLBACK", "ct_callback(CS_CLIENTMSG_CB) failed with error %d", ret);
     return -1;
   }
   ret = ct_callback(m_context, 0, CS_SET, CS_SERVERMSG_CB, (CS_VOID*)servermsg_callback);
   if (ret != CS_SUCCEED) {
-    xsink->raiseException("DBI:SYBASE:CT-LIB-SET-CALLBACK", "ct_callback(CS_SERVERMSG_CB) failed with error %d", ret);
+    xsink->raiseException("DBI:SYBASE:CTLIB-SET-CALLBACK", "ct_callback(CS_SERVERMSG_CB) failed with error %d", ret);
     return -1;
   }
 */  
    CS_RETCODE ret = ct_con_alloc(m_context.get_context(), &m_connection);
    if (ret != CS_SUCCEED) {
-      xsink->raiseException("DBI:SYBASE:CT-LIB-CREATE-CONNECTION", "ct_con_alloc() failed with error %d", ret);
+      xsink->raiseException("DBI:SYBASE:CTLIB-CREATE-CONNECTION", "ct_con_alloc() failed with error %d", ret);
       return -1;
    }
 
    // set inline message handling
    ret = ct_diag(m_connection, CS_INIT, CS_UNUSED, CS_UNUSED, 0);
-   if (ret != CS_SUCCEED)
-   {
-      xsink->raiseException("DBI:SYBASE:CT-LIB-INIT-ERROR-HANDLING-ERROR", "ct_diag(CS_INIT) failed with error %d, unable to initialize inline error handling", ret);
+   if (ret != CS_SUCCEED) {
+      xsink->raiseException("DBI:SYBASE:CTLIB-INIT-ERROR-HANDLING-ERROR", "ct_diag(CS_INIT) failed with error %d, unable to initialize inline error handling", ret);
       return -1;
    }
 
    ret = ct_con_props(m_connection, CS_SET, CS_USERNAME, (CS_VOID*)username, CS_NULLTERM, 0);
    if (ret != CS_SUCCEED) {
-      xsink->raiseException("DBI:SYBASE:CT-LIB-SET-USERNAME", "ct_con_props(CS_USERNAME) failed with error %d", ret);
+      xsink->raiseException("DBI:SYBASE:CTLIB-SET-USERNAME", "ct_con_props(CS_USERNAME) failed with error %d", ret);
       return -1;
    }
    if (password && password[0]) {
       ret = ct_con_props(m_connection, CS_SET, CS_PASSWORD, (CS_VOID*)password, CS_NULLTERM, 0);
       if (ret != CS_SUCCEED) {
-	 xsink->raiseException("DBI:SYBASE:CT-LIB-SET-PASSWORD", "ct_con_props(CS_PASSWORD) failed with error %d", ret);
+	 xsink->raiseException("DBI:SYBASE:CTLIB-SET-PASSWORD", "ct_con_props(CS_PASSWORD) failed with error %d", ret);
 	 return -1;
       }
    }
@@ -253,8 +268,8 @@ int connection::init(const char* username, const char* password, const char* dbn
 
    ret = ct_connect(m_connection, (CS_CHAR*)dbname,  strlen(dbname));
    if (ret != CS_SUCCEED) {
-      do_exception(xsink, "DBI:SYBASE:CT-LIB-CONNECT", "ct_connect() failed with error %d", ret);
-      //xsink->raiseException("DBI:SYBASE:CT-LIB-CONNECT", "ct_connect() failed with error %d", ret);
+      do_exception(xsink, "DBI:SYBASE:CTLIB-CONNECT", "ct_connect() failed with error %d", ret);
+      //xsink->raiseException("DBI:SYBASE:CTLIB-CONNECT", "ct_connect() failed with error %d", ret);
       return -1;
    }
    connected = true;
@@ -276,9 +291,13 @@ int connection::init(const char* username, const char* password, const char* dbn
    return purge_messages(xsink);
 }
 
+void connection::discard_messages() {
+   CS_RETCODE ret = ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
+   assert(ret == CS_SUCCEED);
+}
+
 // purges all outstanding messages using ct_diag
-int connection::purge_messages(ExceptionSink *xsink)
-{
+int connection::purge_messages(ExceptionSink *xsink) {
    int rc = 0;
    // make sure no messages have severity > 10
    int num;
@@ -325,8 +344,7 @@ int connection::purge_messages(ExceptionSink *xsink)
    return rc;
 }
 
-int connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...)
-{
+int connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...) {
    QoreStringNode *estr = new QoreStringNode();
    va_list args;
    while (fmt) {

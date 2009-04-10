@@ -51,6 +51,8 @@ class context {
       CS_CONTEXT *m_context;
 
       DLLLOCAL void del() {
+	 //printd(5, "context::del() this=%p deleting %p\n", this, m_context);
+
 	 CS_RETCODE ret;
 #ifdef SYBASE
 	 {
@@ -80,35 +82,35 @@ class context {
 
    public:
       DLLLOCAL context(ExceptionSink *xsink) {
-	 CS_RETCODE ret;
+         CS_RETCODE ret;
 
 #ifdef SYBASE
-	 {
-	    AutoLocker al(cs_lock);
+         {
+            AutoLocker al(cs_lock);
 #endif
-	    ret = cs_ctx_alloc(CS_VERSION_100, &m_context);
+            ret = cs_ctx_alloc(CS_VERSION_100, &m_context);
 #ifdef SYBASE
-	 }
+         }
 #endif
-	 if (ret != CS_SUCCEED) {
-	    xsink->raiseException("DBI:SYBASE:CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);   
-	    return;
-	 }
+         if (ret != CS_SUCCEED) {
+            xsink->raiseException("DBI:SYBASE:CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);   
+            return;
+         }
 
 #ifdef SYBASE
-	 {
-	    AutoLocker al(ct_lock);
+         {
+            AutoLocker al(ct_lock);
 #endif
-	    ret = ct_init(m_context, CS_VERSION_100);
+            ret = ct_init(m_context, CS_VERSION_100);
 #ifdef SYBASE
-	 }
+         }
 #endif
-	 if (ret != CS_SUCCEED) {
-	    del();
-	    xsink->raiseException("DBI:SYBASE:CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
-	    return;
-	 }
-	 //printd(5, "m_context initialized %08p\n", m_context);
+         if (ret != CS_SUCCEED) {
+            del();
+            xsink->raiseException("DBI:SYBASE:CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
+            return;
+         }
+         //printd(5, "context::context() this=%p m_context=%p\n", this, m_context);	 
       }
 
       DLLLOCAL ~context() {
@@ -140,18 +142,18 @@ class context {
 // Instantiated class is kept as private data of the Datasource
 // for the time the Datasource exists. All other Sybase
 // resources are shortlived (including CS_COMMAND* and its wrapper).
-class connection
-{
+class connection {
    private:
       context m_context;
       CS_CONNECTION* m_connection;
       bool connected;
       const QoreEncoding *enc;
+      Datasource *ds;
 
       AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink);
 
 public:
-      DLLLOCAL connection(ExceptionSink *xsink);
+      DLLLOCAL connection(Datasource *n_ds, ExceptionSink *xsink);
       DLLLOCAL ~connection();
 
       // to be called after the object is constructed
@@ -159,6 +161,8 @@ public:
       DLLLOCAL int init(const char *username, const char *password, const char *dbname, const char *db_encoding, const QoreEncoding *n_enc, ExceptionSink* xsink);
       // returns 0=OK, -1=error (exception raised)
       DLLLOCAL int purge_messages(ExceptionSink *xsink);
+      // discard all messages
+      DLLLOCAL void discard_messages();
       // returns -1
       DLLLOCAL int do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...);
       // returns 0=OK, -1=error (exception raised)
