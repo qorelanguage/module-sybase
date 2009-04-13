@@ -292,8 +292,12 @@ int connection::init(const char* username, const char* password, const char* dbn
 }
 
 void connection::discard_messages() {
-   CS_RETCODE ret = ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
+#ifdef DEBUG
+   CS_RETCODE ret = 
+#endif
+       ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
    assert(ret == CS_SUCCEED);
+
 }
 
 // purges all outstanding messages using ct_diag
