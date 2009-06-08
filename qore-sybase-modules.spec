@@ -1,7 +1,7 @@
 %define with_sybase %(test -z "$SYBASE"; echo $?)
 
 %define module_api %(qore --module-api 2>/dev/null)
-%define module_dir %(qore --module-dir 2>/dev/null)
+%define module_dir %{_libdir}/qore-modules
 
 %if 0%{?sles_version}
 
