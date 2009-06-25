@@ -1,6 +1,6 @@
 %define with_sybase %(test -z "$SYBASE"; echo $?)
 
-%define module_api %(qore --module-api 2>/dev/null)
+%define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
 %if 0%{?sles_version}
@@ -43,7 +43,7 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.0.2
+Version: 1.0.3
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -123,6 +123,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Thu Jun 25 2009 David Nichols <david_nichols@users.sourceforge.net>
+- updated version to 1.0.3
+
 * Sat Jan 3 2009 David Nichols <david_nichols@users.sourceforge.net>
 - updated version to 1.0.2
 

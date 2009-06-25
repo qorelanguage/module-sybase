@@ -158,7 +158,7 @@ public:
 
       // to be called after the object is constructed
       // returns 0=OK, -1=error (exception raised)
-      DLLLOCAL int init(const char *username, const char *password, const char *dbname, const char *db_encoding, const QoreEncoding *n_enc, ExceptionSink* xsink);
+      DLLLOCAL int init(const char *username, const char *password, const char *dbname, const char *db_encoding, const QoreEncoding *n_enc, const char *hostname, int port, ExceptionSink* xsink);
       // returns 0=OK, -1=error (exception raised)
       DLLLOCAL int purge_messages(ExceptionSink *xsink);
       // discard all messages

@@ -1,4 +1,12 @@
 -------------
+Version 1.0.3
+-------------
+
+implemented support for specifying the hostname and port in the datasource in
+order to override the interfaces file; requires qore 0.7.5 or above
+
+
+-------------
 Version 1.0.2
 -------------
 

@@ -68,8 +68,7 @@ static DBIDriver* DBID_SYBASE;
 
 #ifdef DEBUG
 // exported
-AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsink)
-{
+AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
    minitest::result res = minitest::execute_all_tests();
    if (res.all_tests_succeeded) {
       printf("************************************************\n");
@@ -83,8 +82,7 @@ AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsin
    return 0;
 }
 
-AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink *xsink)
-{
+AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
    minitest::result res = minitest::test_last_changed_files(1);
    if (res.all_tests_succeeded) {
       printf("************************************************\n");
@@ -133,8 +131,24 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
    if (*xsink)
       return -1;
   
+#ifdef QORE_HAS_DATASOURCE_PORT
+   int port = ds->getPort();
+#else
+   int port = 0;
+#endif
+
+   if (port && !ds->getHostName()) {
+      xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
+      return -1;
+   }
+
+   if (!port && ds->getHostName()) {
+      xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and port must be set to override the interfaces file", ds->getHostName());
+      return -1;
+   }
+
    // make the actual connection to the database
-   sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), xsink);
+   sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
    // return with an error if it didn't work
    if (*xsink)
       return -1;
@@ -146,8 +160,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
    return 0;
 }
 
-static int sybase_close(Datasource *ds)
-{
+static int sybase_close(Datasource *ds) {
    connection* sc = (connection*)ds->getPrivateData();
    ds->setPrivateData(0);
    delete sc;

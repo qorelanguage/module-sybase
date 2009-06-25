@@ -148,8 +148,14 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       ct_con_drop(m_connection);
       m_connection = 0;
 
+#ifdef QORE_HAS_DATASOURCE_PORT
+      int port = ds->getPort();
+#else
+      int port = 0;
+#endif
+
       // make the actual connection to the database
-      init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), xsink);
+      init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
       // return with an error if it didn't work
       if (*xsink)
 	 return 0;
@@ -192,7 +198,7 @@ int connection::rollback(ExceptionSink *xsink) {
 }
 
 // Post-constructor initialization 
-int connection::init(const char* username, const char* password, const char* dbname, const char *db_encoding, const QoreEncoding *n_enc, ExceptionSink* xsink) {
+int connection::init(const char* username, const char* password, const char* dbname, const char *db_encoding, const QoreEncoding *n_enc, const char *hostname, int port, ExceptionSink* xsink) {
    assert(!m_connection);
 
    printd(5, "connection::init() user=%s pass=%s dbname=%s, db_enc=%s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
@@ -234,6 +240,19 @@ int connection::init(const char* username, const char* password, const char* dbn
       ret = ct_con_props(m_connection, CS_SET, CS_PASSWORD, (CS_VOID*)password, CS_NULLTERM, 0);
       if (ret != CS_SUCCEED) {
 	 xsink->raiseException("DBI:SYBASE:CTLIB-SET-PASSWORD", "ct_con_props(CS_PASSWORD) failed with error %d", ret);
+	 return -1;
+      }
+   }
+
+   // WARNING: seems to only work for freetds, although this is the documented format for Sybase 12.5 - 15
+   // set hostname and port
+   if (hostname && port) {
+      QoreString hn(hostname);
+      hn.sprintf(" %d", port);
+
+      ret = ct_con_props(m_connection, CS_SET, CS_SERVERADDR, (CS_VOID*)hn.getBuffer(), CS_NULLTERM, 0);
+      if (ret != CS_SUCCEED) {
+	 xsink->raiseException("DBI:SYBASE:CTLIB-SET-SERVERADDR", "ct_con_props(CS_SERVERADDR, '%s') failed with error %d", hn.getBuffer(), ret);
 	 return -1;
       }
    }
