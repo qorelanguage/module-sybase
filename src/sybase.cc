@@ -47,7 +47,7 @@ DLLEXPORT char qore_module_description[] = "FreeTDS-based database driver for MS
 #endif
 DLLEXPORT char qore_module_version[] = PACKAGE_VERSION;
 DLLEXPORT char qore_module_author[] = "Qore Technologies";
-DLLEXPORT char qore_module_url[] = "http://qore.sourceforge.net";
+DLLEXPORT char qore_module_url[] = "http://qore.org";
 DLLEXPORT int qore_module_api_major = QORE_MODULE_API_MAJOR;
 DLLEXPORT int qore_module_api_minor = QORE_MODULE_API_MINOR;
 DLLEXPORT qore_module_init_t qore_module_init = sybase_module_init;
