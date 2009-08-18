@@ -5,6 +5,9 @@ Version 1.0.3
 implemented support for specifying the hostname and port in the datasource in
 order to override the interfaces file; requires qore 0.7.5 or above
 
+fixed auto-reconnect to mark the Datasource as closed when auto-reconnect
+fails; otherwise a crash could result when the Datasource is reused
+
 
 -------------
 Version 1.0.2
