@@ -157,8 +157,11 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       // make the actual connection to the database
       init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
       // return with an error if it didn't work
-      if (*xsink)
+      if (*xsink) {
+	 // make sure and mark Datasource as closed
+	 ds->close();
 	 return 0;
+      }
 
       printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
    }
