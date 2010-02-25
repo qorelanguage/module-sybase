@@ -185,8 +185,16 @@ static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qs
 static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink)
 {
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->exec(qstr, args, xsink);
+   return conn->execRaw(qstr, xsink);
 }
+
+#ifdef _QORE_HAS_DBI_EXECRAW
+static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink)
+{
+   connection *conn = (connection*)ds->getPrivateData();
+   return conn->execRaw(qstr, xsink);
+}
+#endif
 
 static int sybase_commit(Datasource *ds, ExceptionSink *xsink)
 {
@@ -303,6 +311,9 @@ QoreStringNode *sybase_module_init()
    methods.add(QDBI_METHOD_SELECT, sybase_select);
    methods.add(QDBI_METHOD_SELECT_ROWS, sybase_select_rows);
    methods.add(QDBI_METHOD_EXEC, sybase_exec);
+#ifdef _QORE_HAS_DBI_EXECRAW
+   methods.add(QDBI_METHOD_EXECRAW, sybase_execRaw);
+#endif
    methods.add(QDBI_METHOD_COMMIT, sybase_commit);
    methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);

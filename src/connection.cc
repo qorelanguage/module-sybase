@@ -101,10 +101,16 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
    return purge_messages(xsink);
 }
 
-AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink) {
+AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
+                                          bool need_list, ExceptionSink* xsink,
+                                          bool doBinding) {
    sybase_query query;
-   if (query.init(cmd_text, qore_args, xsink))
-      return 0;
+   if (doBinding) {
+       if (query.init(cmd_text, qore_args, xsink))
+          return 0;
+   } else {
+       query.m_cmd = cmd_text;
+   }
 
    while (true) {
       printd(5, "connection::exec_intern() sql='%s'\n", cmd_text->getBuffer());
@@ -179,6 +185,18 @@ AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode *pa
    std::auto_ptr<QoreString> tmp(query);
    return exec_intern(query, parameters, false, xsink);
 }
+
+#ifdef _QORE_HAS_DBI_EXECRAW
+AbstractQoreNode *connection::execRaw(const QoreString *cmd, ExceptionSink *xsink) {
+   // copy the string here for intrusive editing, convert encoding too if necessary
+   QoreString *query = cmd->convertEncoding(enc, xsink);
+   if (!query)
+      return 0;
+
+   std::auto_ptr<QoreString> tmp(query);
+   return exec_intern(query, 0, false, xsink, false);
+}
+#endif
 
 AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink) {
    // copy the string here for intrusive editing, convert encoding too if necessary

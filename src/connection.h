@@ -150,7 +150,9 @@ class connection {
       const QoreEncoding *enc;
       Datasource *ds;
 
-      AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink);
+      AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
+                                    bool need_list, ExceptionSink* xsink,
+                                    bool doBinding=true);
 
 public:
       DLLLOCAL connection(Datasource *n_ds, ExceptionSink *xsink);
@@ -173,6 +175,9 @@ public:
       DLLLOCAL int rollback(ExceptionSink *xsink);
       
       DLLLOCAL AbstractQoreNode *exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+#ifdef _QORE_HAS_DBI_EXECRAW
+      DLLLOCAL AbstractQoreNode *execRaw(const QoreString *cmd, ExceptionSink *xsink);
+#endif
       DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
       DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
