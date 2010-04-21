@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 Qore Technologies
+  Copyright (C) 2007 - 2010 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -43,8 +43,7 @@
 #define SYB_DAYS_TO_EPOCH 25567
 #define SYB_SECS_TO_EPOCH (SYB_DAYS_TO_EPOCH * 86400LL)
 
-DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt)
-{
+DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt) {
    int64 secs = dt.dttime / 300;
 
    // use floating point to get more accurate 1/3 s
@@ -52,42 +51,50 @@ DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt)
    return new DateTimeNode(secs, (int)ts);
 }
 
-int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME &out, ExceptionSink* xsink)
-{
-   if (dt->isRelative())
-   {
+static int check_epoch(int64 secs, const DateTime &dt, ExceptionSink *xsink) {
+   // 9999-12-31 23:59:59 has an epoch offset of: 253402300799 seconds
+   if (secs > 253402300799) {
+      QoreStringNode *desc = new QoreStringNode("maximum sybase datetime value is 9999-12-31, date passed: ");
+      dt.format(*desc, "YYYY-DD-MM");
+      xsink->raiseException("DBI:SYBASE:DATE-ERROR", desc);
+      return -1;
+   }
+   // 1753-01-01 00:00:00 has an eopch offset of: -6847804800 seconds
+   if (secs < -6847804800) {
+      QoreStringNode *desc = new QoreStringNode("minumum sybase datetime value is 1753-01-01, date passed: ");
+      dt.format(*desc, "YYYY-DD-MM");
+      xsink->raiseException("DBI:SYBASE:DATE-ERROR", desc);
+      return -1;
+   }
+   return 0;
+}
+
+int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME &out, ExceptionSink* xsink) {
+   if (dt->isRelative()) {
       xsink->raiseException("DBI:SYBASE:DATE-ERROR", "relative date passed for binding as absolute date");
       return -1;
    }
-   int year = dt->getYear();
-   if (year > 9999)
-   {
-      QoreStringNode *desc = new QoreStringNode();
-      desc->sprintf("maximum sybase datetime value is 9999-12-31, date passed: ");
-      dt->format(*desc, "YYYY-DD-MM");
-      xsink->raiseException("DBI:SYBASE:DATE-ERROR", desc);
-      return -1;
-   }
-   if (year < 1753)
-   {
-      QoreStringNode *desc = new QoreStringNode();
-      desc->sprintf("minumum sybase datetime value is 1753-01-01, date passed: ");
-      dt->format(*desc, "YYYY-DD-MM");
-      xsink->raiseException("DBI:SYBASE:DATE-ERROR", desc);
-      return -1;
-   }
    int64 secs = dt->getEpochSeconds();
+   
+   if (check_epoch(secs, *dt, xsink))
+      return -1;
+   
    int days = secs / 86400;
    out.dtdays = days + SYB_DAYS_TO_EPOCH;
+
+#ifdef _QORE_HAS_TIME_ZONES
+   // use floating point to get more accurate 1/3 s
+   double ts = round((double)dt->getMicrosecond() / 3333.3333333);
+#else
    // use floating point to get more accurate 1/3 s
    double ts = round((double)dt->getMillisecond() / 3.3333333);
+#endif
    out.dttime = (secs - (days * 86400)) * 300 + (int)ts;
 
    return 0;
 }
 
-DateTimeNode *DATETIME_to_DateTime(CS_DATETIME& dt)
-{
+DateTimeNode *DATETIME_to_DateTime(CS_DATETIME& dt) {
    int64 secs = dt.dttime / 300;
    // use floating point to get more accurate 1/3 s
    double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
@@ -97,23 +104,19 @@ DateTimeNode *DATETIME_to_DateTime(CS_DATETIME& dt)
 // maximum sybase small datetime value (June 6, 2079)
 static DateTime dt4_max(2079, 6, 6);
 
-DateTimeNode *DATETIME4_to_DateTime(CS_DATETIME4 &dt, ExceptionSink *xsink)
-{
+DateTimeNode *DATETIME4_to_DateTime(CS_DATETIME4 &dt, ExceptionSink *xsink) {
    int64 secs = dt.minutes * 60LL + dt.days * 86400LL - SYB_SECS_TO_EPOCH;
    return new DateTimeNode(secs);
 }
 
 /*
 // currently unused
-int DateTime_to_DATETIME4(const DateTime *dt, CS_DATETIME4 &out, ExceptionSink *xsink)
-{
-   if (dt->isRelative())
-   {
+int DateTime_to_DATETIME4(const DateTime *dt, CS_DATETIME4 &out, ExceptionSink *xsink) {
+   if (dt->isRelative()) {
       xsink->raiseException("DBI:SYBASE:DATE-ERROR", "relative date passed for binding as absolute date");
       return -1;
    }
-   if (DateTime::compareDates(dt, &dt4_max) > 0)
-   {
+   if (DateTime::compareDates(dt, &dt4_max) > 0) {
       QoreStringNode *desc = new QoreStringNode();
       desc->sprintf("maximum sybase small datetime value is 2079-06-06, date passed: ");
       dt->format(desc, "YYYY-DD-MM");
@@ -121,8 +124,7 @@ int DateTime_to_DATETIME4(const DateTime *dt, CS_DATETIME4 &out, ExceptionSink *
       return -1;
    }
    int year = dt->getYear();
-   if (year < 1900)
-   {
+   if (year < 1900) {
       QoreStringNode *desc = new QoreStringNode();
       desc->sprintf("minumum sybase small datetime value is 1900-01-01, date passed: ");
       dt->format(desc, "YYYY-DD-MM");
@@ -139,8 +141,7 @@ int DateTime_to_DATETIME4(const DateTime *dt, CS_DATETIME4 &out, ExceptionSink *
 }
 
 // currently unused
-void double_to_MONEY(connection& conn, double val, CS_MONEY& out, ExceptionSink* xsink)
-{
+void double_to_MONEY(connection& conn, double val, CS_MONEY& out, ExceptionSink* xsink) {
   CS_DATAFMT srcfmt;
   memset(&srcfmt, 0, sizeof(srcfmt));
   srcfmt.datatype = CS_FLOAT_TYPE;
@@ -159,8 +160,7 @@ void double_to_MONEY(connection& conn, double val, CS_MONEY& out, ExceptionSink*
   }
 }
 
-void double_to_MONEY4(connection& conn, double val, CS_MONEY4& out, ExceptionSink* xsink)
-{
+void double_to_MONEY4(connection& conn, double val, CS_MONEY4& out, ExceptionSink* xsink) {
   CS_DATAFMT srcfmt;
   memset(&srcfmt, 0, sizeof(srcfmt));
   srcfmt.datatype = CS_FLOAT_TYPE;
@@ -179,8 +179,7 @@ void double_to_MONEY4(connection& conn, double val, CS_MONEY4& out, ExceptionSin
   }
 }
 
-double MONEY_to_double(connection& conn, CS_MONEY& m, ExceptionSink* xsink)
-{
+double MONEY_to_double(connection& conn, CS_MONEY& m, ExceptionSink* xsink) {
   CS_DATAFMT srcfmt;
   memset(&srcfmt, 0, sizeof(srcfmt));
   srcfmt.datatype = CS_MONEY_TYPE;
@@ -201,8 +200,7 @@ double MONEY_to_double(connection& conn, CS_MONEY& m, ExceptionSink* xsink)
   return result;
 }
 
-double MONEY4_to_double(connection& conn, CS_MONEY4& m, ExceptionSink* xsink)
-{
+double MONEY4_to_double(connection& conn, CS_MONEY4& m, ExceptionSink* xsink) {
   CS_DATAFMT srcfmt;
   memset(&srcfmt, 0, sizeof(srcfmt));
   srcfmt.datatype = CS_MONEY4_TYPE;
@@ -223,8 +221,7 @@ double MONEY4_to_double(connection& conn, CS_MONEY4& m, ExceptionSink* xsink)
   return result;
 }
 
-void double_to_DECIMAL(connection& conn, double val, CS_DECIMAL& out, ExceptionSink* xsink)
-{
+void double_to_DECIMAL(connection& conn, double val, CS_DECIMAL& out, ExceptionSink* xsink) {
   CS_DATAFMT srcfmt;
   memset(&srcfmt, 0, sizeof(srcfmt));
   srcfmt.datatype = CS_FLOAT_TYPE;
@@ -249,8 +246,7 @@ void double_to_DECIMAL(connection& conn, double val, CS_DECIMAL& out, ExceptionS
 }
 
 #define SYB_DEC_STR_LEN 50
-class QoreStringNode *DECIMAL_to_string(connection& conn, CS_DECIMAL& m, ExceptionSink* xsink)
-{
+class QoreStringNode *DECIMAL_to_string(connection& conn, CS_DECIMAL& m, ExceptionSink* xsink) {
   CS_DATAFMT srcfmt;
   memset(&srcfmt, 0, sizeof(srcfmt));
   srcfmt.datatype = CS_DECIMAL_TYPE;
@@ -275,7 +271,6 @@ class QoreStringNode *DECIMAL_to_string(connection& conn, CS_DECIMAL& m, Excepti
   return new QoreStringNode(buf);  
 }
 */
-
 
 /*
 #ifdef DEBUG

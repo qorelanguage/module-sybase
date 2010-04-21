@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2003, 2004, 2005, 2006
+  Copyright (C) 2003 - 2010 Qore Technologies, sro
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -58,20 +58,17 @@ DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
 
 static DBIDriver* DBID_SYBASE;
 
-#ifdef _QORE_HAS_DBI_EXECRAW
-#define SYB_DBI_CAP_HAS_EXECRAW DBI_CAP_HAS_EXECRAW
-#else
-#define SYB_DBI_CAP_HAS_EXECRAW 0
-#endif
-
 // capabilities of this driver
-#define DBI_SYBASE_CAPS ( DBI_CAP_TRANSACTION_MANAGEMENT | \
-  DBI_CAP_CHARSET_SUPPORT | \
-  DBI_CAP_LOB_SUPPORT | \
-  DBI_CAP_STORED_PROCEDURES | \
-  DBI_CAP_BIND_BY_VALUE | \
-  DBI_CAP_BIND_BY_PLACEHOLDER | \
-  SYB_DBI_CAP_HAS_EXECRAW )
+int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT 
+   | DBI_CAP_CHARSET_SUPPORT
+   | DBI_CAP_LOB_SUPPORT
+   | DBI_CAP_STORED_PROCEDURES
+   | DBI_CAP_BIND_BY_VALUE
+   | DBI_CAP_BIND_BY_PLACEHOLDER
+#ifdef _QORE_HAS_DBI_EXECRAW
+   | DBI_CAP_HAS_EXECRAW 
+#endif
+   ;
 
 #ifdef DEBUG
 // exported
@@ -176,47 +173,40 @@ static int sybase_close(Datasource *ds) {
 }
 
 //------------------------------------------------------------------------------
-static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink)
-{
+static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec(qstr, args, xsink);
 }
 
-static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink)
-{
+static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    connection *conn = (connection*)ds->getPrivateData();
    //printd(5, "sybase_select_rows(ds=%08p, qstr='%s', args=%08p)\n", ds, qstr->getBuffer(), args);
    return conn->exec_rows(qstr, args, xsink);
 }
 
-static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink)
-{
+static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->execRaw(qstr, xsink);
+   return conn->exec(qstr, args, xsink);
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
-static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink)
-{
+static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
    connection *conn = (connection*)ds->getPrivateData();
    return conn->execRaw(qstr, xsink);
 }
 #endif
 
-static int sybase_commit(Datasource *ds, ExceptionSink *xsink)
-{
+static int sybase_commit(Datasource *ds, ExceptionSink *xsink) {
    connection* conn = (connection*)ds->getPrivateData();
    return conn->commit(xsink);
 }
 
-static int sybase_rollback(Datasource *ds, ExceptionSink *xsink)
-{
+static int sybase_rollback(Datasource *ds, ExceptionSink *xsink) {
    connection* conn = (connection*)ds->getPrivateData();
    return conn->rollback(xsink);
 }
 
-static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink)
-{
+static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink) {
    context m_context(xsink);
    if (!m_context)
       return 0;
@@ -224,16 +214,14 @@ static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, Excepti
    return m_context.get_client_version(xsink);
 }
 
-static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink)
-{
+static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink) {
    connection* conn = (connection*)ds->getPrivateData();
    return conn->get_server_version(xsink);
 }
 
 /*
 // constants are not needed now as specifying placeholder buffer types is not necessary
-static void add_constants(QoreNamespace* ns)
-{
+static void add_constants(QoreNamespace* ns) {
 }
 
 #ifdef SYBASE
@@ -242,8 +230,7 @@ static QoreNamespace sybase_ns("Sybase");
 static QoreNamespace sybase_ns("FreeTDS");
 #endif
  
-static void init_namespace()
-{
+static void init_namespace() {
    sybase_ns.addConstant("CS_CHAR_TYPE", new QoreBigIntNode(CS_CHAR_TYPE));
    sybase_ns.addConstant("CS_BINARY_TYPE", new QoreBigIntNode(CS_BINARY_TYPE));
    sybase_ns.addConstant("CS_LONGCHAR_TYPE", new QoreBigIntNode(CS_LONGCHAR_TYPE));
@@ -300,8 +287,7 @@ static void init_namespace()
 }
  */
 
-QoreStringNode *sybase_module_init()
-{
+QoreStringNode *sybase_module_init() {
    QORE_TRACE("sybase_module_init()");
 
    // init_namespace();
@@ -335,8 +321,7 @@ QoreStringNode *sybase_module_init()
    return 0;
 }
 
-void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns)
-{
+void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns) {
 /*
   // this is commented out because the constants are not needed (or documented) at the moment
   // maybe later we can use them
@@ -345,7 +330,6 @@ void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns)
 */
 }
 
-void sybase_module_delete()
-{
+void sybase_module_delete() {
    QORE_TRACE("sybase_module_delete()");
 }
