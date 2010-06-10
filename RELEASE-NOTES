@@ -10,6 +10,8 @@ fails; otherwise a crash could result when the Datasource is reused
 
 implemented execRaw() method
 
+use new date/time APIs when compiled against qore 0.8.0+
+
 
 -------------
 Version 1.0.2

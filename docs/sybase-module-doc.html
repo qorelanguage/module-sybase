@@ -506,16 +506,16 @@ Also see AdvancedOptions</pre>
 </div>
 <!--POST-SHADOWAREA-->
 <div id="storeArea">
-<div title="Binding and Types" modifier="DavidNichols" created="200809060754" modified="200809081333" changecount="23">
+<div title="Binding and Types" modifier="DavidNichols" created="200809060754" modified="201006101216" changecount="24">
 <pre>See [[Database to Qore Type Mappings]] for information about how DB types are automatically converted to Qore types.
 
 See [[Sybase Binding By Value]] for a table giving the mappings between Qore types and Sybase DB types when binding by value using the {{{sybase}}} driver, or [[FreeTDS Binding By Value]] when using the {{{freetds}}} driver.
 
-{{{DATETIME}}} and {{{TIME}}} data types have a resolution of 1/300th of a second. Qore uses floating-point operations to convert to or from milliseconds when binding and retrieving data and rounds to the nearest integer to minimize conversion errors.
+{{{DATETIME}}} and {{{TIME}}} data types have a resolution of 1/300th of a second. Qore uses floating-point operations to convert to or from microseconds (or milliseconds when the module is compiled with qore &lt; 0.8.0) when binding and retrieving data and rounds to the nearest integer to minimize conversion errors.
 
 </pre>
 </div>
-<div title="Database to Qore Type Mappings" modifier="DavidNichols" created="200809060731" modified="200809081346" changecount="23">
+<div title="Database to Qore Type Mappings" modifier="DavidNichols" created="200809060731" modified="201006101215" changecount="24">
 <pre>''Database to Qore Type Mappings''
 |!Database Type|!Qore Type|!Driver|!Notes|h
 |{{{TINYINT}}}|{{{Type::Int}}}|both|direct conversion|
@@ -527,10 +527,10 @@ See [[Sybase Binding By Value]] for a table giving the mappings between Qore typ
 |{{{REAL}}}|{{{Type::Float}}}|both|direct conversion|
 |{{{MONEY}}}|{{{Type::Float}}}|both|direct conversion|
 |{{{SMALLMONEY}}}|{{{Type::Float}}}|both|direct conversion|
-|{{{DATETIME}}}|{{{Type::Date}}}|both|1/300 second values are converted and rounded to the nearest millisecond|
+|{{{DATETIME}}}|{{{Type::Date}}}|both|1/300 second values are converted and rounded to the nearest microsecond (when compiled with qore &lt; 0.8.0, to the millisecond)|
 |{{{SMALLDATETIME}}}|{{{Type::Date}}}|both|direct conversion|
 |{{{DATE}}}|{{{Type::Date}}}|both|direct conversion|
-|{{{TIME}}}|{{{Type::Date}}}|both|Date portion is set to '1970-01-01'; 1/300 second values are converted and rounded to the nearest millisecond|
+|{{{TIME}}}|{{{Type::Date}}}|both|Date portion is set to '1970-01-01'; 1/300 second values are converted and rounded to the nearest microsecond (when compiled with qore &lt; 0.8.0, to the millisecond)|
 |{{{CHAR}}}|{{{Type::String}}}|both|trailing blanks are removed|
 |{{{VARCHAR}}}|{{{Type::String}}}|both|direct conversion|
 |{{{UNICHAR}}}|{{{Type::String}}}|sybase|trailing blanks are removed|
