@@ -1,3 +1,31 @@
+2010-06-21 11:57  david_nichols
+
+	* README, RELEASE-NOTES, configure.ac, qore-sybase-modules.spec:
+	  updates for 1.0.3 release; updates to compile on mandrive 2009 on
+	  opensuse build service
+
+2010-06-21 10:36  david_nichols
+
+	* configure.ac, qore-sybase-modules.spec: corrected module name in
+	  configure error msg; updated spec file to build on oder platforms
+	  in opensuse build service
+
+2010-06-21 09:12  david_nichols
+
+	* qore-sybase-modules.spec: updated spec files to generically
+	  determine *suse versions for distribution tagging in rpm file
+	  names
+
+2010-06-21 09:11  david_nichols
+
+	* src/conversions.cc: fixed long long integer tagging to compile on
+	  compilers that complain with very large integers (> 32 bits)
+	  without explicit "ll" tags
+
+2010-06-20 06:03  david_nichols
+
+	* ChangeLog: fixed ChangeLogs with non-broken svn2cl
+
 2010-06-15 18:49  david_nichols
 
 	* docs/sybase-module-doc.html: updated tikiwiki and added updated
