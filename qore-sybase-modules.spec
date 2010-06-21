@@ -72,6 +72,7 @@ prodedure and function execution, etc.
 
 %files -n qore-sybase-module
 %defattr(-,root,root,-)
+%dir %{module_dir}
 %{module_dir}/sybase-api-%{module_api}.qmod
 %doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 %endif
@@ -93,6 +94,7 @@ databases.
 
 %files -n qore-freetds-module
 %defattr(-,root,root,-)
+%dir %{module_dir}
 %{module_dir}/freetds-api-%{module_api}.qmod
 %doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 

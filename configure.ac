@@ -356,7 +356,7 @@ CS_CONTEXT *m_context; ct_init(m_context, CS_VERSION_100);
    fi
 fi
 
-# freetds settings (mssql driver)
+# freetds settings
 AC_ARG_WITH([freetds],
     [AS_HELP_STRING([--with-freetds@<:@=DIR@:>@],
                     [FreeTDS base directory])],
@@ -411,7 +411,7 @@ CS_CONTEXT *m_context; ct_init(m_context, CS_VERSION_100);
       if test -n "$freetds_explicit"; then
          AC_MSG_ERROR([could not compile and link a test FreeTDS program])
       else
-         AC_MSG_WARN([could not compile and link a test FreeTDS program, disabling mssql support])
+         AC_MSG_WARN([could not compile and link a test FreeTDS program, disabling freetds support])
 	 unset with_freetds
       fi
    else
