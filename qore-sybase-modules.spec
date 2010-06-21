@@ -67,7 +67,8 @@ Group: Development/Languages
 %description -n qore-sybase-module
 Sybase DBI driver module for the Qore Programming Language. The Sybase driver is
 character set aware, supports multithreading, transaction management, stored
-prodedure and function execution, etc.
+prodedure and function execution, and SQL execution with native binding and
+output placeholders.
 
 
 %files -n qore-sybase-module
@@ -81,14 +82,22 @@ prodedure and function execution, etc.
 %package -n qore-freetds-module
 Summary: FreeTDS-based MS-SQL and Sybase DBI module for Qore
 Group: Development/Languages
-Requires: freetds
+%if 0%{?mdkversion}
+%ifarch x86_64 ppc64 x390x
+BuildRequires: lib64freetds-devel
+%else
+BuildRequires: libfreetds-devel
+%endif
+%else
 BuildRequires: freetds-devel
+%endif
 
 %description -n qore-freetds-module
 FreeTDS-based MS-SQL Server and Sybase DBI driver module for the Qore
 Programming Language. This driver is character set aware, supports
 multithreading, transaction management, stored prodedure and function
-execution, etc, and can be used to connect to Sybase and Microsoft SQL Server
+execution, SQL execution with native binding and output placeholders,
+and can be used to connect to Sybase and Microsoft SQL Server
 databases.
 
 
@@ -103,13 +112,12 @@ databases.
 %ifarch x86_64 ppc64 x390x
 c64=--enable-64bit
 %endif
-./configure RPM_OPT_FLAGS="$RPM_OPT_FLAGS" --prefix=/usr --disable-debug $c64
+CXXFLAGS="$RPM_OPT_FLAGS" ./configure --prefix=/usr --disable-debug $c64
 
 %build
 %{__make}
 
 %install
-rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/%{module_dir}
 mkdir -p $RPM_BUILD_ROOT/usr/share/doc/qore-sybase-module
 make install DESTDIR=$RPM_BUILD_ROOT

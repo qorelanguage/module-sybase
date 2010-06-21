@@ -236,8 +236,7 @@ AC_ARG_ENABLE([single-compilation-unit],
       esac],
   [enable_single_compilation_unit=yes])
 
-check_freetds()
-{
+check_freetds() {
     d=`ls -d $1/freetds* 2>/dev/null | tail -1`;
     if test -n "$d"; then
        dir="$d"
@@ -262,8 +261,7 @@ check_freetds()
     fi
 }
 
-check_sybase()
-{
+check_sybase() {
     d=`ls -d $1/OCS-* 2>/dev/null | tail -1`;
     if test -n "$d"; then
        dir="$d"
@@ -377,7 +375,7 @@ if test "${with_freetds}" != "no"; then
       fi
    fi
 
-   for dir in $FREETDS /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
+   for dir in $FREETDS "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
       check_freetds "$dir"
       if test -n "$with_freetds_includes"; then
 	 break;
@@ -404,7 +402,7 @@ if test "${with_freetds}" = yes; then
    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <ctpublic.h>
 	 ]],[[
-CS_CONTEXT *m_context; ct_init(m_context, CS_VERSION_100);
+CS_CONTEXT *m_context = 0; ct_init(m_context, CS_VERSION_100);
 	]])], freetds_links=yes, freetds_links=no)
 
    if test "$freetds_links" = "no"; then
