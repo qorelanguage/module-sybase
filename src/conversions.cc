@@ -53,14 +53,14 @@ DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt) {
 
 static int check_epoch(int64 secs, const DateTime &dt, ExceptionSink *xsink) {
    // 9999-12-31 23:59:59 has an epoch offset of: 253402300799 seconds
-   if (secs > 253402300799) {
+   if (secs > 253402300799ll) {
       QoreStringNode *desc = new QoreStringNode("maximum sybase datetime value is 9999-12-31, date passed: ");
       dt.format(*desc, "YYYY-DD-MM");
       xsink->raiseException("DBI:SYBASE:DATE-ERROR", desc);
       return -1;
    }
    // 1753-01-01 00:00:00 has an eopch offset of: -6847804800 seconds
-   if (secs < -6847804800) {
+   if (secs < -6847804800ll) {
       QoreStringNode *desc = new QoreStringNode("minumum sybase datetime value is 1753-01-01, date passed: ");
       dt.format(*desc, "YYYY-DD-MM");
       xsink->raiseException("DBI:SYBASE:DATE-ERROR", desc);
