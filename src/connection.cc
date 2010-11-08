@@ -144,10 +144,13 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       // discard all current messages
       discard_messages();
 
+#ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
+      if (ds->activeTransaction()) {
+#else
       if (ds->isInTransaction()) {
+#endif
 	 ds->connectionAborted();
 	 xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
-	 return 0;
       }
 	 
       // otherwise try to reconnect
@@ -168,6 +171,10 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
 	 ds->close();
 	 return 0;
       }
+
+      // if the connection was aborted while in a transaction, return now
+      if (ds->wasConnectionAborted())
+	 return 0;
 
       printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
    }
