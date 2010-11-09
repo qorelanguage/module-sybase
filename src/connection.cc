@@ -101,6 +101,14 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
    return purge_messages(xsink);
 }
 
+static inline bool wasInTransaction(Datasource *ds) {
+#ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
+   return ds->activeTransaction();
+#else
+   return ds->isInTransaction();
+#endif
+}
+
 AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
                                           bool need_list, ExceptionSink* xsink,
                                           bool doBinding) {
@@ -144,14 +152,8 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       // discard all current messages
       discard_messages();
 
-#ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
-      if (ds->activeTransaction()) {
-#else
-      if (ds->isInTransaction()) {
-#endif
-	 ds->connectionAborted();
+      if (wasInTransaction(ds))
 	 xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
-      }
 	 
       // otherwise try to reconnect
       ct_con_drop(m_connection);
@@ -168,12 +170,12 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       // return with an error if it didn't work
       if (*xsink) {
 	 // make sure and mark Datasource as closed
-	 ds->close();
+	 ds->connectionAborted();
 	 return 0;
       }
 
       // if the connection was aborted while in a transaction, return now
-      if (ds->wasConnectionAborted())
+      if (wasInTransaction(ds))
 	 return 0;
 
       printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
