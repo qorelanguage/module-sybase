@@ -248,6 +248,10 @@ check_freetds() {
        dir="$1"
     fi
 
+    if test \( "$dir" = "/" -o -z "$dir" \) -a -h "$dir/lib${LIBSUFFIX}"; then
+        dir=/usr
+    fi
+
     if test -f "$dir/include/tds_sysdep_public.h" -a -f "$dir/include/ctpublic.h"; then
         with_freetds_includes=$dir/include
     elif test -f "$dir/include/freetds/tds_sysdep_public.h" -a -f "$dir/include/freetds/ctpublic.h"; then
@@ -458,6 +462,10 @@ set_qore_cppflags() {
 }
 
 find_qore() {
+    a="$1"
+    if test \( "$a" = "/" -o -z "$a" \) -a -h "$a/lib${LIBSUFFIX}"; then
+        a=/usr
+    fi
     lib=$1/lib${LIBSUFFIX}
 
     # if we only want the static qore libraries
@@ -487,10 +495,10 @@ find_qore() {
 
     AC_MSG_CHECKING([for qore include files])
     # try to find include files
-    if test "$1" = "/"; then
+    if test "$a" = "/"; then
         inc=/usr/include
     else
-        inc=$1/include
+        inc=$a/include
     fi
     if test -f "$inc/qore/Qore.h"; then
         AC_MSG_RESULT([found: $inc])
@@ -717,8 +725,7 @@ else
    printf " (32-bit)\n"
 fi
 
-show_library_feature()
-{
+show_library_feature() {
    printf "%-24s: " "$1"
    if test "$2" = "yes"; then
       printf "%-8s" yes
