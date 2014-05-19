@@ -75,7 +75,7 @@ output placeholders.
 %defattr(-,root,root,-)
 %dir %{module_dir}
 %{module_dir}/sybase-api-%{module_api}.qmod
-%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
+%doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
 %endif
 
 

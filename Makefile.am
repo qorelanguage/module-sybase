@@ -12,7 +12,7 @@ noinst_HEADERS = src/command.h \
 	src/sybase_query.h \
 	src/minitest.hpp
 
-EXTRA_DIST = COPYING ChangeLog AUTHORS README \
+EXTRA_DIST = COPYING.MIT COPYING.LGPL ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	test/db-test.q \
 	docs/sybase-module-doc.html \
