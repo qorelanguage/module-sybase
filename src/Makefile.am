@@ -28,12 +28,17 @@ AM_CXXFLAGS=-g
 endif
 endif
 
+if COND_MINGW
+RM_OTHER_SYBASE=$(DESTDIR)$(libdir)/sybase.dll.a
+RM_OTHER_FREETDS=$(DESTDIR)$(libdir)/freetds.dll.a
+endif
+
 install-exec-hook:
 if COND_SYBASE
 	mv $(DESTDIR)$(libdir)/sybase.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/sybase-api-$(MODULE_API).qmod
-	rm -f $(DESTDIR)$(libdir)/sybase.la $(DESTDIR)$(libdir)/sybase.a
+	rm -f $(DESTDIR)$(libdir)/sybase.la $(DESTDIR)$(libdir)/sybase.a $(RM_OTHER_SYBASE)
 endif
 if COND_FREETDS
 	mv $(DESTDIR)$(libdir)/freetds.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/freetds-api-$(MODULE_API).qmod
-	rm -f $(DESTDIR)$(libdir)/freetds.la $(DESTDIR)$(libdir)/freetds.a
+	rm -f $(DESTDIR)$(libdir)/freetds.la $(DESTDIR)$(libdir)/freetds.a $(RM_OTHER_FREETDS)
 endif

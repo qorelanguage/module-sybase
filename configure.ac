@@ -96,6 +96,32 @@ case "${host_os}" in
 		fi
 		AC_DEFINE(HPUX, 1, if compiling on HP-UX)
 		;;
+     *mingw32*) SHLIB_SUFFIX=dll
+                windows=yes
+                mingw=yes
+                #CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
+		LIBS="$LIBS -lgnutls -lpcreposix -lpcre -lpthread -liconv -lws2_32 -lcrypt32 -lhogweed -lgmp -lz -lnettle"
+                #make_dll=yes
+                CPPFLAGS="$CPPFLAGS -DBUILDING_DLL=1"
+                MODULE_LDFLAGS="-no-undefined"
+                OS=Windows
+                # set LIB_PREFIX if not already set
+                if test -z "$LIB_PREFIX"; then
+                   AC_MSG_CHECKING([for mingw32 library prefix])
+                   cc_loc=`which $CXX|head -1`
+                   mingw_base=`dirname $cc_loc|sed 's/\/@<:@^/@:>@*$//'`
+                   cc_targ=`echo $CXX|sed s/-g++$//`
+                   if test -d $mingw_base/$cc_targ; then
+                      LIB_PREFIX=$mingw_base/$cc_targ
+                      AC_MSG_RESULT([$LIB_PREFIX])
+                   else
+                      AC_MSG_RESULT([not found])
+                   fi
+                fi
+		LIBS="-L${LIB_PREFIX}/lib $LIBS"
+                ;;
+     *)         AC_WARN([Unknown platform ${host_os}])
+                ;;
 esac
 AC_SUBST(SHLIB_SUFFIX)
 if test -z "$MODULE_SUFFIX" ; then
@@ -244,6 +270,12 @@ fi
 CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
 #LDFLAGS="$LDFLAGS $PTHREAD_LIBS"
 
+AC_ARG_WITH([lib-prefix],
+  [AS_HELP_STRING([--with-lib-prefix@<:@=DIR@:>@],
+                  [generic search prefix for libraries, includes, etc])],
+  [if test ! -d "${with_lib_prefix}"; then AC_MSG_ERROR([bad value ${with_lib_prefix} for --with-lib-prefix]); unset with_lib_prefix; fi],
+  [with_lib_prefix="$LIB_PREFIX"])
+
 AC_ARG_ENABLE([single-compilation-unit],
   [AS_HELP_STRING([--enable-single-compilation-unit],
                   [enable compilation as a single unit (default: on)])],
@@ -252,220 +284,6 @@ AC_ARG_ENABLE([single-compilation-unit],
        *)      AC_MSG_ERROR(bad value ${enable_single_compilation_unit} for --enable-single-compilation-unit) ;;
       esac],
   [enable_single_compilation_unit=yes])
-
-check_freetds() {
-    d=`ls -d $1/freetds* 2>/dev/null | tail -1`;
-    if test -n "$d"; then
-       dir="$d"
-    else
-       dir="$1"
-    fi
-
-    if test \( "$dir" = "/" -o -z "$dir" \) -a -h "$dir/lib${LIBSUFFIX}"; then
-        dir=/usr
-    fi
-
-    if test -f "$dir/include/tds_sysdep_public.h" -a -f "$dir/include/ctpublic.h"; then
-        with_freetds_includes=$dir/include
-    elif test -f "$dir/include/freetds/tds_sysdep_public.h" -a -f "$dir/include/freetds/ctpublic.h"; then
-        with_freetds_includes=$dir/include/freetds
-    else
-	return
-    fi
-
-    if test -f "$dir/lib${LIBSUFFIX}/libct.${SHLIB_SUFFIX}"; then
-       with_freetds_libs=$dir/lib${LIBSUFFIX}
-    elif test -f "$dir/lib${LIBSUFFIX}/freetds/libct.${SHLIB_SUFFIX}"; then
-       with_freetds_libs=$dir/lib${LIBSUFFIX}/freetds
-    else
-       unset with_freetds_includes
-    fi
-}
-
-check_sybase() {
-    d=`ls -d $1/OCS-* 2>/dev/null | tail -1`;
-    if test -n "$d"; then
-       dir="$d"
-    else
-       dir="$1"
-    fi
-
-    if test -f "$dir/include/ctpublic.h"; then
-        with_sybase_includes=$dir/include
-    else
-	return
-    fi
-
-    if test -f "$dir/lib/libsybcs.${SHLIB_SUFFIX}"; then
-       with_sybase_libs=$dir/lib
-    else
-       unset with_sybase_includes
-    fi
-}
-
-# Sybase settings
-AC_ARG_WITH([sybase],
-    [AS_HELP_STRING([--with-sybase@<:@=DIR@:>@],
-                    [Sybase or Sybase OCS base directory])],
-    [if test "${with_sybase}" != "no" -a ! -d "${with_sybase}"; then AC_MSG_ERROR(directory ${with_sybase} does not exist for --with-sybase); unset with_sybase; fi])
-
-# see if we can figure out where the sybase include files and libraries are
-if test "${with_sybase}" != "no"; then
-   if test -n "$with_sybase"; then
-      sybase_explicit=yes
-   fi
-
-   AC_MSG_CHECKING([for sybase includes and libraries])
-
-   if test -n "$with_sybase"; then
-      check_sybase "$with_sybase"
-      if test -z "$with_sybase_includes"; then
-	 AC_MSG_ERROR([not found in $with_sybase])
-      fi
-   fi
-
-   for dir in $SYBASE $SYBASE/$SYBASE_OCS /usr/sybase /usr/local/sybase /opt/sybase /usr/local; do
-      check_sybase "$dir"
-      if test -n "$with_sybase_includes"; then
-	 break;
-      fi
-   done
-
-   if test -n "$with_sybase_includes"; then
-      AC_MSG_RESULT([includes=$with_sybase_includes, libs=$with_sybase_libs (Sybase OCS)])
-      with_sybase=yes
-   else
-      AC_MSG_RESULT([not found])
-   fi
-fi
-
-if test "${with_sybase}" = yes; then
-   SYBASE_INCLUDES="-I$with_sybase_includes"
-   SYBASE_LIBS="-L$with_sybase_libs -lsybdb${SYBLIBSUFFIX} -lsybcs${SYBLIBSUFFIX} -lsybintl${SYBLIBSUFFIX} -lsybblk${SYBLIBSUFFIX} -lsybcomn${SYBLIBSUFFIX} -lsybct${SYBLIBSUFFIX} -lsybunic${SYBLIBSUFFIX} -lsybtcl${SYBLIBSUFFIX}"
-   if test -f $with_sybase_libs/libsybunic${SYBLIBSUFFIX}.${SHLIB_SUFFIX} ; then
-      SYBASE_LIBS="$SYBASE_LIBS -lsybunic${SYBLIBSUFFIX}"
-   fi
-
-   # check if C++ compiler can link with Sybase libs
-   SAVE_CXXFLAGS="$CXXFLAGS"
-   SAVE_LDFLAGS="$LDFLAGS"
-   CXXFLAGS="$CXXFLAGS $SYBASE_INCLUDES"
-   LDFLAGS="$LDFLAGS $SYBASE_LIBS"
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <ctpublic.h>
-	 ]],[[
-CS_CONTEXT *m_context; ct_init(m_context, CS_VERSION_100);
-	]])], sybase_links=yes, sybase_links=no)
-
-   CXXFLAGS="$SAVE_CXXFLAGS"
-   LDFLAGS="$SAVE_LDFLAGS"
-
-   if test "$sybase_links" = "no"; then
-      if test -n "$sybase_explicit"; then
-         AC_MSG_ERROR([could not compile and link a test Sybase program])
-      else
-         AC_MSG_WARN([could not compile and link a test Sybase program, disabling sybase support])
-	 unset with_sybase
-      fi
-   else
-      # without this "test" below, the shell will crap out
-      test
-      AC_SUBST(SYBASE_INCLUDES)
-      AC_SUBST(SYBASE_LIBS)
-   fi
-fi
-
-# freetds settings
-AC_ARG_WITH([freetds],
-    [AS_HELP_STRING([--with-freetds@<:@=DIR@:>@],
-                    [FreeTDS base directory])],
-    [if test "${with_freetds}" != "no" -a ! -d "${with_freetds}"; then AC_MSG_ERROR(directory ${with_freetds} does not exist for --with-freetds); unset with_freetds; fi])
-
-# see if we can figure out where the freetds include files and libraries are
-if test "${with_freetds}" != "no"; then
-   if test -n "$with_freetds"; then
-      freetds_explicit=yes
-   fi
-
-   AC_MSG_CHECKING([for freetds includes and libraries])
-
-   if test -n "$with_freetds"; then
-      check_freetds "$with_freetds"
-      if test -z "$with_freetds_includes"; then
-	 AC_MSG_ERROR([not found in $with_freetds])
-      fi
-   fi
-
-   for dir in $FREETDS "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
-      check_freetds "$dir"
-      if test -n "$with_freetds_includes"; then
-	 break;
-      fi
-   done
-
-   if test -n "$with_freetds_includes"; then
-      AC_MSG_RESULT([includes=$with_freetds_includes, libs=$with_freetds_libs])
-      with_freetds=yes
-   else
-      AC_MSG_RESULT([not found])
-   fi
-fi
-
-if test "${with_freetds}" = yes; then
-   FREETDS_INCLUDES="-I$with_freetds_includes"
-   if test "$with_freetds_libs" = "/usr/lib" -o "$with_freetds_libs" = "/usr/lib64"; then
-      FREETDS_LIBS="-lsybdb -lct"
-   else
-      FREETDS_LIBS="-L$with_freetds_libs -lsybdb -lct"
-   fi
-
-   # check if C++ compiler can link with FreeTDS libs
-   SAVE_CXXFLAGS="$CXXFLAGS"
-   SAVE_LDFLAGS="$LDFLAGS"
-   CXXFLAGS="$CXXFLAGS $FREETDS_INCLUDES"
-   LDFLAGS="$LDFLAGS $FREETDS_LIBS"
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <ctpublic.h>
-	 ]],[[
-CS_CONTEXT *m_context = 0; ct_init(m_context, CS_VERSION_100);
-	]])], freetds_links=yes, freetds_links=no)
-
-   if test "$freetds_links" = "no"; then
-      if test -n "$freetds_explicit"; then
-         AC_MSG_ERROR([could not compile and link a test FreeTDS program])
-      else
-         AC_MSG_WARN([could not compile and link a test FreeTDS program, disabling freetds support])
-	 unset with_freetds
-      fi
-   else
-      # without this "test" below, the shell will crap out
-      test
-
-      # check if freetds supports ct_loc_alloc, etc, if it has CS_SYB_LANG_CHARSET defined, 
-      # then it will be OK
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#include <cspublic.h>
-	 ]],[[
-#ifndef CS_SYB_LANG_CHARSET
-#error
-#endif
-	]])], freetds_locale=yes, freetds_locale=no)
-
-      if test "$freetds_locale" = "yes"; then
-         AC_DEFINE(FREETDS_LOCALE, 1, [define if freetds ct-lib cs_loc_alloc, cs_locale are (at least partially) implemented])
-      fi
-
-      AC_SUBST(FREETDS_INCLUDES)
-      AC_SUBST(FREETDS_LIBS)
-   fi
-
-   CXXFLAGS="$SAVE_CXXFLAGS"
-   LDFLAGS="$SAVE_LDFLAGS"
-fi
-
-if test "$with_sybase" != "yes" -a "$with_freetds" != "yes"; then
-   AC_MSG_ERROR([neither Sybase nor freetds found])
-fi
 
 set_qore_cppflags() {
     QORE_INC_DIR=$1
@@ -593,6 +411,230 @@ else
          AC_MSG_WARN([warning, installed qore's module dir is $qlibdir, this module will be installed in $libdir])
       fi
    fi
+fi
+
+check_freetds() {
+    d=`ls -d $1/freetds* 2>/dev/null | tail -1`;
+    if test -n "$d"; then
+       dir="$d"
+    else
+       dir="$1"
+    fi
+
+    if test \( "$dir" = "/" -o -z "$dir" \) -a -h "$dir/lib${LIBSUFFIX}"; then
+        dir=/usr
+    fi
+
+    if test -f "$dir/include/tds_sysdep_public.h" -a -f "$dir/include/ctpublic.h"; then
+        with_freetds_includes=$dir/include
+    elif test -f "$dir/include/freetds/tds_sysdep_public.h" -a -f "$dir/include/freetds/ctpublic.h"; then
+        with_freetds_includes=$dir/include/freetds
+    else
+	return
+    fi
+
+    if test -f "$dir/lib${LIBSUFFIX}/libct.${SHLIB_SUFFIX}"; then
+       with_freetds_libs=$dir/lib${LIBSUFFIX}
+    elif test -f "$dir/lib${LIBSUFFIX}/libct.a"; then
+       with_freetds_libs=$dir/lib${LIBSUFFIX}
+       freetds_static=yes
+    elif test -f "$dir/lib${LIBSUFFIX}/freetds/libct.${SHLIB_SUFFIX}"; then
+       with_freetds_libs=$dir/lib${LIBSUFFIX}/freetds
+    elif test -f "$dir/lib${LIBSUFFIX}/freetds/libct.a"; then
+       with_freetds_libs=$dir/lib${LIBSUFFIX}/freetds
+       freetds_static=yes
+    else
+       unset with_freetds_includes
+    fi
+}
+
+check_sybase() {
+    d=`ls -d $1/OCS-* 2>/dev/null | tail -1`;
+    if test -n "$d"; then
+       dir="$d"
+    else
+       dir="$1"
+    fi
+
+    if test -f "$dir/include/ctpublic.h"; then
+        with_sybase_includes=$dir/include
+    else
+	return
+    fi
+
+    if test -f "$dir/lib/libsybcs.${SHLIB_SUFFIX}"; then
+       with_sybase_libs=$dir/lib
+    else
+       unset with_sybase_includes
+    fi
+}
+
+# Sybase settings
+AC_ARG_WITH([sybase],
+    [AS_HELP_STRING([--with-sybase@<:@=DIR@:>@],
+                    [Sybase or Sybase OCS base directory])],
+    [if test "${with_sybase}" != "no" -a ! -d "${with_sybase}"; then AC_MSG_ERROR(directory ${with_sybase} does not exist for --with-sybase); unset with_sybase; fi])
+
+# see if we can figure out where the sybase include files and libraries are
+if test "${with_sybase}" != "no"; then
+   if test -n "$with_sybase"; then
+      sybase_explicit=yes
+   fi
+
+   AC_MSG_CHECKING([for sybase includes and libraries])
+
+   if test -n "$with_sybase"; then
+      check_sybase "$with_sybase"
+      if test -z "$with_sybase_includes"; then
+	 AC_MSG_ERROR([not found in $with_sybase])
+      fi
+   fi
+
+   for dir in "${with_lib_prefix}" $SYBASE $SYBASE/$SYBASE_OCS /usr/sybase /usr/local/sybase /opt/sybase /usr/local; do
+      check_sybase "$dir"
+      if test -n "$with_sybase_includes"; then
+	 break;
+      fi
+   done
+
+   if test -n "$with_sybase_includes"; then
+      AC_MSG_RESULT([includes=$with_sybase_includes, libs=$with_sybase_libs (Sybase OCS)])
+      with_sybase=yes
+   else
+      AC_MSG_RESULT([not found])
+   fi
+fi
+
+if test "${with_sybase}" = yes; then
+   SYBASE_INCLUDES="-I$with_sybase_includes"
+   SYBASE_LIBS="-L$with_sybase_libs -lsybdb${SYBLIBSUFFIX} -lsybcs${SYBLIBSUFFIX} -lsybintl${SYBLIBSUFFIX} -lsybblk${SYBLIBSUFFIX} -lsybcomn${SYBLIBSUFFIX} -lsybct${SYBLIBSUFFIX} -lsybunic${SYBLIBSUFFIX} -lsybtcl${SYBLIBSUFFIX}"
+   if test -f $with_sybase_libs/libsybunic${SYBLIBSUFFIX}.${SHLIB_SUFFIX} ; then
+      SYBASE_LIBS="$SYBASE_LIBS -lsybunic${SYBLIBSUFFIX}"
+   fi
+
+   # check if C++ compiler can link with Sybase libs
+   SAVE_CXXFLAGS="$CXXFLAGS"
+   SAVE_LDFLAGS="$LDFLAGS"
+   CXXFLAGS="$CXXFLAGS $SYBASE_INCLUDES"
+   LDFLAGS="$LDFLAGS $SYBASE_LIBS"
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <ctpublic.h>
+	 ]],[[
+CS_CONTEXT *m_context; ct_init(m_context, CS_VERSION_100);
+	]])], sybase_links=yes, sybase_links=no)
+
+   CXXFLAGS="$SAVE_CXXFLAGS"
+   LDFLAGS="$SAVE_LDFLAGS"
+
+   if test "$sybase_links" = "no"; then
+      if test -n "$sybase_explicit"; then
+         AC_MSG_ERROR([could not compile and link a test Sybase program])
+      else
+         AC_MSG_WARN([could not compile and link a test Sybase program, disabling sybase support])
+	 unset with_sybase
+      fi
+   else
+      # without this "test" below, the shell will crap out
+      test
+      AC_SUBST(SYBASE_INCLUDES)
+      AC_SUBST(SYBASE_LIBS)
+   fi
+fi
+
+# freetds settings
+AC_ARG_WITH([freetds],
+    [AS_HELP_STRING([--with-freetds@<:@=DIR@:>@],
+                    [FreeTDS base directory])],
+    [if test "${with_freetds}" != "no" -a ! -d "${with_freetds}"; then AC_MSG_ERROR(directory ${with_freetds} does not exist for --with-freetds); unset with_freetds; fi])
+
+# see if we can figure out where the freetds include files and libraries are
+if test "${with_freetds}" != "no"; then
+   if test -n "$with_freetds"; then
+      freetds_explicit=yes
+   fi
+
+   AC_MSG_CHECKING([for freetds includes and libraries])
+
+   if test -n "$with_freetds"; then
+      check_freetds "$with_freetds"
+      if test -z "$with_freetds_includes"; then
+	 AC_MSG_ERROR([not found in $with_freetds])
+      fi
+   fi
+
+   for dir in $FREETDS "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
+      check_freetds "$dir"
+      if test -n "$with_freetds_includes"; then
+	 break;
+      fi
+   done
+
+   if test -n "$with_freetds_includes"; then
+      AC_MSG_RESULT([includes=$with_freetds_includes, libs=$with_freetds_libs])
+      with_freetds=yes
+   else
+      AC_MSG_RESULT([not found])
+   fi
+fi
+
+if test "${with_freetds}" = yes; then
+   FREETDS_INCLUDES="-I$with_freetds_includes"
+   if test "$with_freetds_libs" = "/usr/lib" -o "$with_freetds_libs" = "/usr/lib64"; then
+      FREETDS_LIBS="-lsybdb -lct"
+   else
+      FREETDS_LIBS="-L$with_freetds_libs -lsybdb -lct"
+   fi
+
+   if test "$mingw" = yes; then
+      FREETDS_LIBS="${QORE_LDFLAGS} ${FREETDS_LIBS}"
+   fi
+
+   # check if C++ compiler can link with FreeTDS libs
+   SAVE_CXXFLAGS="$CXXFLAGS"
+   SAVE_LIBS="$LIBS"
+   CXXFLAGS="$CXXFLAGS $FREETDS_INCLUDES"
+   LIBS="$FREETDS_LIBS $LIBS"
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <ctpublic.h>
+	 ]],[[
+CS_CONTEXT *m_context = 0; ct_init(m_context, CS_VERSION_100);
+	]])], freetds_links=yes, freetds_links=no)
+
+   if test "$freetds_links" = "no"; then
+      if test -n "$freetds_explicit"; then
+         AC_MSG_ERROR([could not compile and link a test FreeTDS program])
+      else
+         AC_MSG_WARN([could not compile and link a test FreeTDS program, disabling freetds support])
+	 unset with_freetds
+      fi
+   else
+      # without this "test" below, the shell will crap out
+      test
+
+      # check if freetds supports ct_loc_alloc, etc, if it has CS_SYB_LANG_CHARSET defined, 
+      # then it will be OK
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <cspublic.h>
+	 ]],[[
+#ifndef CS_SYB_LANG_CHARSET
+#error
+#endif
+	]])], freetds_locale=yes, freetds_locale=no)
+
+      if test "$freetds_locale" = "yes"; then
+         AC_DEFINE(FREETDS_LOCALE, 1, [define if freetds ct-lib cs_loc_alloc, cs_locale are (at least partially) implemented])
+      fi
+
+      AC_SUBST(FREETDS_INCLUDES)
+      AC_SUBST(FREETDS_LIBS)
+   fi
+
+   CXXFLAGS="$SAVE_CXXFLAGS"
+   LIBS="$SAVE_LIBS"
+fi
+
+if test "$with_sybase" != "yes" -a "$with_freetds" != "yes"; then
+   AC_MSG_ERROR([neither Sybase nor freetds found])
 fi
 
 AC_ARG_ENABLE([profile],
@@ -724,6 +766,8 @@ AM_CONDITIONAL([COND_PROFILE],    [test "$enable_profile" = yes])
 AM_CONDITIONAL([COND_SINGLE_COMPILATION_UNIT], [test "$enable_single_compilation_unit" = yes])
 AM_CONDITIONAL([COND_SYBASE],     [test "$with_sybase" = yes])
 AM_CONDITIONAL([COND_FREETDS],    [test "$with_freetds" = yes])
+AM_CONDITIONAL([COND_MINGW],      [test "$mingw" = yes])
+
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
 
@@ -755,3 +799,11 @@ show_library_feature profiling $enable_profile
 echo "*** MODULES ***"
 show_library_feature sybase $with_sybase
 show_library_feature freetds $with_freetds
+
+# hack to use our libtool if on mingw to enable static libs to be linked in to the module
+if test "$mingw" = yes; then
+   # backup generated libtool
+   if test ! -e libtool.orig ; then cp libtool libtool.orig; fi
+   sed -e 's/deplibs_check_method=.*/deplibs_check_method=pass_all/g' -e 's/allow_undefined_flag=.*/allow_undefined_flag=yes/g' libtool > libtool.tmp
+   mv libtool.tmp libtool
+fi
