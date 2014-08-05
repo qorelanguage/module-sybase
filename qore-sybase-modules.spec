@@ -83,7 +83,7 @@ output placeholders.
 Summary: FreeTDS-based MS-SQL and Sybase DBI module for Qore
 Group: Development/Languages
 %if 0%{?mdkversion}
-%ifarch x86_64 ppc64 x390x
+%ifarch x86_64 ppc64 s390x
 BuildRequires: lib64freetds-devel
 %else
 BuildRequires: libfreetds-devel
@@ -109,10 +109,7 @@ databases.
 
 %prep
 %setup -q
-%ifarch x86_64 ppc64 x390x
-c64=--enable-64bit
-%endif
-CXXFLAGS="$RPM_OPT_FLAGS" ./configure --prefix=/usr --disable-debug $c64
+CXXFLAGS="$RPM_OPT_FLAGS" ./configure --prefix=/usr --disable-debug
 
 %build
 %{__make}
