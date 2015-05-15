@@ -54,11 +54,11 @@ connection::~connection() {
 
    if (m_connection) {
       if (connected) {
-	 ret = ct_close(m_connection, CS_UNUSED);
-	 if (ret != CS_SUCCEED) {
-	    ret = ct_close(m_connection, CS_FORCE_CLOSE);
-	    assert(ret == CS_SUCCEED);
-	 }
+         ret = ct_close(m_connection, CS_UNUSED);
+         if (ret != CS_SUCCEED) {
+            ret = ct_close(m_connection, CS_FORCE_CLOSE);
+            assert(ret == CS_SUCCEED);
+         }
       }
       ret = ct_con_drop(m_connection);
       assert(ret == CS_SUCCEED);
@@ -124,25 +124,25 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       printd(5, "connection::exec_intern() sql='%s'\n", cmd_text->getBuffer());
       command cmd(*this, xsink);
       if (xsink->isException())
-	 return 0;
+         return 0;
 
       if (cmd.initiate_language_command(query.m_cmd->getBuffer(), xsink))
-	 return 0;
+         return 0;
 
       if (!query.param_list.empty() && cmd.set_params(query, qore_args, xsink))
-	 return 0;
+         return 0;
 
       if (cmd.send(xsink))
-	 return 0;
+         return 0;
 
       bool disconnect = false;
       ReferenceHolder<AbstractQoreNode> result(cmd.read_output(query.placeholder_list, need_list, disconnect, xsink), xsink);
       if (*xsink)
-	 return 0;
+         return 0;
 
       if (!disconnect) {
-	 //printd(5, "execute_command_impl() result=%08p (%lld)\n", result, result && result->getType() == NT_INT ? result->getAsBigInt() : 0LL);
-	 return result.release();
+         //printd(5, "execute_command_impl() result=%08p (%lld)\n", result, result && result->getType() == NT_INT ? result->getAsBigInt() : 0LL);
+         return result.release();
       }
 
       // see if we need to reconnect and try again
@@ -153,8 +153,8 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       discard_messages();
 
       if (wasInTransaction(ds))
-	 xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
-	 
+         xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
+         
       // otherwise try to reconnect
       ct_con_drop(m_connection);
       m_connection = 0;
@@ -169,14 +169,14 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
       init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
       // return with an error if it didn't work
       if (*xsink) {
-	 // make sure and mark Datasource as closed
-	 ds->connectionAborted();
-	 return 0;
+         // make sure and mark Datasource as closed
+         ds->connectionAborted();
+         return 0;
       }
 
       // if the connection was aborted while in a transaction, return now
       if (wasInTransaction(ds))
-	 return 0;
+         return 0;
 
       printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
    }
@@ -269,8 +269,8 @@ int connection::init(const char* username, const char* password, const char* dbn
    if (password && password[0]) {
       ret = ct_con_props(m_connection, CS_SET, CS_PASSWORD, (CS_VOID*)password, CS_NULLTERM, 0);
       if (ret != CS_SUCCEED) {
-	 xsink->raiseException("DBI:SYBASE:CTLIB-SET-PASSWORD", "ct_con_props(CS_PASSWORD) failed with error %d", ret);
-	 return -1;
+         xsink->raiseException("DBI:SYBASE:CTLIB-SET-PASSWORD", "ct_con_props(CS_PASSWORD) failed with error %d", ret);
+         return -1;
       }
    }
 
@@ -282,8 +282,8 @@ int connection::init(const char* username, const char* password, const char* dbn
 
       ret = ct_con_props(m_connection, CS_SET, CS_SERVERADDR, (CS_VOID*)hn.getBuffer(), CS_NULLTERM, 0);
       if (ret != CS_SUCCEED) {
-	 xsink->raiseException("DBI:SYBASE:CTLIB-SET-SERVERADDR", "ct_con_props(CS_SERVERADDR, '%s') failed with error %d", hn.getBuffer(), ret);
-	 return -1;
+         xsink->raiseException("DBI:SYBASE:CTLIB-SET-SERVERADDR", "ct_con_props(CS_SERVERADDR, '%s') failed with error %d", hn.getBuffer(), ret);
+         return -1;
       }
    }
 
@@ -361,17 +361,17 @@ int connection::purge_messages(ExceptionSink *xsink) {
       ret = ct_diag(m_connection, CS_GET, CS_CLIENTMSG_TYPE, i, &cmsg);
       assert(ret == CS_SUCCEED);
       if (CS_SEVERITY(cmsg.msgnumber) > 10) {
-	 QoreStringNode *desc = new QoreStringNode();
-	 desc->sprintf("client message %d, severity %d: %s", CS_NUMBER(cmsg.msgnumber), CS_SEVERITY(cmsg.msgnumber), cmsg.msgstring);
-	 if (cmsg.osstringlen)
-	    desc->sprintf(" (%d): '%s'", cmsg.osnumber, cmsg.osstring);
-	 xsink->raiseException("DBI:SYBASE:CLIENT-ERROR", desc);
-	 rc = -1;
+         QoreStringNode *desc = new QoreStringNode();
+         desc->sprintf("client message %d, severity %d: %s", CS_NUMBER(cmsg.msgnumber), CS_SEVERITY(cmsg.msgnumber), cmsg.msgstring);
+         if (cmsg.osstringlen)
+            desc->sprintf(" (%d): '%s'", cmsg.osnumber, cmsg.osstring);
+         xsink->raiseException("DBI:SYBASE:CLIENT-ERROR", desc);
+         rc = -1;
       }
 #ifdef DEBUG
       printd(1, "client: severity:%d, n:%d: %s\n", CS_SEVERITY(cmsg.msgnumber), CS_NUMBER(cmsg.msgnumber), cmsg.msgstring);
       if (cmsg.osstringlen > 0)
-	 printd(1, "Operating System Error: %s\n", cmsg.osstring);
+         printd(1, "Operating System Error: %s\n", cmsg.osstring);
 #endif
    }
    ret = ct_diag(m_connection, CS_STATUS, CS_SERVERMSG_TYPE, CS_UNUSED, &num);
@@ -381,14 +381,14 @@ int connection::purge_messages(ExceptionSink *xsink) {
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
       assert(ret == CS_SUCCEED);
       if (smsg.severity > 10) {
-	 QoreStringNode *desc = new QoreStringNode();
-	 desc->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
-	 if (smsg.line)
-	    desc->sprintf("line %d, ", smsg.line);
-	 desc->sprintf("severity %ld: %s", smsg.severity, smsg.text);
-	 desc->trim_trailing('\n');
-	 xsink->raiseException("DBI:SYBASE:SERVER-ERROR", desc);
-	 rc = -1;
+         QoreStringNode *desc = new QoreStringNode();
+         desc->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
+         if (smsg.line)
+            desc->sprintf("line %d, ", smsg.line);
+         desc->sprintf("severity %ld: %s", smsg.severity, smsg.text);
+         desc->trim_trailing('\n');
+         xsink->raiseException("DBI:SYBASE:SERVER-ERROR", desc);
+         rc = -1;
       }
       printd(1, "server: line:%ld, severity:%ld, n:%d: %s", smsg.line, smsg.severity, smsg.msgnumber, smsg.text);
    }
@@ -405,7 +405,7 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
       int rc = estr->vsprintf(fmt, args);
       va_end(args);
       if (!rc) {
-	 estr->concat(": ");
+         estr->concat(": ");
          break;
       }
    }
@@ -418,17 +418,17 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
    for (int i = 1; i <= num; ++i) {
       ret = ct_diag(m_connection, CS_GET, CS_CLIENTMSG_TYPE, i, &cmsg);
       if (ret != CS_SUCCEED)
-	 continue;
+         continue;
       int severity = CS_SEVERITY(cmsg.msgnumber);
       if (severity <= 10)
-	 continue;
+         continue;
 
       if (count)
-	 estr->concat(", ");
+         estr->concat(", ");
       estr->sprintf("client message %d: severity %d: %s", CS_NUMBER(cmsg.msgnumber), severity, cmsg.msgstring);
       estr->trim_trailing('.');
       if (cmsg.osnumber && cmsg.osstringlen > 0)
-	 estr->sprintf(", OS error %d: %s", cmsg.osnumber, cmsg.osstring);
+         estr->sprintf(", OS error %d: %s", cmsg.osnumber, cmsg.osstring);
       count++;
    }
    ret = ct_diag(m_connection, CS_STATUS, CS_SERVERMSG_TYPE, CS_UNUSED, &num);
@@ -437,18 +437,18 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
    for (int i = 1; i <= num; ++i) {
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
       if (ret != CS_SUCCEED || smsg.severity <= 10)
-	 continue;
+         continue;
       
       if (count)
-	 estr->concat(", ");
+         estr->concat(", ");
       if (smsg.svrnlen)
-	 estr->sprintf("%s: ", smsg.svrname);
+         estr->sprintf("%s: ", smsg.svrname);
       estr->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
       if (smsg.line)
-	 estr->sprintf("line %d, ", smsg.line);
+         estr->sprintf("line %d, ", smsg.line);
       estr->sprintf("severity %d", smsg.severity);
       if (smsg.textlen)
-	 estr->sprintf(": %s", smsg.text);
+         estr->sprintf(": %s", smsg.text);
       estr->trim_trailing("\n.");
       ++count;
    }

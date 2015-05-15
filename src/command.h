@@ -34,7 +34,12 @@
 
 class connection;
 
-typedef std::vector<CS_DATAFMT> row_result_t;
+
+struct CS_DATAFMT_EX : public CS_DATAFMT {
+    int origin_datatype;
+};
+
+typedef std::vector<CS_DATAFMT_EX> row_result_t;
 
 // Wrapper for Sybase CS_COMMAND. When the wrapper object
 // is destroyed it automatically cleans up held resources.
@@ -49,7 +54,7 @@ class command {
       class AbstractQoreNode *read_rows(PlaceholderList *placeholder_list, bool list, ExceptionSink* xsink);
       int append_buffers_to_list(PlaceholderList *placeholder_list, row_result_t &column_info, row_output_buffers& all_buffers, class QoreHashNode *h, ExceptionSink* xsink);
       class QoreHashNode *output_buffers_to_hash(PlaceholderList *placeholder_list, row_result_t column_info, row_output_buffers& all_buffers, ExceptionSink* xsink);
-      class AbstractQoreNode *get_node(const CS_DATAFMT& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
+      class AbstractQoreNode *get_node(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
 
    public:
       DLLLOCAL command(connection& conn, ExceptionSink* xsink);

@@ -61,14 +61,16 @@ DLLEXPORT char qore_module_license_str[] = "MIT";
 static DBIDriver* DBID_SYBASE;
 
 // capabilities of this driver
-int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT 
+int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_CHARSET_SUPPORT
    | DBI_CAP_LOB_SUPPORT
    | DBI_CAP_STORED_PROCEDURES
    | DBI_CAP_BIND_BY_VALUE
    | DBI_CAP_BIND_BY_PLACEHOLDER
+   | DBI_CAP_HAS_NUMBER_SUPPORT
+   | DBI_CAP_AUTORECONNECT
 #ifdef _QORE_HAS_DBI_EXECRAW
-   | DBI_CAP_HAS_EXECRAW 
+   | DBI_CAP_HAS_EXECRAW
 #endif
    ;
 
@@ -96,7 +98,7 @@ AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink
       printf("************************************************\n");
       return 0;
    }
-   
+
    xsink->raiseException("SYBASE-TEST-FAILURE", "Sybase test in file %s, line %d threw an exception.",
 			 res.failed_test_file, res.failed_test_line);
    return 0;
@@ -120,7 +122,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
    if (ds->getDBEncoding()) {
       const QoreEncoding *enc = name_to_QoreEncoding(ds->getDBEncoding());
       ds->setQoreEncoding(enc);
-   } 
+   }
    else {
       const char *enc = QoreEncoding_to_SybaseName(QCS_DEFAULT);
       // if the encoding cannot be mapped, throw a Qore-language exception and return
@@ -131,12 +133,12 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
       ds->setDBEncoding(enc);
       ds->setQoreEncoding(QCS_DEFAULT);
    }
-  
+
    // create the connection object
    std::auto_ptr<connection> sc(new connection(ds, xsink));
    if (*xsink)
       return -1;
-  
+
 #ifdef QORE_HAS_DATASOURCE_PORT
    int port = ds->getPort();
 #else
@@ -231,7 +233,7 @@ static QoreNamespace sybase_ns("Sybase");
 #else
 static QoreNamespace sybase_ns("FreeTDS");
 #endif
- 
+
 static void init_namespace() {
    sybase_ns.addConstant("CS_CHAR_TYPE", new QoreBigIntNode(CS_CHAR_TYPE));
    sybase_ns.addConstant("CS_BINARY_TYPE", new QoreBigIntNode(CS_BINARY_TYPE));
@@ -293,12 +295,12 @@ QoreStringNode *sybase_module_init() {
    QORE_TRACE("sybase_module_init()");
 
    // init_namespace();
-   
+
 #ifdef DEBUG
    builtinFunctions.add("runSybaseTests", runSybaseTests, QDOM_DATABASE);
    builtinFunctions.add("runRecentSybaseTests", runRecentSybaseTests, QDOM_DATABASE);
 #endif
-   
+
    // register driver with DBI subsystem
    qore_dbi_method_list methods;
    methods.add(QDBI_METHOD_OPEN, sybase_open);
@@ -313,7 +315,7 @@ QoreStringNode *sybase_module_init() {
    methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
    methods.add(QDBI_METHOD_GET_SERVER_VERSION, sybase_get_server_version);
-   
+
 #ifdef SYBASE
    DBID_SYBASE = DBI.registerDriver("sybase", methods, DBI_SYBASE_CAPS);
 #else
