@@ -175,8 +175,6 @@ public:
     command * create_command(const QoreString *cmd_text,
             ExceptionSink* xsink);
 
-    AbstractQoreNode * fetch_row(command *, ExceptionSink* xsink);
-
     static const int OPT_NUM_OPTIMAL = 0;
     static const int OPT_NUM_STRING = 1;
     static const int OPT_NUM_NUMERIC = 2;

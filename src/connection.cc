@@ -143,17 +143,6 @@ command * connection::create_command(const QoreString *cmd_text,
     return cmd.release();
 }
 
-
-AbstractQoreNode * connection::fetch_row(command *cmd, ExceptionSink* xsink) {
-    if (!cmd) return 0;
-
-    bool disconnect = false;
-    ReferenceHolder<AbstractQoreNode>
-        result(cmd->read_output(false, disconnect, xsink), xsink);
-    return result.release();
-}
-
-
 AbstractQoreNode *connection::exec_intern(QoreString *cmd_text,
         const QoreListNode *qore_args,
         bool need_list,
