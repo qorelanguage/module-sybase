@@ -16,7 +16,6 @@
 #include "emptystatement.h"
 #include "command.h"
 
-
 #include "dbmodulewrap.h"
 namespace ss {
 
@@ -75,6 +74,7 @@ public:
     }
 
     bool next(SQLStatement* stmt, ExceptionSink* xsink) {
+        if (xsink->isException()) return false;
         if (!context.get()) return false;
         command::ResType res = context->read_next_result(xsink);
         if (expect_row(res)) {
@@ -92,6 +92,21 @@ public:
 
     int define(SQLStatement* stmt, ExceptionSink* xsink) {
         return 0;
+    }
+
+
+    QoreListNode* fetch_rows(SQLStatement* stmt, int rows,
+            ExceptionSink* xsink)
+    {
+        ReferenceHolder<QoreListNode> reslist(xsink);
+        reslist = new QoreListNode();
+
+        // next was already called once
+        do {
+            if (xsink->isException()) return 0;
+            reslist->insert(fetch_row(stmt, xsink));
+        } while (next(stmt, xsink));
+        return reslist.release();
     }
 };
 

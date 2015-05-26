@@ -2,6 +2,7 @@
 #define SYBASE_SRC_RESULTFACTORY_H
 
 #include <sstream>
+#include <qore/QoreBigIntNode.h>
 namespace ss {
 
 class ResultFactory {
