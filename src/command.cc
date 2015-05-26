@@ -33,8 +33,22 @@
 
 #include "command.h"
 #include "connection.h"
+#include "utils.h"
+#include "resultfactory.h"
 
-command::command(connection& conn, ExceptionSink* xsink) : m_conn(conn), m_cmd(0), canceled(false) {
+static std::string get_placeholder_at(const Placeholders *ph, size_t i) {
+    if (!ph || ph->size() <= i) return ss::string_cast(i);
+    if (ph->at(i).empty()) return ss::string_cast(i);
+    return ph->at(i);
+}
+
+
+command::command(connection& conn, ExceptionSink* xsink) :
+    m_conn(conn),
+    m_cmd(0),
+    canceled(false),
+    rowcount(-1)
+{
   CS_RETCODE err = ct_cmd_alloc(m_conn.getConnection(), &m_cmd);
   if (err != CS_SUCCEED) {
     xsink->raiseException("DBI-EXEC-EXCEPTION", "Sybase call ct_cmd_alloc() failed with error %d", (int)err);
@@ -105,7 +119,6 @@ unsigned command::get_column_count(ExceptionSink* xsink) {
 // FIXME: use ct_setparam to avoid copying data
 int command::set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink) {
    unsigned nparams = query.param_list.size();
-   //printd(5, "query=%s\n", query.m_cmd.getBuffer());
 
    for (unsigned i = 0; i < nparams; ++i) {
       if (query.param_list[i] == 'd')
@@ -242,209 +255,207 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
    return 0;
 }
 
-AbstractQoreNode *command::read_output(PlaceholderList &placeholder_list, bool list, bool &disconnect, ExceptionSink* xsink) {
-   ReferenceHolder<AbstractQoreNode> query_result(xsink), param_result(xsink), status_result(xsink);
-   CS_INT result_type, rowcount = -1;
-   CS_RETCODE err;
-   int result_count = 0;
 
-   while (true) {
-      err = ct_results(m_cmd, &result_type);
-      if (err == CS_END_RESULTS)
-           break;
+command::ResType command::read_next_result1(ExceptionSink* xsink) {
+    if (xsink->isException())
+        return RES_ERROR;
 
-      // cancel the command if ct_results() returns CS_FAIL
-      if (err == CS_FAIL) {
-           err = ct_cancel(m_conn.getConnection(), m_cmd, CS_CANCEL_ALL);
-           canceled = true;
-           if (err == CS_FAIL) {
-              // do not raise an exception here, allow the caller to try to
-              // reconnect if possible and retry the command
-              disconnect = true;
-              return 0;
-           }
+    CS_INT result_type;
+    CS_RETCODE err = ct_results(m_cmd, &result_type);
 
-           xsink->raiseException("DBI:SYBASE:EXEC-ERROR", "command::read_output(): ct_results() failed with CS_FAIL, command canceled");
-           return 0;
-      }
+    switch (err) {
+        case CS_END_RESULTS:
+            return RES_END;
+        case CS_FAIL: {
+             err = ct_cancel(m_conn.getConnection(), m_cmd, CS_CANCEL_ALL);
+             canceled = true;
+             // TODO: handle err == CS_FAIL
+             xsink->raiseException("DBI:SYBASE:EXEC-ERROR",
+                     "command::read_output(): ct_results() failed with"
+                     " CS_FAIL, command canceled");
+             return RES_ERROR;
+        }
+        case CS_SUCCEED:
+             break;
+        default:
+             m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+                "command::read_output(): ct_results() returned error code %d", err);
+             return RES_ERROR;
+    }
 
-      if (err != CS_SUCCEED) {
-           m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "command::read_output(): ct_results() returned error code %d", err);
-           return 0;
-      }
+    switch (result_type) {
+        case CS_CMD_DONE: {
+            CS_RETCODE ret;
+            rowcount = -1;
 
-      //printd(5, "read_output() result_type = %d\n", result_type);
+            ret = ct_res_info(m_cmd, CS_ROW_COUNT,
+                    (CS_VOID *)&rowcount,
+                    CS_UNUSED, 0);
+            if (ret != CS_SUCCEED) {
+                m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION",
+                    "ct_res_info() failed with error %d", (int)ret);
+                m_conn.purge_messages(xsink);
+                return RES_ERROR;
+            }
 
-      switch (result_type) {
-           case CS_COMPUTE_RESULT:
-           case CS_PARAM_RESULT: // procedure call
-              assert(!param_result);
-              param_result = read_rows(&placeholder_list, true, xsink);
-              if (xsink->isException())
-                 return 0;
-              break;
+            colinfo.set_dirty();
+            return RES_DONE;
+        }
+        case CS_CMD_SUCCEED:
+            return RES_RETRY;
+        case CS_CMD_FAIL:
+            m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+                    "command::read_output(): SQL command failed");
+            return RES_ERROR;
 
-           case CS_ROW_RESULT: {
-              AbstractQoreNode *t = read_rows(0, list, xsink);
-              if (xsink->isException()) {
-                 assert(!t);
-                 return 0;
-              }
+        case CS_PARAM_RESULT:
+            return RES_PARAM;
+        case CS_ROW_RESULT:
+            return RES_ROW;
+    }
 
-              if (result_count) {
-                 // put the results already read into hash key "query0"
-                 if (result_count == 1) {
-                      QoreHashNode *h = new QoreHashNode();
-                      h->setKeyValue("query0", query_result.release(), 0);
-                      h->setKeyValue("query1", t, 0);
-                      query_result = h;
-                 }
-                 else {
-                      QoreString tmp;
-                      tmp.sprintf("query%d", result_count);
-                      QoreHashNode *h = reinterpret_cast<QoreHashNode *>(*query_result);
-                      h->setKeyValue(tmp.getBuffer(), t, 0);
-                 }
-              }
-              else
-                 query_result = t;
-              ++result_count;
-              break;
-           }
-
-           case CS_STATUS_RESULT:
-#ifdef SYBASE
-              assert(!status_result);
-              status_result = read_rows(0, true, xsink);
-              if (xsink->isException())
-                 return 0;
-#endif
-              break;
-
-           case CS_CMD_DONE: {
-              if (!query_result || param_result) {
-                 CS_RETCODE ret;
-                 ret = ct_res_info(m_cmd, CS_ROW_COUNT, (CS_VOID *)&rowcount, CS_UNUSED, 0);
-                 if (ret != CS_SUCCEED) {
-                      m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "command::read_output(): ct_res_info(CS_ROW_COUNT) failed with return code %d", ret);
-                      return 0;
-                 }
-              }
-              break;
-           }
-
-           case CS_CMD_SUCCEED:
-              // current command succeeded; there may be more
-              continue;
-
-           case CS_CMD_FAIL:
-              m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "command::read_output(): SQL command failed");
-              return 0;
-
-           default:
-              m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "command::read_output(): ct_results() returned unexpected result type %d", (int)result_type);
-              return 0;
-      } // switch
-   } // while
-
-   //printd(5, "read_output() q=%d, p=%d\n", (bool)query_result, (bool)param_result);
-
-   m_conn.purge_messages(xsink);
-   AbstractQoreNode *rv = 0;
-   if (!query_result) {
-      if (param_result)
-           rv = param_result.release();
-      else if (rowcount != -1)
-           return new QoreBigIntNode(rowcount);
-
-      if (rowcount != -1) {
-           QoreHashNode *h = dynamic_cast<QoreHashNode *>(rv);
-           if (h)
-              h->setKeyValue("rowcount", new QoreBigIntNode(rowcount), xsink);
-      }
-      return rv;
-   }
-
-   rv = query_result.release();
-   if (!param_result)
-      return rv;
-
-   // return hash with param_result
-   QoreHashNode *h = new QoreHashNode();
-   h->setKeyValue("query", rv, xsink);
-
-   if (param_result)
-      h->setKeyValue("params", param_result.release(), xsink);
-
-   if (rowcount != -1)
-      h->setKeyValue("rowcount", new QoreBigIntNode(rowcount), xsink);
-
-   return h;
+    m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+            "command::read_output(): ct_results() returned"
+            " unexpected result type %d", (int)result_type);
+    return RES_ERROR;
 }
 
-AbstractQoreNode *command::read_rows(PlaceholderList *placeholder_list, bool list, ExceptionSink* xsink) {
-   unsigned columns = get_column_count(xsink);
-   if (xsink->isException())
-      return 0;
 
-   row_result_t descriptions;
-   if (get_row_description(descriptions, columns, xsink))
-      return 0;
+AbstractQoreNode *command::read_output(
+        bool list,
+        bool &disconnect,
+        ExceptionSink* xsink)
+{
+    PlaceholderList &placeholder_list = query->placeholder_list;
+    ReferenceHolder<AbstractQoreNode> qresult(xsink);
 
-   row_output_buffers out_buffers;
-   setup_output_buffers(descriptions, out_buffers, xsink);
-   if (xsink->isException())
-      return 0;
+    ss::ResultFactory rf(xsink);
 
-   const QoreEncoding *encoding = m_conn.getEncoding();
+    for (;;) {
+        ResType rt = read_next_result(xsink);
+        switch (rt) {
+            case RES_ERROR:
+                return 0;
+            case RES_PARAM:
+                qresult = read_rows(&placeholder_list, true, xsink);
+                rf.add(qresult);
+                break;
+            case RES_ROW:
+                qresult = read_rows(0, list, xsink);
+                rf.add(qresult);
+                break;
+            case RES_END:
+                return rf.res();
+            case RES_DONE:
+                rf.done(rowcount);
+                continue;
+            default:
+                m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+                        "don't know how to handle result type");
+                break;
+        }
+        if (xsink->isException()) {
+            return 0;
+        }
+    }
+}
 
-   // setup hash of lists if necessary
-   if (!list) {
-      QoreHashNode *h = new QoreHashNode();
-      QoreString str(encoding);
-      for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
-           const char *col_name;
 
-           if (descriptions[i].name && descriptions[i].name[0]) {
-              col_name = descriptions[i].name;
-           } else {
-              if (!placeholder_list || !(col_name = placeholder_list->getName()))
-              {
-                 str.clear();
-                 str.sprintf("%d", i);
-                 col_name = str.getBuffer();
-              }
-           }
+void command::retr_colinfo(ExceptionSink* xsink) {
+    unsigned columns = get_column_count(xsink);
+    if (xsink->isException()) return;
+    colinfo.reset();
+    get_row_description(colinfo.datafmt, columns, xsink);
+    setup_output_buffers(colinfo.datafmt, xsink);
+    colinfo.dirty = false;
+}
 
-           h->setKeyValue(col_name, new QoreListNode(), 0);
-      }
 
-      while (fetch_row_into_buffers(xsink)) {
-           if (append_buffers_to_list(placeholder_list, descriptions, out_buffers, h, xsink))
-              return 0;
-      }
-      return h;
-   }
+AbstractQoreNode *command::read_cols(const Placeholders *ph, ExceptionSink* xsink)
+{
+    if (ensure_colinfo(xsink)) return 0;
 
-   ReferenceHolder<AbstractQoreNode> rv(xsink);
-   QoreListNode *l = 0;
-   while (fetch_row_into_buffers(xsink)) {
-      QoreHashNode *h = output_buffers_to_hash(placeholder_list, descriptions, out_buffers, xsink);
-      if (*xsink)
-           return 0;
-      if (rv) {
-           if (!l) {
-              // convert to list - several rows
-              l = new QoreListNode();
-              l->push(rv.release());
-              rv = l;
-           }
-           l->push(h);
-      }
-      else
-           rv = h;
-   }
-   return rv.release();
+    if (xsink->isException()) return 0;
+
+    row_result_t &descriptions = colinfo.datafmt;
+
+    // setup hash of lists if necessary
+    QoreHashNode *h = new QoreHashNode();
+    for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
+        std::string col_name;
+
+        if (!ss::is_empty(descriptions[i].name)) {
+            col_name = descriptions[i].name;
+        } else {
+            col_name = get_placeholder_at(ph, i);
+        }
+
+        h->setKeyValue(col_name, new QoreListNode(), 0);
+    }
+
+    while (fetch_row_into_buffers(xsink)) {
+        if (append_buffers_to_list(descriptions, out_buffers, h, xsink))
+            return 0;
+    }
+    return h;
+}
+
+
+
+QoreHashNode * command::fetch_row(ExceptionSink* xsink, const Placeholders *ph)
+{
+    if (ensure_colinfo(xsink)) return 0;
+
+    if (!fetch_row_into_buffers(xsink)) return 0;
+    QoreHashNode *h = output_buffers_to_hash(ph, xsink);
+    return h;
+}
+
+AbstractQoreNode *command::read_rows(const Placeholders *ph,
+        ExceptionSink* xsink)
+{
+    if (ensure_colinfo(xsink)) return 0;
+
+    ReferenceHolder<AbstractQoreNode> rv(xsink);
+    QoreListNode *l = 0;
+    while (fetch_row_into_buffers(xsink)) {
+        QoreHashNode *h = output_buffers_to_hash(ph, xsink);
+        if (*xsink) return 0;
+        if (rv) {
+            if (!l) {
+                // convert to list - several rows
+                l = new QoreListNode();
+                l->push(rv.release());
+                rv = l;
+            }
+            l->push(h);
+        }
+        else
+            rv = h;
+    }
+    return rv.release();
+}
+
+
+
+AbstractQoreNode *command::read_rows(PlaceholderList *placeholder_list,
+        bool list,
+        ExceptionSink* xsink)
+{
+    if (ensure_colinfo(xsink)) return 0;
+
+    // setup hash of lists if necessary
+    if (!list) {
+        if (!placeholder_list) {
+            return read_cols(0, xsink);
+        }
+        return read_cols(&placeholder_list->plist, xsink);
+    } else {
+        if (!placeholder_list) {
+            return read_rows(0, xsink);
+        }
+        return read_rows(&placeholder_list->plist, xsink);
+    }
 }
 
 
@@ -527,13 +538,18 @@ int command::get_row_description(row_result_t &result,
    return 0;
 }
 
-int command::setup_output_buffers(const row_result_t &input_row_descriptions, row_output_buffers &result, ExceptionSink *xsink) {
+int command::setup_output_buffers(const row_result_t &input_row_descriptions,
+        ExceptionSink *xsink)
+{
+   out_buffers.reset();
    for (unsigned i = 0, n = input_row_descriptions.size(); i != n; ++i) {
       unsigned size = input_row_descriptions[i].maxlength;
-      output_value_buffer *out = new output_value_buffer(size);
-      result.m_buffers.push_back(out);
+      output_value_buffer *out = out_buffers.insert(size);
 
-      CS_RETCODE err = ct_bind(m_cmd, i + 1, (CS_DATAFMT*)&input_row_descriptions[i], out->value, &out->value_len, &out->indicator);
+      CS_RETCODE err = ct_bind(m_cmd, i + 1,
+              (CS_DATAFMT*)&input_row_descriptions[i],
+              out->value, &out->value_len, &out->indicator);
+
       if (err != CS_SUCCEED) {
            m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_bind() failed with error %d", (int)err);
            return -1;
@@ -542,16 +558,14 @@ int command::setup_output_buffers(const row_result_t &input_row_descriptions, ro
    return 0;
 }
 
-int command::append_buffers_to_list(PlaceholderList *placeholder_list, row_result_t &column_info,
+int command::append_buffers_to_list(row_result_t &column_info,
                                             row_output_buffers& all_buffers,
                                             class QoreHashNode *h, ExceptionSink *xsink) {
-   //const QoreEncoding *encoding = m_conn.getEncoding();
-
    HashIterator hi(h);
    for (unsigned i = 0, n = column_info.size(); i != n; ++i) {
       hi.next();
 
-      const output_value_buffer& buff = *(all_buffers.m_buffers[i]);
+      const output_value_buffer& buff = *all_buffers[i];
       AbstractQoreNode* value = get_node(column_info[i], buff, xsink);
       if (xsink->isException()) {
            if (value) value->deref(xsink);
@@ -565,31 +579,29 @@ int command::append_buffers_to_list(PlaceholderList *placeholder_list, row_resul
    return 0;
 }
 
-QoreHashNode *command::output_buffers_to_hash(PlaceholderList *placeholder_list,
-        row_result_t column_info, row_output_buffers& all_buffers, ExceptionSink* xsink)
+QoreHashNode *command::output_buffers_to_hash(const Placeholders *ph,
+        ExceptionSink* xsink)
 {
+   row_result_t &column_info = colinfo.datafmt;
    ReferenceHolder<QoreHashNode> result(new QoreHashNode(), xsink);
-   if (placeholder_list)
-      placeholder_list->reset();
-   for (unsigned i = 0, n = column_info.size(); i != n; ++i) {
-      const output_value_buffer& buff = *(all_buffers.m_buffers[i]);
-      ReferenceHolder<AbstractQoreNode> value(get_node(column_info[i], buff, xsink), xsink);
-      if (*xsink)
-           return 0;
 
-      const char *column_name;
-      if (column_info[i].name && column_info[i].name[0]) {
+   for (unsigned i = 0, n = column_info.size(); i != n; ++i) {
+      const output_value_buffer& buff = *out_buffers[i];
+
+      ReferenceHolder<AbstractQoreNode>
+          value(get_node(column_info[i], buff, xsink), xsink);
+
+      if (*xsink) return 0;
+
+      std::string column_name;
+      if (!ss::is_empty(column_info[i].name)) {
            column_name = column_info[i].name;
-      }
-      else if (!placeholder_list || !(column_name = placeholder_list->getName())) {
-           char aux[20];
-           sprintf(aux, "%d", i);
-           result->setKeyValue(aux, value.release(), xsink);
-           continue;
+      } else {
+           column_name = get_placeholder_at(ph, i);
       }
 
       result->setKeyValue(column_name, value.release(), xsink);
-   } // for
+   }
 
    return result.release();
 }
@@ -618,6 +630,16 @@ static inline bool need_trim(const CS_DATAFMT_EX& datafmt) {
     return false;
 }
 
+static bool use_numbers(const connection &con) {
+    switch (con.getNumeric()) {
+        case connection::OPT_NUM_OPTIMAL:
+        case connection::OPT_NUM_NUMERIC:
+            return true;
+    }
+    return false;
+}
+
+
 AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
         const output_value_buffer& buffer, ExceptionSink* xsink)
 {
@@ -632,7 +654,7 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
      case CS_VARCHAR_TYPE:
      case CS_TEXT_TYPE:
      case CS_CHAR_TYPE: {
-          if (is_number(datafmt)) {
+          if (use_numbers(m_conn) && is_number(datafmt)) {
               return new QoreNumberNode((const char*)buffer.value);
           }
 
@@ -718,3 +740,22 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
       return 0;
   } // switch
 }
+
+int command::bind_query(std::auto_ptr<sybase_query> &q,
+        const QoreListNode *args,
+        ExceptionSink *xsink)
+{
+    int rv = 0;
+    query.reset(q.release());
+
+    rv = initiate_language_command(query->buff(), xsink);
+    if (rv) return rv;
+
+    if (args) {
+        rv = set_params(*query, args, xsink);
+        if (rv) return rv;
+    }
+
+    return 0;
+}
+

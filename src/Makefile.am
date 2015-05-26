@@ -1,7 +1,10 @@
 if COND_SINGLE_COMPILATION_UNIT
 SYBASE_SOURCES = single-compilation-unit.cc
 else
-SYBASE_SOURCES = sybase.cc connection.cc conversions.cc command.cc encoding_helpers.cc sybase_query.cc row_output_buffers.cc
+SYBASE_SOURCES = sybase.cc connection.cc\
+				 conversions.cc command.cc\
+				 encoding_helpers.cc sybase_query.cc\
+				 row_output_buffers.cc statement.cc
 endif
 
 lib_LTLIBRARIES =

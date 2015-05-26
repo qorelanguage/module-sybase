@@ -72,6 +72,7 @@ int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT
 #ifdef _QORE_HAS_DBI_EXECRAW
    | DBI_CAP_HAS_EXECRAW
 #endif
+   | DBI_CAP_HAS_STATEMENT
    ;
 
 #ifdef DEBUG
@@ -291,6 +292,31 @@ static void init_namespace() {
 }
  */
 
+
+static int sybase_opt_set(Datasource* ds, const char* opt,
+        const AbstractQoreNode* val, ExceptionSink* xsink)
+{
+   connection *conn = (connection*)ds->getPrivateData();
+   return conn->setOption(opt, val, xsink);
+}
+
+static AbstractQoreNode* sybase_opt_get(const Datasource* ds,
+        const char* opt) 
+{
+    connection *conn = (connection*)ds->getPrivateData();
+    return conn->getOption(opt);
+}
+
+
+
+
+
+
+namespace ss {
+    void init(qore_dbi_method_list &methods);
+
+}
+
 QoreStringNode *sybase_module_init() {
    QORE_TRACE("sybase_module_init()");
 
@@ -315,6 +341,24 @@ QoreStringNode *sybase_module_init() {
    methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
    methods.add(QDBI_METHOD_GET_SERVER_VERSION, sybase_get_server_version);
+
+
+   methods.add(QDBI_METHOD_OPT_SET, sybase_opt_set);
+   methods.add(QDBI_METHOD_OPT_GET, sybase_opt_get);
+   
+   
+   methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'numeric-numbers'");
+   methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
+   methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
+   methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone,"
+           " value must be a string in the format accepted by"
+           " Timezone::constructor() on the client (ie either a region"
+           " name or a UTC offset like \"+01:00\"), if not set the"
+           " server's time zone will be assumed to be the same as"
+           " the client's", stringTypeInfo);
+
+   ss::init(methods);
+
 
 #ifdef SYBASE
    DBID_SYBASE = DBI.registerDriver("sybase", methods, DBI_SYBASE_CAPS);

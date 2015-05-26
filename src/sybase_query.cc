@@ -33,113 +33,116 @@
 #include "sybase_query.h"
 
 // returns 0=OK, -1=error (exception raised)
-int sybase_query::init(QoreString *cmd_text, const QoreListNode *args, ExceptionSink *xsink)
+int sybase_query::init(const QoreString *cmd_text,
+        const QoreListNode *args,
+        ExceptionSink *xsink)
 {
-   m_cmd = cmd_text;
+   m_cmd = *cmd_text;
 
-   const char* s = m_cmd->getBuffer();
+   const char* s = m_cmd.getBuffer();
    QoreString tmp;
    while (*s) {
-      char ch = *s++;
+       char ch = *s++;
 
-      // skip double qouted strings
-      if (ch == '"') {
-	 for (;;) {
-	    ch = *s++;
-	    if (ch == '\\') {
-	       ch = *s++;
-	       continue;
-	    }
-	    if (ch == '"') {
-	       goto next;
-	    }
-	 }
-      }
-      // skip single qouted strings
-      if (ch == '\'') {
-	 for (;;) {
-	    ch = *s++;
-	    if (ch == '\\') {
-	       ch = *s++;
-	       continue;
-	    }
-	    if (ch == '\'') {
-	       goto next;
-	    }
-	 }
-      }
-      
-      if (ch == '%') 
-      {
-	 int offset = s - m_cmd->getBuffer() - 1;
-	 ch = *s++;
-	 if (ch == 'v') 
-	 {
-	    param_list.push_back('v');
-	    //param_list.resize(count + 1);
-	    //param_list[count++].set(PN_VALUE);
-	  
-	    tmp.clear();
-	    tmp.sprintf("@par%u", param_list.size());
-	    m_cmd->replace(offset, 2, &tmp);
-	    s = m_cmd->getBuffer() + offset + tmp.strlen();
-	 } 
-	 else if (ch == 'd') 
-	 {
-	    const AbstractQoreNode *v = args ? args->retrieve_entry(param_list.size()) : 0;
-	    tmp.clear();
-	    DBI_concat_numeric(&tmp, v);
-	    m_cmd->replace(offset, 2, tmp.getBuffer());
-	    s = m_cmd->getBuffer() + offset + tmp.strlen();
+       // skip double qouted strings
+       if (ch == '"') {
+           for (;;) {
+               ch = *s++;
+               if (ch == '\\') {
+                   ch = *s++;
+                   continue;
+               }
+               if (ch == '"') {
+                   goto next;
+               }
+           }
+       }
+       // skip single qouted strings
+       if (ch == '\'') {
+           for (;;) {
+               ch = *s++;
+               if (ch == '\\') {
+                   ch = *s++;
+                   continue;
+               }
+               if (ch == '\'') {
+                   goto next;
+               }
+           }
+       }
 
-	    param_list.push_back('d');
-	    //param_list.resize(count + 1);
-	    //param_list[count++].set(PN_NUMERIC);
-	 } 
-	 else if (ch == 's') 
-	 {
-	    const AbstractQoreNode *v = args ? args->retrieve_entry(param_list.size()) : 0;
-	    tmp.clear();
-	    if (DBI_concat_string(&tmp, v, xsink))
-	       return -1;
-	    m_cmd->replace(offset, 2, tmp.getBuffer());
-	    s = m_cmd->getBuffer() + offset + tmp.strlen();
-	    
-	    // mark it with a 'd' to ensure it gets skipped
-	    param_list.push_back('d');
-	    //param_list.resize(count + 1);
-	    //param_list[count++].set(PN_NUMERIC);
-	 } 
-	 else
-	 {
-	    xsink->raiseException("DBI-EXEC-EXCEPTION", "Only %%v or %%d expected in parameter list");
-	    return -1;
-	 }
-      } 
-      // read placeholder name
-      else if (ch == ':') 
-      {
-	 int offset = s - m_cmd->getBuffer() - 1;
+       if (ch == '%')
+       {
+           int offset = s - m_cmd.getBuffer() - 1;
+           ch = *s++;
+           if (ch == 'v')
+           {
+               param_list.push_back('v');
+               //param_list.resize(count + 1);
+               //param_list[count++].set(PN_VALUE);
 
-	 const char* placeholder_start = s;
-	 while (isalnum(*s) || *s == '_') ++s;
-	 if (s == placeholder_start) {
-	    xsink->raiseException("DBI-EXEC-EXCEPTION", "Placeholder name missing after ':'");
-	    return -1;
-	 }
-	 m_cmd->replace(offset, 1, "@");
+               tmp.clear();
+               tmp.sprintf("@par%u", param_list.size());
+               m_cmd.replace(offset, 2, &tmp);
+               s = m_cmd.getBuffer() + offset + tmp.strlen();
+           }
+           else if (ch == 'd')
+           {
+               const AbstractQoreNode *v = args ? args->retrieve_entry(param_list.size()) : 0;
+               tmp.clear();
+               DBI_concat_numeric(&tmp, v);
+               m_cmd.replace(offset, 2, tmp.getBuffer());
+               s = m_cmd.getBuffer() + offset + tmp.strlen();
 
-	 //param_list.resize(count + 1);
-	 //param_list[count++].set(placeholder_start, s - placeholder_start);
+               param_list.push_back('d');
+               //param_list.resize(count + 1);
+               //param_list[count++].set(PN_NUMERIC);
+           }
+           else if (ch == 's')
+           {
+               const AbstractQoreNode *v = args ? args->retrieve_entry(param_list.size()) : 0;
+               tmp.clear();
+               if (DBI_concat_string(&tmp, v, xsink))
+                   return -1;
+               m_cmd.replace(offset, 2, tmp.getBuffer());
+               s = m_cmd.getBuffer() + offset + tmp.strlen();
 
-	 // is this creating a std::string and then copying it and creating another in the vector?
-	 placeholder_list.add(placeholder_start, s - placeholder_start);
-      }
-     next:
-	 ;	 
+               // mark it with a 'd' to ensure it gets skipped
+               param_list.push_back('d');
+               //param_list.resize(count + 1);
+               //param_list[count++].set(PN_NUMERIC);
+           }
+           else
+           {
+               xsink->raiseException("DBI-EXEC-EXCEPTION",
+                       "Only %%v or %%d expected in parameter list");
+               return -1;
+           }
+       }
+       // read placeholder name
+       else if (ch == ':')
+       {
+           int offset = s - m_cmd.getBuffer() - 1;
+
+           const char* placeholder_start = s;
+           while (isalnum(*s) || *s == '_') ++s;
+           if (s == placeholder_start) {
+               xsink->raiseException("DBI-EXEC-EXCEPTION", "Placeholder name missing after ':'");
+               return -1;
+           }
+           m_cmd.replace(offset, 1, "@");
+
+           //param_list.resize(count + 1);
+           //param_list[count++].set(placeholder_start, s - placeholder_start);
+
+           // is this creating a std::string and then copying it and creating another in the vector?
+           placeholder_list.add(placeholder_start, s - placeholder_start);
+       }
+next:
+       ;
    } // while
 
-   //printd(5, "size=%d, m_cmd=%s\n", param_list.size(), m_cmd->getBuffer());
+   //printd(5, "size=%d, m_cmd=%s\n", param_list.size(), m_cmd.getBuffer());
    return 0;
 }
 

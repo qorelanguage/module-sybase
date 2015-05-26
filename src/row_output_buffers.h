@@ -35,15 +35,15 @@ class output_value_buffer
 {
    private:
       output_value_buffer(const output_value_buffer&);       // not implemented
-      output_value_buffer& operator=(output_value_buffer&);  // not implemented  
+      output_value_buffer& operator=(output_value_buffer&);  // not implemented
 
    public:
       output_value_buffer(unsigned size);
       ~output_value_buffer();
-      
+
       CS_SMALLINT indicator;
       CS_CHAR* value;          // owned
-      CS_INT value_len;  
+      CS_INT value_len;
 };
 
 // holds buffers for a single row
@@ -52,11 +52,18 @@ class row_output_buffers
    private:
       row_output_buffers(const row_output_buffers&);             // not implemented
       row_output_buffers& operator=(const row_output_buffers&);  // not implemented
-      
+
+
    public:
       row_output_buffers() {}
       ~row_output_buffers();
-      
+      void reset();
+      output_value_buffer * insert(size_t size);
+      output_value_buffer * operator[](size_t i) {
+        return m_buffers.at(i);
+      }
+
+  private:
       std::vector<output_value_buffer*> m_buffers;
 };
 

@@ -28,8 +28,12 @@
 #include <assert.h>
 
 #include "row_output_buffers.h"
+#include "utils.h"
 
-output_value_buffer::output_value_buffer(unsigned size) : indicator(0), value_len(0)
+output_value_buffer::output_value_buffer(unsigned size) :
+    indicator(0),
+    value(0),
+    value_len(0)
 {
    if (size < 7) size = 7; // ensure at least 8 bytes are allocated
    value = size ? new char[size + 1] : 0; // terminator for strings
@@ -37,15 +41,21 @@ output_value_buffer::output_value_buffer(unsigned size) : indicator(0), value_le
 
 output_value_buffer::~output_value_buffer()
 {
-   delete[] value;
+   delete [] value;
 }
 
 row_output_buffers::~row_output_buffers()
 {
-   for (unsigned i = 0, n = m_buffers.size(); i != n; ++i) 
-   {
-      assert(m_buffers[i]);
-      delete m_buffers[i];
-   }
+    reset();
 }
 
+void row_output_buffers::reset() {
+    ss::delete_container(m_buffers);
+    m_buffers.clear();
+}
+
+output_value_buffer * row_output_buffers::insert(size_t size) {
+    output_value_buffer *out = new output_value_buffer(size);
+    m_buffers.push_back(out);
+    return out;
+}

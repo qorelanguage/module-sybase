@@ -30,6 +30,9 @@
 
 #include <ctpublic.h>
 
+#include <qore/DateTime.h>
+#include <qore/DateTimeNode.h>
+
 //class connection;
 
 // Sybase DATETIME datatype manipulation 

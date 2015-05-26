@@ -46,8 +46,13 @@ QoreThreadLock cs_lock;
 #endif
 
 connection::connection(Datasource *n_ds, ExceptionSink *xsink)
-   : m_context(xsink), m_connection(0), connected(false), ds(n_ds) {
-}
+   : m_context(xsink),
+     m_connection(0),
+     connected(false),
+     ds(n_ds),
+     numeric_support(OPT_NUM_OPTIMAL),
+     server_tz(0)
+{}
 
 connection::~connection() {
    CS_RETCODE ret = CS_SUCCEED;
@@ -77,7 +82,7 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
 
    ON_BLOCK_EXIT(ct_cmd_drop, cmd);
    ScopeGuard canceller = MakeGuard(ct_cancel, (CS_CONNECTION*)0, cmd, CS_CANCEL_ALL);
-   
+
    err = ct_command(cmd, CS_LANG_CMD, (CS_CHAR*)sql_text, strlen(sql_text), CS_END);
    if (err != CS_SUCCEED)
       return do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_command() failed");
@@ -91,7 +96,7 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
    err = ct_results(cmd, &result_type);
    if (err != CS_SUCCEED)
       return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() returned error code %d", err);
-   
+
    if (result_type != CS_CMD_SUCCEED)
       return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() failed with result_type = %d", result_type);
 
@@ -109,80 +114,113 @@ static inline bool wasInTransaction(Datasource *ds) {
 #endif
 }
 
-AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
-                                          bool need_list, ExceptionSink* xsink,
-                                          bool doBinding) {
-   sybase_query query;
-   if (doBinding) {
-       if (query.init(cmd_text, qore_args, xsink))
-          return 0;
-   } else {
-       query.m_cmd = cmd_text;
-   }
+command * connection::create_command(const QoreString *cmd_text,
+        const QoreListNode *qore_args,
+        ExceptionSink* xsink)
+{
+    std::auto_ptr<sybase_query> query(new sybase_query());
 
-   while (true) {
-      printd(5, "connection::exec_intern() sql='%s'\n", cmd_text->getBuffer());
-      command cmd(*this, xsink);
-      if (xsink->isException())
-         return 0;
+    if (query->init(cmd_text, qore_args, xsink))
+        return 0;
 
-      if (cmd.initiate_language_command(query.m_cmd->getBuffer(), xsink))
-         return 0;
+    std::auto_ptr<command> cmd(new command(*this, xsink));
+    cmd->bind_query(query, qore_args, xsink);
+    if (cmd->send(xsink)) return 0;
+    return cmd.release();
+}
 
-      if (!query.param_list.empty() && cmd.set_params(query, qore_args, xsink))
-         return 0;
 
-      if (cmd.send(xsink))
-         return 0;
+command * connection::create_command(const QoreString *cmd_text,
+        ExceptionSink* xsink)
+{
+    std::auto_ptr<sybase_query> query(new sybase_query());
 
-      bool disconnect = false;
-      ReferenceHolder<AbstractQoreNode> result(cmd.read_output(query.placeholder_list, need_list, disconnect, xsink), xsink);
-      if (*xsink)
-         return 0;
+    if (query->init(cmd_text)) return 0;
 
-      if (!disconnect) {
-         //printd(5, "execute_command_impl() result=%08p (%lld)\n", result, result && result->getType() == NT_INT ? result->getAsBigInt() : 0LL);
-         return result.release();
-      }
+    std::auto_ptr<command> cmd(new command(*this, xsink));
+    cmd->bind_query(query, 0, xsink);
+    if (cmd->send(xsink)) return 0;
+    return cmd.release();
+}
 
-      // see if we need to reconnect and try again
-      ct_close(m_connection, CS_FORCE_CLOSE);
-      connected = false;
 
-      // discard all current messages
-      discard_messages();
+AbstractQoreNode * connection::fetch_row(command *cmd, ExceptionSink* xsink) {
+    if (!cmd) return 0;
 
-      if (wasInTransaction(ds))
-         xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
-         
-      // otherwise try to reconnect
-      ct_con_drop(m_connection);
-      m_connection = 0;
+    bool disconnect = false;
+    ReferenceHolder<AbstractQoreNode>
+        result(cmd->read_output(false, disconnect, xsink), xsink);
+    return result.release();
+}
+
+
+AbstractQoreNode *connection::exec_intern(QoreString *cmd_text,
+        const QoreListNode *qore_args,
+        bool need_list,
+        ExceptionSink* xsink,
+        bool doBinding)
+{
+    std::auto_ptr<command> cmd;
+    if (doBinding) {
+        cmd.reset(create_command(cmd_text, qore_args, xsink));
+    } else {
+        cmd.reset(create_command(cmd_text, xsink));
+    }
+
+    while (true) {
+        if (xsink->isException()) return 0;
+
+        bool disconnect = false;
+
+        ReferenceHolder<AbstractQoreNode>
+            result(cmd->read_output(need_list, disconnect, xsink), xsink);
+
+        if (*xsink)
+            return 0;
+
+        if (!disconnect) {
+            return result.release();
+        }
+
+        // see if we need to reconnect and try again
+        ct_close(m_connection, CS_FORCE_CLOSE);
+        connected = false;
+
+        // discard all current messages
+        discard_messages();
+
+        if (wasInTransaction(ds))
+            xsink->raiseException("DBI:SYBASE:TRANSACTION-ERROR",
+                    "connection to server lost while in a transaction; transaction has been lost");
+
+        // otherwise try to reconnect
+        ct_con_drop(m_connection);
+        m_connection = 0;
 
 #ifdef QORE_HAS_DATASOURCE_PORT
-      int port = ds->getPort();
+        int port = ds->getPort();
 #else
-      int port = 0;
+        int port = 0;
 #endif
 
-      // make the actual connection to the database
-      init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
-      // return with an error if it didn't work
-      if (*xsink) {
-         // make sure and mark Datasource as closed
-         ds->connectionAborted();
-         return 0;
-      }
+        // make the actual connection to the database
+        init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
+        // return with an error if it didn't work
+        if (*xsink) {
+            // make sure and mark Datasource as closed
+            ds->connectionAborted();
+            return 0;
+        }
 
-      // if the connection was aborted while in a transaction, return now
-      if (wasInTransaction(ds))
-         return 0;
+        // if the connection was aborted while in a transaction, return now
+        if (wasInTransaction(ds))
+            return 0;
 
-      printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
-   }
+        printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
+    }
 
-   // to avoid warnings
-   return 0;
+    // to avoid warnings
+    return 0;
 }
 
 AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink) {
@@ -217,18 +255,26 @@ AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNod
    return exec_intern(query, parameters, true, xsink);
 }
 
-// returns 0=OK, -1=error (exception raised)                                                                                                                                      
+// returns 0=OK, -1=error (exception raised)
 int connection::commit(ExceptionSink *xsink) {
    return direct_execute("commit", xsink);
 }
 
-// returns 0=OK, -1=error (exception raised)                                                                                                                                      
+// returns 0=OK, -1=error (exception raised)
 int connection::rollback(ExceptionSink *xsink) {
    return direct_execute("rollback", xsink);
 }
 
-// Post-constructor initialization 
-int connection::init(const char* username, const char* password, const char* dbname, const char *db_encoding, const QoreEncoding *n_enc, const char *hostname, int port, ExceptionSink* xsink) {
+// Post-constructor initialization
+int connection::init(const char* username,
+        const char* password,
+        const char* dbname,
+        const char* db_encoding,
+        const QoreEncoding *n_enc,
+        const char *hostname,
+        int port,
+        ExceptionSink* xsink)
+{
    assert(!m_connection);
 
    printd(5, "connection::init() user=%s pass=%s dbname=%s, db_enc=%s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
@@ -247,7 +293,7 @@ int connection::init(const char* username, const char* password, const char* dbn
     xsink->raiseException("DBI:SYBASE:CTLIB-SET-CALLBACK", "ct_callback(CS_SERVERMSG_CB) failed with error %d", ret);
     return -1;
   }
-*/  
+*/
    CS_RETCODE ret = ct_con_alloc(m_context.get_context(), &m_connection);
    if (ret != CS_SUCCEED) {
       xsink->raiseException("DBI:SYBASE:CTLIB-CREATE-CONNECTION", "ct_con_alloc() failed with error %d", ret);
@@ -322,7 +368,7 @@ int connection::init(const char* username, const char* password, const char* dbn
       return -1;
    }
    connected = true;
-   
+
    // turn on chained transaction mode, this fits with Qore's transaction management approach
    // - in autocommit mode qore executes a commit after every request manually
    CS_BOOL cs_bool = CS_TRUE;
@@ -342,9 +388,9 @@ int connection::init(const char* username, const char* password, const char* dbn
 
 void connection::discard_messages() {
 #ifdef DEBUG
-   CS_RETCODE ret = 
+   CS_RETCODE ret =
 #endif
-       ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
+   ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
    assert(ret == CS_SUCCEED);
 
 }
@@ -438,7 +484,7 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
       if (ret != CS_SUCCEED || smsg.severity <= 10)
          continue;
-      
+
       if (count)
          estr->concat(", ");
       if (smsg.svrnlen)
@@ -453,7 +499,7 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
       ++count;
    }
    ret = ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
-   assert(ret == CS_SUCCEED);   
+   assert(ret == CS_SUCCEED);
    xsink->raiseException(err, estr);
    return -1;
 }
@@ -479,7 +525,7 @@ CS_RETCODE connection::clientmsg_callback(CS_CONTEXT* ctx, CS_CONNECTION* conn, 
     fprintf(stderr, "Operating System Error: %s\n", errmsg->osstring);
   }
   fprintf(stderr, "--------------------------------------------------\n");
-  fflush(stderr);  
+  fflush(stderr);
 #endif
   return CS_SUCCEED;
 }
@@ -528,14 +574,76 @@ AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink)
    QoreStringNode *str = dynamic_cast<QoreStringNode *>(rv);
    if (str)
       str->trim_trailing('\n');
-   
+
    return rv;
 }
+
+DLLLOCAL int connection::setOption(const char* opt,
+        const AbstractQoreNode* val, ExceptionSink* xsink)
+{
+    if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
+        numeric_support = OPT_NUM_OPTIMAL;
+        return 0;
+    }
+
+    if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
+        numeric_support = OPT_NUM_STRING;
+        return 0;
+    }
+
+    if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
+        numeric_support = OPT_NUM_NUMERIC;
+        return 0;
+    }
+
+    if (!strcasecmp(opt, DBI_OPT_TIMEZONE)) {
+        assert(get_node_type(val) == NT_STRING);
+        const QoreStringNode* str =
+            reinterpret_cast<const QoreStringNode*>(val);
+        const AbstractQoreZoneInfo* tz =
+            find_create_timezone(str->getBuffer(), xsink);
+        if (*xsink) return -1;
+        server_tz = tz;
+        return 0;
+    }
+
+    assert(false);
+    return 0;
+}
+
+
+DLLLOCAL AbstractQoreNode* connection::getOption(const char* opt) {
+    if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
+        return get_bool_node(numeric_support == OPT_NUM_OPTIMAL);
+    }
+
+    if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
+        return get_bool_node(numeric_support == OPT_NUM_STRING);
+    }
+
+    if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
+        return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
+    }
+
+    if (!strcasecmp(opt, DBI_OPT_TIMEZONE)) {
+        return new QoreStringNode(tz_get_region_name(getTZ()));
+    }
+
+    assert(false);
+    return 0;
+}
+
+
+DLLLOCAL const AbstractQoreZoneInfo* connection::getTZ() const {
+    if (server_tz) return server_tz;
+    return currentTZ();
+}
+
 
 #ifdef DEBUG
 //#  include "tests/connection_tests.cc"
 //#  include "tests/direct_execute_tests.cc"
-//#  include "tests/executor_tests.cc" 
+//#  include "tests/executor_tests.cc"
 //#  include "tests/executor_rpc_tests.cc"
 #endif
 

@@ -30,50 +30,31 @@
 #include <vector>
 #include <utility>
 
-/*
-struct param_node {
-      int type;
-      std::string name;
-      DLLLOCAL void set(int n_type)
-      {
-	 type = n_type;
-      }
-      DLLLOCAL void set(const char *n_name, int len)
-      {
-	 type = 18;
-	 name = std::string(n_name, len);
-	 //printd(0, "param_node.set('%s')\n", name.c_str());
-      }
-};
-*/
-
 typedef std::vector<char> param_list_t;
 typedef std::vector<std::string> placeholder_list_t;
+typedef std::vector<std::string> Placeholders;
 
 class PlaceholderList
 {
-   private:
+   public:
       unsigned curr;
       placeholder_list_t plist;
-
-   public:
 
       DLLLOCAL PlaceholderList() : curr(0)
       {
       }
       DLLLOCAL void reset()
       {
-	 curr = 0;
+         curr = 0;
       }
       DLLLOCAL const char *getName()
       {
-	 if (curr == plist.size())
-	    return 0;
-	 return plist[curr++].c_str();
+         if (curr == plist.size())
+            return 0;
+         return plist[curr++].c_str();
       }
-      DLLLOCAL void add(const char *str, int len)
-      {
-	 plist.push_back(std::string(str, len));
+      void add(const char *str, int len) {
+         plist.push_back(std::string(str, len));
       }
 };
 
@@ -84,16 +65,27 @@ struct sybase_query {
       sybase_query& operator=(const sybase_query &);
 
    public:
-      DLLLOCAL sybase_query()
-      {
-      }
+      DLLLOCAL sybase_query() {}
+
       // with %v and %d replaced with @parX
-      QoreString *m_cmd;
+      QoreString m_cmd;
+
       param_list_t param_list;
       PlaceholderList placeholder_list;
 
       // returns 0=OK, -1=err (exception raised)
-      DLLLOCAL int init(QoreString *n_cmd, const QoreListNode *args, class ExceptionSink *xsink);
+      int init(const QoreString *n_cmd,
+              const QoreListNode *args,
+              class ExceptionSink *xsink);
+
+      int init(const QoreString *n_cmd) {
+          m_cmd = *n_cmd;
+          return 0;
+      }
+
+      const char * buff() const {
+          return m_cmd.getBuffer();
+      }
 };
 
 #endif
