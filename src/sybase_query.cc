@@ -136,7 +136,10 @@ int sybase_query::init(const QoreString *cmd_text,
            //param_list[count++].set(placeholder_start, s - placeholder_start);
 
            // is this creating a std::string and then copying it and creating another in the vector?
-           placeholder_list.add(placeholder_start, s - placeholder_start);
+           //placeholder_list.add(placeholder_start, s - placeholder_start);
+
+           std::string ph(placeholder_start, s - placeholder_start);
+           placeholders.push_back(ph);
        }
 next:
        ;

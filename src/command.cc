@@ -325,7 +325,6 @@ AbstractQoreNode *command::read_output(
         bool &disconnect,
         ExceptionSink* xsink)
 {
-    PlaceholderList &placeholder_list = query->placeholder_list;
     ReferenceHolder<AbstractQoreNode> qresult(xsink);
 
     ss::ResultFactory rf(xsink);
@@ -336,7 +335,7 @@ AbstractQoreNode *command::read_output(
             case RES_ERROR:
                 return 0;
             case RES_PARAM:
-                qresult = read_rows(&placeholder_list, true, xsink);
+                qresult = read_rows(&query->placeholders, true, xsink);
                 rf.add(qresult);
                 break;
             case RES_ROW:
@@ -437,7 +436,7 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph,
 
 
 
-AbstractQoreNode *command::read_rows(PlaceholderList *placeholder_list,
+AbstractQoreNode *command::read_rows(Placeholders *placeholder_list,
         bool list,
         ExceptionSink* xsink)
 {
@@ -448,12 +447,12 @@ AbstractQoreNode *command::read_rows(PlaceholderList *placeholder_list,
         if (!placeholder_list) {
             return read_cols(0, xsink);
         }
-        return read_cols(&placeholder_list->plist, xsink);
+        return read_cols(placeholder_list, xsink);
     } else {
         if (!placeholder_list) {
             return read_rows(0, xsink);
         }
-        return read_rows(&placeholder_list->plist, xsink);
+        return read_rows(placeholder_list, xsink);
     }
 }
 

@@ -34,30 +34,6 @@ typedef std::vector<char> param_list_t;
 typedef std::vector<std::string> placeholder_list_t;
 typedef std::vector<std::string> Placeholders;
 
-class PlaceholderList
-{
-   public:
-      unsigned curr;
-      placeholder_list_t plist;
-
-      DLLLOCAL PlaceholderList() : curr(0)
-      {
-      }
-      DLLLOCAL void reset()
-      {
-         curr = 0;
-      }
-      DLLLOCAL const char *getName()
-      {
-         if (curr == plist.size())
-            return 0;
-         return plist[curr++].c_str();
-      }
-      void add(const char *str, int len) {
-         plist.push_back(std::string(str, len));
-      }
-};
-
 struct sybase_query {
    private:
       // not implemented
@@ -71,7 +47,7 @@ struct sybase_query {
       QoreString m_cmd;
 
       param_list_t param_list;
-      PlaceholderList placeholder_list;
+      Placeholders placeholders;
 
       // returns 0=OK, -1=err (exception raised)
       int init(const QoreString *n_cmd,

@@ -80,8 +80,6 @@ public:
     };
 
 
-
-    typedef std::pair<ResType, AbstractQoreNode *> QueryResult;
 private:
     std::auto_ptr<sybase_query> query;
 
@@ -101,14 +99,13 @@ private:
         return xsink->isException();
     }
 
-
     // returns 0=OK, -1=error (exception raised)
     int get_row_description(row_result_t &result, unsigned column_count, class ExceptionSink *xsink);
     int setup_output_buffers(const row_result_t &input_row_descriptions, class ExceptionSink *xsink);
 
     AbstractQoreNode *read_cols(const Placeholders *placeholder_list, ExceptionSink* xsink);
 
-    AbstractQoreNode *read_rows(PlaceholderList *placeholder_list, bool list, ExceptionSink* xsink);
+    AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink);
     AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
 
     int append_buffers_to_list(row_result_t &column_info, row_output_buffers& all_buffers, class QoreHashNode *h, ExceptionSink* xsink);
@@ -117,7 +114,6 @@ private:
     AbstractQoreNode *get_node(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
 
     ResType read_next_result1(ExceptionSink* xsink);
-
 
 public:
     ResType read_next_result(ExceptionSink* xsink) {
