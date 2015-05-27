@@ -41,9 +41,11 @@
 DLLLOCAL extern int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME& out, ExceptionSink* xsink);
 //DLLLOCAL extern int DateTime_to_DATETIME4(const DateTime* dt, CS_DATETIME4& out, ExceptionSink* xsink);
 
-DLLLOCAL extern DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt);
+DLLLOCAL extern DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt,
+        const AbstractQoreZoneInfo *tz = 0);
 
-DLLLOCAL extern DateTimeNode* DATETIME_to_DateTime(CS_DATETIME& dt);
+DLLLOCAL extern DateTimeNode* DATETIME_to_DateTime(CS_DATETIME& dt,
+        const AbstractQoreZoneInfo *tz = 0);
 DLLLOCAL extern DateTimeNode* DATETIME4_to_DateTime(CS_DATETIME4& dt, ExceptionSink* xsink);
 
 // Sybase MONEY datatype manipulation (it is converted from/to float)

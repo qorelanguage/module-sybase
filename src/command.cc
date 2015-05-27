@@ -723,9 +723,9 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
 
        // NOTE: can't find a USER_* define for 38!
        if (datafmt.usertype == 38)
-            return TIME_to_DateTime(*value);
+            return TIME_to_DateTime(*value, m_conn.getTZ());
 
-       return DATETIME_to_DateTime(*value);
+       return DATETIME_to_DateTime(*value, m_conn.getTZ());
     }
     case CS_DATETIME4_TYPE: {
        CS_DATETIME4* value = (CS_DATETIME4*)(buffer.value);

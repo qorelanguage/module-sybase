@@ -35,6 +35,7 @@
 
 #include <math.h>
 
+
 #include "connection.h"
 #include "conversions.h"
 
@@ -43,13 +44,27 @@
 #define SYB_DAYS_TO_EPOCH 25567
 #define SYB_SECS_TO_EPOCH (SYB_DAYS_TO_EPOCH * 86400LL)
 
-DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt) {
+DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt, const AbstractQoreZoneInfo *tz) {
    int64 secs = dt.dttime / 300;
 
    // use floating point to get more accurate 1/3 s
    double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
-   return new DateTimeNode(secs, (int)ts);
+   DateTimeNode *rv = new DateTimeNode(secs, (int)ts);
+   try { if (tz) rv->setZone(tz); } catch(...) {}
+   return rv;
 }
+
+DateTimeNode *DATETIME_to_DateTime(CS_DATETIME& dt,
+        const AbstractQoreZoneInfo *tz)
+{
+   int64 secs = dt.dttime / 300;
+   // use floating point to get more accurate 1/3 s
+   double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
+   DateTimeNode *rv = new DateTimeNode(secs + dt.dtdays * 86400ll - SYB_SECS_TO_EPOCH, (int)ts);
+   try { if (tz) rv->setZone(tz); } catch(...) {}
+   return rv;
+}
+
 
 static int check_epoch(int64 secs, const DateTime &dt, ExceptionSink *xsink) {
    // 9999-12-31 23:59:59 has an epoch offset of: 253402300799 seconds
@@ -92,13 +107,6 @@ int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME &out, ExceptionSink* xs
    out.dttime = (secs - (days * 86400)) * 300 + (int)ts;
 
    return 0;
-}
-
-DateTimeNode *DATETIME_to_DateTime(CS_DATETIME& dt) {
-   int64 secs = dt.dttime / 300;
-   // use floating point to get more accurate 1/3 s
-   double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
-   return new DateTimeNode(secs + dt.dtdays * 86400ll - SYB_SECS_TO_EPOCH, (int)ts);
 }
 
 // maximum sybase small datetime value (June 6, 2079)
