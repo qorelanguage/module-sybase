@@ -86,7 +86,6 @@ int command::initiate_language_command(const char *cmd_text, ExceptionSink *xsin
 bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    CS_INT rows_read;
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
-   //printd(5, "ct_fetch() returned %d rows_read=%d\n", err, rows_read);
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
            m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
@@ -639,7 +638,6 @@ static bool use_numbers(const connection &con) {
     return false;
 }
 
-
 AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
         const output_value_buffer& buffer, ExceptionSink* xsink)
 {
@@ -654,11 +652,11 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
      case CS_VARCHAR_TYPE:
      case CS_TEXT_TYPE:
      case CS_CHAR_TYPE: {
-          if (use_numbers(m_conn) && is_number(datafmt)) {
-              return new QoreNumberNode((const char*)buffer.value);
-          }
-
           CS_CHAR* value = (CS_CHAR*)(buffer.value);
+
+          if (use_numbers(m_conn) && is_number(datafmt)) {
+              return new QoreNumberNode(value);
+          }
 
           QoreStringNode *s = new QoreStringNode(value,
                       buffer.value_len - 1, encoding);
