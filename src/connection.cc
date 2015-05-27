@@ -97,8 +97,8 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
    if (err != CS_SUCCEED)
       return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() returned error code %d", err);
 
-   if (result_type != CS_CMD_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() failed with result_type = %d", result_type);
+   if (result_type != CS_CMD_SUCCEED && do_check_exception(xsink, true, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() failed with result_type = %d", result_type))
+       return -1;
 
    while((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
    canceller.Dismiss();
@@ -396,7 +396,7 @@ int connection::purge_messages(ExceptionSink *xsink) {
       ret = ct_diag(m_connection, CS_GET, CS_CLIENTMSG_TYPE, i, &cmsg);
       assert(ret == CS_SUCCEED);
       if (CS_SEVERITY(cmsg.msgnumber) > 10) {
-         QoreStringNode *desc = new QoreStringNode();
+         QoreStringNode *desc = new QoreStringNode;
          desc->sprintf("client message %d, severity %d: %s", CS_NUMBER(cmsg.msgnumber), CS_SEVERITY(cmsg.msgnumber), cmsg.msgstring);
          if (cmsg.osstringlen)
             desc->sprintf(" (%d): '%s'", cmsg.osnumber, cmsg.osstring);
@@ -416,7 +416,7 @@ int connection::purge_messages(ExceptionSink *xsink) {
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
       assert(ret == CS_SUCCEED);
       if (smsg.severity > 10) {
-         QoreStringNode *desc = new QoreStringNode();
+         QoreStringNode *desc = new QoreStringNode;
          desc->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
          if (smsg.line)
             desc->sprintf("line %d, ", smsg.line);
@@ -432,18 +432,11 @@ int connection::purge_messages(ExceptionSink *xsink) {
    return rc;
 }
 
-int connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...) {
-   QoreStringNode *estr = new QoreStringNode();
-   va_list args;
-   while (fmt) {
-      va_start(args, fmt);
-      int rc = estr->vsprintf(fmt, args);
-      va_end(args);
-      if (!rc) {
-         estr->concat(": ");
-         break;
-      }
-   }
+// if check = true, ignore server messages:
+// 3902: The COMMIT TRANSACTION request has no corresponding BEGIN TRANSACTION
+// 3903: The ROLLBACK TRANSACTION request has no corresponding BEGIN TRANSACTION
+int connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr) {
+   SimpleRefHolder<QoreStringNode> eh(estr);
 
    int count = 0;
    int num;
@@ -466,11 +459,18 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
          estr->sprintf(", OS error %d: %s", cmsg.osnumber, cmsg.osstring);
       count++;
    }
+   
    ret = ct_diag(m_connection, CS_STATUS, CS_SERVERMSG_TYPE, CS_UNUSED, &num);
    assert(ret == CS_SUCCEED);
    CS_SERVERMSG smsg;
+
+   bool fnd_ignore = !check;
+   
    for (int i = 1; i <= num; ++i) {
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
+      if (!fnd_ignore && ret == CS_SUCCEED && (smsg.msgnumber == 3902 || smsg.msgnumber == 3903))
+	 fnd_ignore = true;
+
       if (ret != CS_SUCCEED || smsg.severity <= 10)
          continue;
 
@@ -478,7 +478,7 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
          estr->concat(", ");
       if (smsg.svrnlen)
          estr->sprintf("%s: ", smsg.svrname);
-      estr->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
+      estr->sprintf("state %d, server message xxx %d, ", smsg.state, smsg.msgnumber);
       if (smsg.line)
          estr->sprintf("line %d, ", smsg.line);
       estr->sprintf("severity %d", smsg.severity);
@@ -489,8 +489,40 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
    }
    ret = ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
    assert(ret == CS_SUCCEED);
-   xsink->raiseException(err, estr);
+   if (check && fnd_ignore && num == 1)
+      return 0;
+   xsink->raiseException(err, eh.release());
    return -1;
+}
+
+int connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...) {
+   QoreStringNode *estr = new QoreStringNode;
+   va_list args;
+   while (fmt) {
+      va_start(args, fmt);
+      int rc = estr->vsprintf(fmt, args);
+      va_end(args);
+      if (!rc) {
+         estr->concat(": ");
+         break;
+      }
+   }
+   return do_check_exception(xsink, check, err, estr);
+}
+
+int connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...) {
+   QoreStringNode *estr = new QoreStringNode;
+   va_list args;
+   while (fmt) {
+      va_start(args, fmt);
+      int rc = estr->vsprintf(fmt, args);
+      va_end(args);
+      if (!rc) {
+         estr->concat(": ");
+         break;
+      }
+   }
+   return do_check_exception(xsink, false, err, estr);
 }
 
 /*

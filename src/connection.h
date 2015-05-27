@@ -164,7 +164,10 @@ private:
             bool need_list, ExceptionSink* xsink,
             bool doBinding=true);
 
-
+    // returns -1 if an exception was thrown, 0 if all errors were ignored
+    DLLLOCAL int do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
+    // returns -1 if an exception was thrown, 0 if all errors were ignored
+    DLLLOCAL int do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
 
 public:
 
