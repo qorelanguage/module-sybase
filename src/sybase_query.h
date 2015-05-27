@@ -31,7 +31,6 @@
 #include <utility>
 
 typedef std::vector<char> param_list_t;
-typedef std::vector<std::string> placeholder_list_t;
 typedef std::vector<std::string> Placeholders;
 
 struct sybase_query {
