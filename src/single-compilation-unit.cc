@@ -5,4 +5,4 @@
 #include "sybase_query.cc"
 #include "row_output_buffers.cc"
 #include "sybase.cc"
-
+#include "statement.cc"
