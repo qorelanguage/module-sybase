@@ -27,6 +27,7 @@
 
 #include <assert.h>
 
+#include <memory>
 #include "row_output_buffers.h"
 #include "utils.h"
 
@@ -35,8 +36,11 @@ output_value_buffer::output_value_buffer(unsigned size) :
     value(0),
     value_len(0)
 {
-   if (size < 7) size = 7; // ensure at least 8 bytes are allocated
-   value = size ? new char[size + 1] : 0; // terminator for strings
+    if (size < 7) size = 7; // ensure at least 8 bytes are allocated. hmmm, why?
+    value = new char[size + 1]; // terminator for strings
+    value[size] = 0; // this is required since the result values from sybase or
+                     // freetds don't necesary have trailing \0 and qore calls
+                     // strlen() everywhere...
 }
 
 output_value_buffer::~output_value_buffer()
@@ -55,7 +59,7 @@ void row_output_buffers::reset() {
 }
 
 output_value_buffer * row_output_buffers::insert(size_t size) {
-    output_value_buffer *out = new output_value_buffer(size);
-    m_buffers.push_back(out);
-    return out;
+    std::auto_ptr<output_value_buffer> out(new output_value_buffer(size));
+    m_buffers.push_back(out.get());
+    return out.release();
 }
