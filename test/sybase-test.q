@@ -369,6 +369,16 @@ sub test_value(v1, v2, msg) {
     }
 }
 
+
+sub test_value_eo(v1, v2, msg) {
+    if (v1 == v2) {
+        return True;
+    }
+    tprintf(0, "ERROR: %s test failed! (%n != %n)\n", msg, v1, v2);
+    return False;
+}
+
+
 const family_hash = (
   "Jones" : (
       "people" : (
@@ -732,6 +742,36 @@ exec get_values_and_multiple_select :string output, :int output");
         test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
 
     db.commit();
+
+    statement_test(db);
+}
+
+sub statement_test(Datasource db) {
+    any res1;
+    any res2;
+    any res3;
+    string query = "select * from people";
+    {
+    res1 = db.selectRows(query);
+    SQLStatement stmt(db);
+    stmt.prepare(query);
+    res2 = list();
+    while (stmt.next()) {
+        any row = stmt.fetchRow();
+        push res2, row;
+    }
+    stmt.commit();
+    }
+
+    SQLStatement stmt(db);
+    stmt.prepare(query);
+    stmt.next();
+    res3 = stmt.fetchRows();
+    
+    test_value(res1, res2, "select by statement");
+    #test_value(res1, res3, "select by statement fetchRows");
+    test_value(res1.size(), 7, "selected cnt");
+    stmt.commit();
 }
 
 sub main() {
