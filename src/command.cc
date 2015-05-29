@@ -216,9 +216,18 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
       }
 
       case NT_BOOLEAN: {
+           // Seems mssql doesn't like  CS_BIT_TYPE for some reason.
+           // Replacing by CS_INT_TYPE helps
+           //
+           // The "BIT" code is supposed to be like this:
+           // datafmt.datatype = CS_BIT_TYPE;
+           // err = ct_param(m_cmd, &datafmt, &bval, sizeof(bval), 0);
+           // ... but it doesn't work
+
            CS_BIT bval = reinterpret_cast<const QoreBoolNode *>(val)->getValue();
-           datafmt.datatype = CS_BIT_TYPE;
-           err = ct_param(m_cmd, &datafmt, &bval, sizeof(val), 0);
+           datafmt.datatype = CS_INT_TYPE;
+           int64 ival = bval ? 1 : 0;
+           err = ct_param(m_cmd, &datafmt, &ival, sizeof(ival), 0);
            break;
       }
 
@@ -620,7 +629,9 @@ static bool is_number(const CS_DATAFMT_EX& datafmt) {
 }
 
 static inline bool need_trim(const CS_DATAFMT_EX& datafmt) {
-    if (datafmt.format == CS_FMT_PADBLANK || datafmt.usertype == 34
+    if (datafmt.format == CS_FMT_PADBLANK || datafmt.usertype == 34 ||
+            // seems TEXT needs trim as well (found on mssql, sybase-test.q)
+            datafmt.datatype == CS_TEXT_TYPE
 #ifdef SYBASE
         // for some reason sybase returns a char field as LONGCHAR when the
         // server is uses iso_1 character encoding, but the connection is set
@@ -642,6 +653,7 @@ static bool use_numbers(const connection &con) {
     }
     return false;
 }
+
 
 AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
         const output_value_buffer& buffer, ExceptionSink* xsink)

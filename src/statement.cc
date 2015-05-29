@@ -1,4 +1,5 @@
 #include <qore/common.h>
+#include <qore/QoreValue.h>
 #include <qore/DBI.h>
 #include <qore/QoreEncoding.h>
 #include <qore/QoreString.h>
