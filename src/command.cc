@@ -310,6 +310,8 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
 
         case CS_PARAM_RESULT:
             return RES_PARAM;
+        case CS_STATUS_RESULT:
+            return RES_STATUS;
         case CS_ROW_RESULT:
             return RES_ROW;
     }
@@ -347,6 +349,9 @@ AbstractQoreNode *command::read_output(
                 return rf.res();
             case RES_DONE:
                 rf.done(rowcount);
+                continue;
+            case RES_STATUS:
+                qresult = read_rows(0, list, xsink);
                 continue;
             default:
                 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",

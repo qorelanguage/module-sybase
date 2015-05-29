@@ -26,7 +26,7 @@ public:
         if (last) {
             if (!reslist) reslist = new QoreHashNode();
             std::ostringstream oss;
-            oss << "quore" << reslist->size();
+            oss << "query" << reslist->size();
             reslist->setKeyValue(oss.str().c_str(),
                     last.release(), xsink);
         }
