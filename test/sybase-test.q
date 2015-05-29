@@ -359,25 +359,22 @@ sub tprintf(v, msg) {
         vprintf(msg, argv);
 }
 
-sub test_value(v1, v2, msg) {
+sub test_value(any v1, any v2, string msg) {
     ++test_count;
     if (v1 == v2) {
-            tprintf(1, "OK: %s test\n", msg);
+        tprintf(1, "OK: %s test\n", msg);
     } else {
-        tprintf(0, "ERROR: %s test failed! (%n != %n)\n", msg, v1, v2);
+        tprintf(0, "ERROR: %s test failed! (%y (%s) != %y (%s))\n", msg, v1, v1.type(), v2, v2.type());
         errors++;
     }
 }
 
-
-sub test_value_eo(v1, v2, msg) {
-    if (v1 == v2) {
+sub test_value_eo(any v1, any v2, string msg) {
+    if (v1 == v2)
         return True;
-    }
-    tprintf(0, "ERROR: %s test failed! (%n != %n)\n", msg, v1, v2);
+    tprintf(0, "ERROR: %s test failed! (%y (%s) != %y (%s))\n", msg, v1, v1.type(), v2, v2.type());
     return False;
 }
-
 
 const family_hash = (
   "Jones" : (
@@ -437,8 +434,7 @@ sub context_test(Datasource db) {
             sortDescendingBy (find %value in attributes
                               where (%attribute == "eyes"
                                      && %person_id == %people:person_id))
-            where (%family_id == %family:family_id)
-        {
+            where (%family_id == %family:family_id) {
             my al;
             tprintf(2, "  %s, born %s\n", %name, format_date("Month DD, YYYY", %dob));
             context (attributes) sortBy (%attribute) where (%person_id == %people:person_id) {
@@ -596,7 +592,7 @@ exec get_values_and_multiple_select :string output, :int output");
         "smallint_f"      : 4285,
         "int_f"           : 405402,
         "int_f2"          : 214123498,
-        "decimal_f"       : 500.1231,
+        "decimal_f"       : 500.1231n,
         "float_f"         : 23443.234324234,
         "real_f"          : 213.123,
         "money_f"         : 3434234250.2034,
@@ -695,7 +691,7 @@ exec get_values_and_multiple_select :string output, :int output");
         "smallint_f"      : 4285,
         "int_f"           : 405402,
         "int_f2"          : 214123498,
-        "decimal_f"       : 500.1231,
+        "decimal_f"       : 500.1231n,
         "float_f"         : 23443.234324234,
         "real_f"          : 213.123,
         "money_f"         : 3434234250.2034,
@@ -716,17 +712,14 @@ exec get_values_and_multiple_select :string output, :int output");
         delete args.time_f;
     }
 
-    string sql = "insert into data_test values (";
-    for (int i; i < elements args; ++i)
-        sql += "%v, ";
-    sql = substr(sql, 0, -2) + ")";
-
+    string sql = "insert into data_test values (" + (foldl $1 + "," + $2, (map "%v", args.iterator())) + ")";
+    
     # insert data, using the values from the hash above
     db.vexec(sql, hash_values(args));
 
     *hash q = db.selectRow("select * from data_test");
     if (o.verbose > 1)
-        foreach my k in (keys q)
+        foreach string k in (q.keyIterator())
             tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
 
     # remove values where we know they won't match
@@ -737,6 +730,10 @@ exec get_values_and_multiple_select :string output, :int output");
     q.real_f = round(q.real_f);
     args.real_f = round(args.real_f);
 
+    # convert "decimal_f" values to float so that the comparisons succeed
+    q.decimal_f = float(q.decimal_f);
+    args.decimal_f = float(q.decimal_f);
+    
     # compare each value
     foreach string k in (q.keyIterator())
         test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
