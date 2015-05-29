@@ -6,10 +6,11 @@
 
 %require-our
 %enable-all-warnings
+%new-style
 
-our hash $o;
-our int $errors;
-our int $test_count;
+our hash o;
+our int errors;
+our int test_count;
 
 const opts = (
     "help"    : "h,help",
@@ -17,13 +18,12 @@ const opts = (
     "leave"   : "l,leave"
     );
 
-sub usage()
-{
+sub usage() {
     printf("usage: %s [options] <db-string>
  -h,--help          this help text
  -v,--verbose       more v's = more information
  -l,--leave         leave test tables in schema at end\n",
-	   basename($ENV."_"));
+	   basename(ENV."_"));
     exit();
 }
 
@@ -225,147 +225,147 @@ const freetds_mssql_tables = (
 )" );
 
 sub parse_command_line() {
-    my GetOpt $g(opts);
-    $o = $g.parse(\$ARGV);
-    if ($o.help)
+    GetOpt g(opts);
+    o = g.parse(\ARGV);
+    if (o.help)
 	usage();
 
-    if (!$ARGV) {
+    if (!ARGV) {
 	stderr.printf("missing connection string on the command-line: -h for help\n");
 	exit(1);
     }
 
-    $o.conn = shift $ARGV;
-    my *string $db = ($o.conn =~ x/^([^:]+):.+$/)[0];
-    if (!$db) {
-	stderr.printf("missing database driver argument in connection string %yn", $o.conn);
+    o.conn = shift ARGV;
+    *string db = (o.conn =~ x/^([^:]+):.+$/)[0];
+    if (!db) {
+	stderr.printf("missing database driver argument in connection string %yn", o.conn);
 	exit(1);
     }
-    if ($db != "sybase" && $db != "freetds") {
-	stderr.printf("unsupported driver argument %y in connection string, expecting \"sybase\" or \"freetds\"n", $db);
+    if (db != "sybase" && db != "freetds") {
+	stderr.printf("unsupported driver argument %y in connection string, expecting \"sybase\" or \"freetds\"n", db);
 	exit(1);
     }
 }
 
-sub create_datamodel(Datasource $db) {
-    drop_test_datamodel($db);
+sub create_datamodel(Datasource db) {
+    drop_test_datamodel(db);
   
-    my string $driver = $db.getDriverName();
+    string driver = db.getDriverName();
     # create tables
-    my hash $tables = object_map.$driver.tables;
-    if ($driver == "freetds")
-	if ($db.is_sybase)
-	    $tables = freetds_sybase_tables;
+    hash tables = object_map{driver}.tables;
+    if (driver == "freetds")
+	if (db.is_sybase)
+	    tables = freetds_sybase_tables;
         else
-	    $tables = freetds_mssql_tables;
+	    tables = freetds_mssql_tables;
 
-    on_success $db.commit();
-    on_error $db.rollback();
+    on_success db.commit();
+    on_error db.rollback();
 
-    foreach my string $table in ($tables.keyIterator()) {
-	tprintf(2, "creating table %n\n", $table);
-	$db.exec($tables.$table);
+    foreach string table in (tables.keyIterator()) {
+	tprintf(2, "creating table %n\n", table);
+	db.exec(tables{table});
     }
 
     # create procedures if any
-    foreach my $proc in (keys object_map.$driver.procs) {
-	tprintf(2, "creating procedure %n\n", $proc);
-	$db.exec(object_map.$driver.procs.$proc);
+    foreach my proc in (keys object_map{driver}.procs) {
+	tprintf(2, "creating procedure %n\n", proc);
+	db.exec(object_map{driver}.procs{proc});
     }
 
     # create functions if any
-    foreach my $func in (object_map.$driver.funcs.keyIterator()) {
-	tprintf(2, "creating function %n\n", $func);
-	$db.exec(object_map.$driver.funcs.$func);
+    foreach my func in (object_map{driver}.funcs.keyIterator()) {
+	tprintf(2, "creating function %n\n", func);
+	db.exec(object_map{driver}.funcs{func});
     }
 
-    $db.exec("insert into family values ( 1, 'Smith' )");
-    $db.exec("insert into family values ( 2, 'Jones' )");
+    db.exec("insert into family values ( 1, 'Smith' )");
+    db.exec("insert into family values ( 2, 'Jones' )");
 
     # we insert the dates here using binding by value so we don't have
     # to worry about each database's specific date format
-    $db.exec("insert into people values ( 1, 1, 'Arnie', %v)", 1983-05-13);
-    $db.exec("insert into people values ( 2, 1, 'Sylvia', %v)", 1994-11-10);
-    $db.exec("insert into people values ( 3, 1, 'Carol', %v)", 2003-07-23);
-    $db.exec("insert into people values ( 4, 1, 'Bernard', %v)", 1979-02-27);
-    $db.exec("insert into people values ( 5, 1, 'Isaac', %v)", 2000-04-04);
-    $db.exec("insert into people values ( 6, 2, 'Alan', %v)", 1992-06-04);
-    $db.exec("insert into people values ( 7, 2, 'John', %v)", 1995-03-23);
+    db.exec("insert into people values ( 1, 1, 'Arnie', %v)", 1983-05-13);
+    db.exec("insert into people values ( 2, 1, 'Sylvia', %v)", 1994-11-10);
+    db.exec("insert into people values ( 3, 1, 'Carol', %v)", 2003-07-23);
+    db.exec("insert into people values ( 4, 1, 'Bernard', %v)", 1979-02-27);
+    db.exec("insert into people values ( 5, 1, 'Isaac', %v)", 2000-04-04);
+    db.exec("insert into people values ( 6, 2, 'Alan', %v)", 1992-06-04);
+    db.exec("insert into people values ( 7, 2, 'John', %v)", 1995-03-23);
 
-    $db.exec("insert into attributes values ( 1, 'hair', 'blond' )");
-    $db.exec("insert into attributes values ( 1, 'eyes', 'hazel' )");
-    $db.exec("insert into attributes values ( 2, 'hair', 'blond' )");
-    $db.exec("insert into attributes values ( 2, 'eyes', 'blue' )");
-    $db.exec("insert into attributes values ( 3, 'hair', 'brown' )");
-    $db.exec("insert into attributes values ( 3, 'eyes', 'grey')");
-    $db.exec("insert into attributes values ( 4, 'hair', 'brown' )");
-    $db.exec("insert into attributes values ( 4, 'eyes', 'brown' )");
-    $db.exec("insert into attributes values ( 5, 'hair', 'red' )");
-    $db.exec("insert into attributes values ( 5, 'eyes', 'green' )");
-    $db.exec("insert into attributes values ( 6, 'hair', 'black' )");
-    $db.exec("insert into attributes values ( 6, 'eyes', 'blue' )");
-    $db.exec("insert into attributes values ( 7, 'hair', 'brown' )");
-    $db.exec("insert into attributes values ( 7, 'eyes', 'brown' )");
+    db.exec("insert into attributes values ( 1, 'hair', 'blond' )");
+    db.exec("insert into attributes values ( 1, 'eyes', 'hazel' )");
+    db.exec("insert into attributes values ( 2, 'hair', 'blond' )");
+    db.exec("insert into attributes values ( 2, 'eyes', 'blue' )");
+    db.exec("insert into attributes values ( 3, 'hair', 'brown' )");
+    db.exec("insert into attributes values ( 3, 'eyes', 'grey')");
+    db.exec("insert into attributes values ( 4, 'hair', 'brown' )");
+    db.exec("insert into attributes values ( 4, 'eyes', 'brown' )");
+    db.exec("insert into attributes values ( 5, 'hair', 'red' )");
+    db.exec("insert into attributes values ( 5, 'eyes', 'green' )");
+    db.exec("insert into attributes values ( 6, 'hair', 'black' )");
+    db.exec("insert into attributes values ( 6, 'eyes', 'blue' )");
+    db.exec("insert into attributes values ( 7, 'hair', 'brown' )");
+    db.exec("insert into attributes values ( 7, 'eyes', 'brown' )");
 }
 
-sub drop_test_datamodel($db) {
-    my $driver = $db.getDriverName();
+sub drop_test_datamodel(db) {
+    my driver = db.getDriverName();
     # drop the tables and ignore exceptions
     # the commits are needed for databases like postgresql, where errors will prohibit and further
     # actions from being taken on the Datasource
-    foreach my $table in (keys object_map.$driver.tables)
+    foreach my table in (keys object_map{driver}.tables)
 	try { 
-	    $db.exec("drop table " + $table);
-	    $db.commit(); 
-	    tprintf(2, "dropped table %n\n", $table);
+	    db.exec("drop table " + table);
+	    db.commit(); 
+	    tprintf(2, "dropped table %n\n", table);
 	}
         catch () { 
-	    $db.commit(); 
+	    db.commit(); 
 	}
     
     # drop procedures and ignore exceptions
-    foreach my string $proc in (keys object_map.$driver.procs) {
-	my string $cmd = object_map.$driver.drop_proc_cmd ?? "drop procedure";
+    foreach string proc in (keys object_map{driver}.procs) {
+	string cmd = object_map{driver}.drop_proc_cmd ?? "drop procedure";
 	try { 
-	    $db.exec($cmd + " " + $proc); 
-	    $db.commit(); 
-	    tprintf(2, "dropped procedure %n\n", $proc);
+	    db.exec(cmd + " " + proc); 
+	    db.commit(); 
+	    tprintf(2, "dropped procedure %n\n", proc);
 	} 
 	catch () { 
-	    $db.commit(); 
+	    db.commit(); 
 	}
     }
 
     # drop functions and ignore exceptions
-    foreach my string $func in (keys object_map.$driver.funcs) {
-	my string $cmd = object_map.$driver.drop_func_cmd ?? "drop function";
+    foreach string func in (keys object_map{driver}.funcs) {
+	string cmd = object_map{driver}.drop_func_cmd ?? "drop function";
 	try { 
-	    $db.exec($cmd + " " + $func); 
-	    $db.commit(); 
-	    tprintf(2, "dropped function %n\n", $func);
+	    db.exec(cmd + " " + func); 
+	    db.commit(); 
+	    tprintf(2, "dropped function %n\n", func);
 	} 
 	catch () { 
-	    $db.commit(); 
+	    db.commit(); 
 	}
     }
 }
 
 Datasource sub getDS() {
-    return new Datasource($o.conn);
+    return new Datasource(o.conn);
 }
 
-sub tprintf($v, $msg) {
-    if ($v <= $o.verbose)
-	vprintf($msg, $argv);
+sub tprintf(v, msg) {
+    if (v <= o.verbose)
+	vprintf(msg, argv);
 }
 
-sub test_value($v1, $v2, $msg) {
-    ++$test_count;
-    if ($v1 == $v2)
-	tprintf(1, "OK: %s test\n", $msg);
+sub test_value(v1, v2, msg) {
+    ++test_count;
+    if (v1 == v2)
+	tprintf(1, "OK: %s test\n", msg);
     else {
-        tprintf(0, "ERROR: %s test failed! (%n != %n)\n", $msg, $v1, $v2);
-        $errors++;
+        tprintf(0, "ERROR: %s test failed! (%n != %n)\n", msg, v1, v2);
+        errors++;
     }
 }
 
@@ -403,104 +403,103 @@ const family_hash = (
 		"eyes" : "blue",
 		"hair" : "blond" ) ) ) );
 
-sub context_test(Datasource $db) {
+sub context_test(Datasource db) {
     # first we select all the data from the tables and then use 
     # context statements to order the output hierarchically
     
     # context statements are most useful when a set of queries can be executed once
     # and the results processed many times by creating "views" with context statements
 
-    my $people = $db.select("select * from people");
-    my $attributes = $db.select("select * from attributes");
+    my people = db.select("select * from people");
+    my attributes = db.select("select * from attributes");
 
     # in this test, we create a big hash structure out of the queries executed above
     # and compare it at the end to the expected result
 
     # display each family sorted by family name
-    my $fl;
-    context family ($db.select("select * from family")) sortBy (%name) {
-	my $pl;
+    my fl;
+    context family (db.select("select * from family")) sortBy (%name) {
+	my pl;
 	tprintf(2, "Family %d: %s\n", %family_id, %name);
 
 	# display people, sorted by eye color, descending
-	context people ($people) 
-	    sortDescendingBy (find %value in $attributes 
+	context people (people) 
+	    sortDescendingBy (find %value in attributes 
 			      where (%attribute == "eyes" 
 				     && %person_id == %people:person_id)) 
 	    where (%family_id == %family:family_id)
 	{
-	    my $al;
+	    my al;
 	    tprintf(2, "  %s, born %s\n", %name, format_date("Month DD, YYYY", %dob));
-	    context ($attributes) sortBy (%attribute) where (%person_id == %people:person_id) {
-		$al.%attribute = %value;
+	    context (attributes) sortBy (%attribute) where (%person_id == %people:person_id) {
+		al.%attribute = %value;
 		tprintf(2, "    has %s %s\n", %value, %attribute);
 	    }
 	    # leave out the ID fields and name from hash under name; subtracting a 
 	    # string from a hash removes that key from the result
 	    # this is "doing it the hard way", there is only one key left, 
 	    # "dob", then attributes are added directly into the person hash
-	    $pl.%name = %% - "family_id" - "person_id" - "name" + $al;
+	    pl.%name = %% - "family_id" - "person_id" - "name" + al;
 	}
 	# leave out family_id and name fields (leaving an empty hash)
-	$fl.%name = %% - "family_id" - "name" + ( "people" : $pl );
+	fl.%name = %% - "family_id" - "name" + ( "people" : pl );
     }
 
     # test context ordering
-    test_value(keys $fl, ("Jones", "Smith"), "first context");
-    test_value(keys $fl.Smith.people, ("Arnie", "Carol", "Isaac", "Bernard", "Sylvia"), "second context");
+    test_value(keys fl, ("Jones", "Smith"), "first context");
+    test_value(keys fl.Smith.people, ("Arnie", "Carol", "Isaac", "Bernard", "Sylvia"), "second context");
     # test entire context value
-    test_value($fl, family_hash, "third context");
+    test_value(fl, family_hash, "third context");
 }
 
-sub test_timeout($db, $c) {
-    $db.setTransactionLockTimeout(1ms);
+sub test_timeout(db, c) {
+    db.setTransactionLockTimeout(1ms);
     try {
 	# this should cause a TRANSACTION-LOCK-TIMEOUT exception to be thrown
-	$db.exec("insert into family values (3, 'Test')\n");
+	db.exec("insert into family values (3, 'Test')\n");
 	test_value(True, False, "transaction timeout");
-	$db.exec("delete from family where name = 'Test'");
+	db.exec("delete from family where name = 'Test'");
     }
-    catch ($ex) {
+    catch (ex) {
 	test_value(True, True, "transaction timeout");
     }
     # signal parent thread to continue
-    $c.dec();
+    c.dec();
 }
 
-sub transaction_test(Datasource $db) {
-    my Datasource $ndb = getDS();
-    my $r;
-    tprintf(2, "db.autocommit=%N, ndb.autocommit=%N\n", $db.getAutoCommit(), $ndb.getAutoCommit());
+sub transaction_test(Datasource db) {
+    Datasource ndb = getDS();
+    tprintf(2, "db.autocommit=%N, ndb.autocommit=%N\n", db.getAutoCommit(), ndb.getAutoCommit());
 
     # first, we insert a new row into "family" but do not commit it
-    my int $rows = $db.exec("insert into family values (3, 'Test')\n");
-    if ($rows !== 1)
-	printf("FAILED INSERT, rows=%N\n", $rows);
+    int rows = db.exec("insert into family values (3, 'Test')\n");
+    if (rows !== 1)
+	printf("FAILED INSERT, rows=%y\n", rows);
 
     # now we verify that the new row is visible to the inserting datasource
-    $r = $db.selectRow("select name from family where family_id = 3").name;
-    test_value($r, "Test", "second transaction");
+    *string name = db.selectRow("select name from family where family_id = 3").name;
+    test_value(name, "Test", "second transaction");
 
     # test datasource timeout
     # this Counter variable will allow the parent thread to sleep
     # until the child thread times out
-    my Counter $c(1);
-    background test_timeout($db, $c);
+    Counter c(1);
+    background test_timeout(db, c);
 
     # wait for child thread to time out
-    $c.waitForZero();
+    c.waitForZero();
     
     # now, we commit the transaction
-    $db.commit();
+    db.commit();
 
     # now we verify that the new row is visible in the other datasource
-    $r = $ndb.selectRow("select name from family where family_id = 3").name;
-    test_value($r, "Test", "third transaction");
+    name = ndb.selectRow("select name from family where family_id = 3").name;
+    test_value(name, "Test", "third transaction");
     
     # now we delete the row we inserted (so we can repeat the test)
-    $r = $ndb.exec("delete from family where family_id = 3");
-    test_value($r, 1, "delete row count");
-    $ndb.commit();
+    int cnt = ndb.exec("delete from family where family_id = 3");
+    test_value(cnt, 1, "delete row count");
+    ndb.commit();
 }
 
 sub oracle_test() {
@@ -512,11 +511,11 @@ sub oracle_test() {
 # in this script at run-time when the Datasource class is instantiated)
 # we use a Program object that we parse and run on demand to return the
 # value required
-sub get_val($code) {
-    my Program $p();
-    my string $str = sprintf("return %s;", $code);
-    $p.parse($str, "code");
-    return $p.run();
+sub get_val(code) {
+    Program p();
+    string str = sprintf("return %s;", code);
+    p.parse(str, "code");
+    return p.run();
 }
 
 const family_q = (
@@ -534,15 +533,15 @@ const params = (
     "int" : 150,
     );
 
-sub sybase_test($db) {
+sub sybase_test(db) {
     # simple stored proc test, bind by name
-    my *hash $x = $db.exec("exec find_family %v", "Smith");
-    test_value($x, ("name": list("Smith"), "family_id" : list(1)), "simple stored proc");
+    *hash x = db.exec("exec find_family %v", "Smith");
+    test_value(x, ("name": list("Smith"), "family_id" : list(1)), "simple stored proc");
 
     # stored proc execute with output params
-    $x = $db.exec("declare @string varchar(40), @int int
+    x = db.exec("declare @string varchar(40), @int int
 exec get_values :string output, :int output");
-    test_value($x, params + ("rowcount":1), "get_values");
+    test_value(x, params + ("rowcount":1), "get_values");
 
     # we use Datasource::selectRows() in the following queries because we
     # get hash results instead of a hash of lists as with exec in the queries
@@ -553,28 +552,28 @@ exec get_values :string output, :int output");
     # Datasource::selectRows()
 
     # simple stored proc test, bind by name, returns hash
-    $x = $db.selectRows("exec find_family %v", "Smith");
-    test_value($x, family_q, "simple stored proc");
+    x = db.selectRows("exec find_family %v", "Smith");
+    test_value(x, family_q, "simple stored proc");
 
     # stored proc execute with output params and select results
-    $x = $db.selectRows("declare @string varchar(40), @int int
+    x = db.selectRows("declare @string varchar(40), @int int
 exec get_values_and_select :string output, :int output");
-    test_value($x, ("query":family_q,"params":params), "get_values_and_select");
+    test_value(x, ("query":family_q,"params":params), "get_values_and_select");
 
     # stored proc execute with output params and multiple select results
-    $x = $db.selectRows("declare @string varchar(40), @int int
+    x = db.selectRows("declare @string varchar(40), @int int
 exec get_values_and_multiple_select :string output, :int output");
-    test_value($x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
+    test_value(x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
 
     # stored proc execute with just select results
-    $x = $db.selectRows("exec just_select");
-    test_value($x, family_q, "just_select");
+    x = db.selectRows("exec just_select");
+    test_value(x, family_q, "just_select");
 
     # stored proc execute with multiple select results
-    $x = $db.selectRows("exec multiple_select");
-    test_value($x, ("query0":family_q,"query1":person_q), "multiple_select");
+    x = db.selectRows("exec multiple_select");
+    test_value(x, ("query0":family_q,"query1":person_q), "multiple_select");
 
-    my hash $args = (
+    hash args = (
 	"null_f"          : NULL,
 	"varchar_f"       : "varchar", 
 	"char_f"          : "char", 
@@ -602,42 +601,42 @@ exec get_values_and_multiple_select :string output, :int output");
 	);
 
     # insert data
-    $db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %d, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values($args));
+    db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %d, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values(args));
 
-    my *hash $q = $db.selectRow("select * from data_test");
-    if ($o.verbose > 1)
-	foreach my string $k in ($q.keyIterator())
-	    tprintf(2, " %-16s= %-10s %N\n", $k, type($q.$k), $q.$k);
+    *hash q = db.selectRow("select * from data_test");
+    if (o.verbose > 1)
+	foreach string k in (q.keyIterator())
+	    tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
 
     # remove values where we know they won't match
     # unitext_f is returned as IMAGE by the server
-    delete $q.unitext_f;
-    delete $args.unitext_f;
+    delete q.unitext_f;
+    delete args.unitext_f;
     # rounding errors can happen in real
-    $q.real_f = round($q.real_f);
-    $args.real_f = round($args.real_f);
+    q.real_f = round(q.real_f);
+    args.real_f = round(args.real_f);
     
     # compare each value
-    foreach my string $k in ($q.keyIterator())
-	test_value($q.$k, $args.$k, sprintf("%s bind and retrieve", $k));
+    foreach string k in (q.keyIterator())
+	test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
 
-    $db.commit();
+    db.commit();
 }
 
-sub freetds_test(Datasource $db) {
+sub freetds_test(Datasource db) {
     # simple stored proc test, bind by name
-    my hash $x = $db.exec("exec find_family %v", "Smith");
-    test_value($x, ("name": list("Smith"), "family_id" : list(1)), "simple stored proc");
+    hash x = db.exec("exec find_family %v", "Smith");
+    test_value(x, ("name": list("Smith"), "family_id" : list(1)), "simple stored proc");
 
     # we cannot retrieve parameters from newer SQL Servers with the approach we use;
     # Microsoft changed the handling of the protocol and require us to use RPC calls,
     # this will be implemented in the next version of qore where the "freetds" driver will
     # be able to add custom methods to the Datasource class.  For now, we skip these tests
 
-    if ($db.is_sybase) {
-	$x = $db.exec("declare @string varchar(40), @int int
+    if (db.is_sybase) {
+	x = db.exec("declare @string varchar(40), @int int
 exec get_values :string output, :int output");
-	test_value($x, params, "get_values");
+	test_value(x, params, "get_values");
     }
 
     # we use Datasource::selectRows() in the following queries because we
@@ -649,33 +648,33 @@ exec get_values :string output, :int output");
     # Datasource::selectRows()
 
     # simple stored proc test, bind by name, returns hash
-    $x = $db.selectRows("exec find_family %v", "Smith");
-    test_value($x, family_q, "simple stored proc");
+    x = db.selectRows("exec find_family %v", "Smith");
+    test_value(x, family_q, "simple stored proc");
 
     # stored proc execute with output params and select results
-    if ($db.is_sybase) {
-	$x = $db.selectRows("declare @string varchar(40), @int int
+    if (db.is_sybase) {
+	x = db.selectRows("declare @string varchar(40), @int int
 exec get_values_and_select :string output, :int output");
-	test_value($x, ("query":family_q,"params":params), "get_values_and_select");
+	test_value(x, ("query":family_q,"params":params), "get_values_and_select");
 
 	# stored proc execute with output params and multiple select results
-	$x = $db.selectRows("declare @string varchar(40), @int int
+	x = db.selectRows("declare @string varchar(40), @int int
 exec get_values_and_multiple_select :string output, :int output");
-	test_value($x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
+	test_value(x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
     }
 
     # stored proc execute with just select results
-    $x = $db.selectRows("exec just_select");
-    test_value($x, family_q, "just_select");
+    x = db.selectRows("exec just_select");
+    test_value(x, family_q, "just_select");
 
     # stored proc execute with multiple select results
-    $x = $db.selectRows("exec multiple_select");
-    test_value($x, ("query0":family_q,"query1":person_q), "multiple_select");
+    x = db.selectRows("exec multiple_select");
+    test_value(x, ("query0":family_q,"query1":person_q), "multiple_select");
 
     # the freetds driver does not work with the following sybase column types:
     # unichar, univarchar
 
-    my hash $args = (
+    hash args = (
 	"null_f"          : NULL,
 	"varchar_f"       : "test", 
 	"char_f"          : "test", 
@@ -701,71 +700,71 @@ exec get_values_and_multiple_select :string output, :int output");
 	);
 
     # remove fields not supported by sql server
-    if (!$db.is_sybase) {
-	delete $args.unitext_f;
-	delete $args.date_f;
-	delete $args.time_f;
+    if (!db.is_sybase) {
+	delete args.unitext_f;
+	delete args.date_f;
+	delete args.time_f;
     }
 
-    my string $sql = "insert into data_test values (";
-    for (my int $i; $i < elements $args; ++$i)
-	$sql += "%v, ";
-    $sql = substr($sql, 0, -2) + ")";
+    string sql = "insert into data_test values (";
+    for (int i; i < elements args; ++i)
+	sql += "%v, ";
+    sql = substr(sql, 0, -2) + ")";
 
     # insert data, using the values from the hash above
-    $db.vexec($sql, hash_values($args));
+    db.vexec(sql, hash_values(args));
 
-    my *hash $q = $db.selectRow("select * from data_test");
-    if ($o.verbose > 1)
-	foreach my $k in (keys $q)
-	    tprintf(2, " %-16s= %-10s %N\n", $k, type($q.$k), $q.$k);
+    *hash q = db.selectRow("select * from data_test");
+    if (o.verbose > 1)
+	foreach my k in (keys q)
+	    tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
 
     # remove values where we know they won't match
     # unitext_f is returned as IMAGE by the server
-    delete $q.unitext_f;
-    delete $args.unitext_f;
+    delete q.unitext_f;
+    delete args.unitext_f;
     # rounding errors can happen in real
-    $q.real_f = round($q.real_f);
-    $args.real_f = round($args.real_f);
+    q.real_f = round(q.real_f);
+    args.real_f = round(args.real_f);
     
     # compare each value
-    foreach my string $k in ($q.keyIterator())
-	test_value($q.$k, $args.$k, sprintf("%s bind and retrieve", $k));
+    foreach string k in (q.keyIterator())
+	test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
 
-    $db.commit();
+    db.commit();
 }
 
 sub main() {
-    my hash $test_map = (
+    hash test_map = (
 	"sybase": \sybase_test(),
 	"freetds": \freetds_test(),
 	);
 
     parse_command_line();
-    my Datasource $db = getDS();
+    Datasource db = getDS();
 
-    my $driver = $db.getDriverName();
-    printf("testing %s driver\n", $driver);
-    my $sv = $db.getServerVersion();
-    if ($o.verbose > 1)
-	tprintf(2, "client version=%n\nserver version=%n\n", $db.getClientVersion(), $sv);
+    my driver = db.getDriverName();
+    printf("testing %s driver\n", driver);
+    my sv = db.getServerVersion();
+    if (o.verbose > 1)
+	tprintf(2, "client version=%n\nserver version=%n\n", db.getClientVersion(), sv);
 
     # determine if the server is a sybase or sql server dataserver
-    if ($driver == "freetds")
-	if ($sv !~ /microsoft/i)
-	    $db.is_sybase = True;
+    if (driver == "freetds")
+	if (sv !~ /microsoft/i)
+	    db.is_sybase = True;
 
-    create_datamodel($db);
+    create_datamodel(db);
 
-    context_test($db);
-    transaction_test($db);
-    my *code $test = $test_map.($db.getDriverName());
-    if ($test)
-	$test($db);
+    context_test(db);
+    transaction_test(db);
+    *code test = test_map.(db.getDriverName());
+    if (test)
+	test(db);
     
-    if (!$o.leave)
-	drop_test_datamodel($db);
-    printf("%d/%d tests OK\n", $test_count - $errors, $test_count);
+    if (!o.leave)
+	drop_test_datamodel(db);
+    printf("%d/%d tests OK\n", test_count - errors, test_count);
 }
 
 main();

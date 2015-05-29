@@ -478,7 +478,7 @@ int connection::do_check_exception(ExceptionSink *xsink, bool check, const char 
          estr->concat(", ");
       if (smsg.svrnlen)
          estr->sprintf("%s: ", smsg.svrname);
-      estr->sprintf("state %d, server message xxx %d, ", smsg.state, smsg.msgnumber);
+      estr->sprintf("state %d, server message %d, ", smsg.state, smsg.msgnumber);
       if (smsg.line)
          estr->sprintf("line %d, ", smsg.line);
       estr->sprintf("severity %d", smsg.severity);
