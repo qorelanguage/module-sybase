@@ -23,18 +23,18 @@ sub usage() {
  -h,--help          this help text
  -v,--verbose       more v's = more information
  -l,--leave         leave test tables in schema at end\n",
-	   basename(ENV."_"));
+           basename(ENV."_"));
     exit();
 }
 
 const object_map = (
     "sybase": (
-	"tables": syb_tables,
-	"procs": sybase_procs,
+        "tables": syb_tables,
+        "procs": sybase_procs,
     ),
     "freetds": (
-	"tables": freetds_sybase_tables,
-	"procs": sybase_procs,
+        "tables": freetds_sybase_tables,
+        "procs": sybase_procs,
     ),
     );
 
@@ -42,91 +42,91 @@ const syb_tables = (
     "family" : "create table family (
    family_id int not null,
    name varchar(80) not null
-)", 
+)",
     "people" : "create table people (
    person_id int not null,
    family_id int not null,
    name varchar(250) not null,
    dob date not null
-)", 
+)",
     "attributes" : "create table attributes (
    person_id int not null,
    attribute varchar(80) not null,
    value varchar(160) not null
 )",
     "data_test" : "create table data_test (
-	null_f char(1) null,
+        null_f char(1) null,
 
-	varchar_f varchar(40) not null,
-	char_f char(40) not null,
-	unichar_f unichar(40) not null,
-	univarchar_f univarchar(40) not null,
-	text_f text not null,
-	unitext_f unitext not null, -- note that unitext is stored as 'image'
+        varchar_f varchar(40) not null,
+        char_f char(40) not null,
+        unichar_f unichar(40) not null,
+        univarchar_f univarchar(40) not null,
+        text_f text not null,
+        unitext_f unitext not null, -- note that unitext is stored as 'image'
 
         bit_f bit not null,
-	tinyint_f tinyint not null,
-	smallint_f smallint not null,
-	int_f int not null,
+        tinyint_f tinyint not null,
+        smallint_f smallint not null,
+        int_f int not null,
         int_f2 int not null,
 
-	decimal_f decimal(10,4) not null,
+        decimal_f decimal(10,4) not null,
 
-	float_f float not null,     -- 8-bytes
-	real_f real not null,       -- 4-bytes
-	money_f money not null,
-	smallmoney_f smallmoney not null,
+        float_f float not null,     -- 8-bytes
+        real_f real not null,       -- 4-bytes
+        money_f money not null,
+        smallmoney_f smallmoney not null,
 
-	date_f date not null,
-	time_f time not null,
-	datetime_f datetime not null,
-	smalldatetime_f smalldatetime not null,
+        date_f date not null,
+        time_f time not null,
+        datetime_f datetime not null,
+        smalldatetime_f smalldatetime not null,
 
-	binary_f binary(4) not null,
-	varbinary_f varbinary(4) not null,
-	image_f image not null
+        binary_f binary(4) not null,
+        varbinary_f varbinary(4) not null,
+        image_f image not null
 )" );
 
-const sybase_procs = ( 
-    "find_family" : 
-"create procedure find_family @name varchar(80) 
-as 
+const sybase_procs = (
+    "find_family" :
+"create procedure find_family @name varchar(80)
+as
 select * from family where name = @name
 commit -- to maintain transaction count
 ",
-    "get_values" : 
+    "get_values" :
 "create procedure get_values @string varchar(80) output, @int int output
-as 
+as
 select @string = 'hello there'
 select @int = 150
 commit -- to maintain transaction count
 ",
-    "get_values_and_select" : 
+    "get_values_and_select" :
 "create procedure get_values_and_select @string varchar(80) output, @int int output
-as 
+as
 select @string = 'hello there'
 select @int = 150
 select * from family where family_id = 1
 commit -- to maintain transaction count
 ",
-    "get_values_and_multiple_select" : 
+    "get_values_and_multiple_select" :
 "create procedure get_values_and_multiple_select @string varchar(80) output, @int int output
-as 
+as
 select @string = 'hello there'
 select @int = 150
 select * from family where family_id = 1
 select * from people where person_id = 1
 commit -- to maintain transaction count
 ",
-    "just_select" : 
+    "just_select" :
 "create procedure just_select
-as 
+as
 select * from family where family_id = 1
 commit -- to maintain transaction count
 ",
-    "multiple_select" : 
+    "multiple_select" :
 "create procedure multiple_select
-as 
+as
 select * from family where family_id = 1
 select * from people where person_id = 1
 commit -- to maintain transaction count
@@ -137,146 +137,146 @@ const freetds_sybase_tables = (
     "family" : "create table family (
    family_id int not null,
    name varchar(80) not null
-)", 
+)",
     "people" : "create table people (
    person_id int not null,
    family_id int not null,
    name varchar(250) not null,
    dob date not null
-)", 
+)",
     "attributes" : "create table attributes (
    person_id int not null,
    attribute varchar(80) not null,
    value varchar(160) not null
 )",
     "data_test" : "create table data_test (
-	null_f char(1) null,
+        null_f char(1) null,
 
-	varchar_f varchar(40) not null,
-	char_f char(40) not null,
-	text_f text not null,
-	unitext_f unitext not null, -- note that unitext is stored as 'image'
+        varchar_f varchar(40) not null,
+        char_f char(40) not null,
+        text_f text not null,
+        unitext_f unitext not null, -- note that unitext is stored as 'image'
 
         bit_f bit not null,
-	tinyint_f tinyint not null,
-	smallint_f smallint not null,
-	int_f int not null,
+        tinyint_f tinyint not null,
+        smallint_f smallint not null,
+        int_f int not null,
         int_f2 int not null,
 
-	decimal_f decimal(10,4) not null,
+        decimal_f decimal(10,4) not null,
 
-	float_f float not null,     -- 8-bytes
-	real_f real not null,       -- 4-bytes
-	money_f money not null,
-	smallmoney_f smallmoney not null,
+        float_f float not null,     -- 8-bytes
+        real_f real not null,       -- 4-bytes
+        money_f money not null,
+        smallmoney_f smallmoney not null,
 
-	date_f date not null,
-	time_f time not null,
-	datetime_f datetime not null,
-	smalldatetime_f smalldatetime not null,
+        date_f date not null,
+        time_f time not null,
+        datetime_f datetime not null,
+        smalldatetime_f smalldatetime not null,
 
-	binary_f binary(4) not null,
-	varbinary_f varbinary(4) not null,
-	image_f image not null
+        binary_f binary(4) not null,
+        varbinary_f varbinary(4) not null,
+        image_f image not null
 )" );
 
 const freetds_mssql_tables = (
     "family" : "create table family (
    family_id int not null,
    name varchar(80) not null
-)", 
+)",
     "people" : "create table people (
    person_id int not null,
    family_id int not null,
    name varchar(250) not null,
    dob datetime not null
-)", 
+)",
     "attributes" : "create table attributes (
    person_id int not null,
    attribute varchar(80) not null,
    value varchar(160) not null
 )",
     "data_test" : "create table data_test (
-	null_f char(1) null,
+        null_f char(1) null,
 
-	varchar_f varchar(40) not null,
-	char_f char(40) not null,
-	text_f text not null,
+        varchar_f varchar(40) not null,
+        char_f char(40) not null,
+        text_f text not null,
 
         bit_f bit not null,
-	tinyint_f tinyint not null,
-	smallint_f smallint not null,
-	int_f int not null,
+        tinyint_f tinyint not null,
+        smallint_f smallint not null,
+        int_f int not null,
         int_f2 int not null,
 
-	decimal_f decimal(10,4) not null,
+        decimal_f decimal(10,4) not null,
 
-	float_f float not null,     -- 8-bytes
-	real_f real not null,       -- 4-bytes
-	money_f money not null,
-	smallmoney_f smallmoney not null,
+        float_f float not null,     -- 8-bytes
+        real_f real not null,       -- 4-bytes
+        money_f money not null,
+        smallmoney_f smallmoney not null,
 
-	datetime_f datetime not null,
-	smalldatetime_f smalldatetime not null,
+        datetime_f datetime not null,
+        smalldatetime_f smalldatetime not null,
 
-	binary_f binary(4) not null,
-	varbinary_f varbinary(4) not null,
-	image_f image not null
+        binary_f binary(4) not null,
+        varbinary_f varbinary(4) not null,
+        image_f image not null
 )" );
 
 sub parse_command_line() {
     GetOpt g(opts);
     o = g.parse(\ARGV);
     if (o.help)
-	usage();
+        usage();
 
     if (!ARGV) {
-	stderr.printf("missing connection string on the command-line: -h for help\n");
-	exit(1);
+        stderr.printf("missing connection string on the command-line: -h for help\n");
+        exit(1);
     }
 
     o.conn = shift ARGV;
     *string db = (o.conn =~ x/^([^:]+):.+$/)[0];
     if (!db) {
-	stderr.printf("missing database driver argument in connection string %yn", o.conn);
-	exit(1);
+        stderr.printf("missing database driver argument in connection string %yn", o.conn);
+        exit(1);
     }
     if (db != "sybase" && db != "freetds") {
-	stderr.printf("unsupported driver argument %y in connection string, expecting \"sybase\" or \"freetds\"n", db);
-	exit(1);
+        stderr.printf("unsupported driver argument %y in connection string, expecting \"sybase\" or \"freetds\"n", db);
+        exit(1);
     }
 }
 
 sub create_datamodel(Datasource db) {
     drop_test_datamodel(db);
-  
+
     string driver = db.getDriverName();
     # create tables
     hash tables = object_map{driver}.tables;
     if (driver == "freetds")
-	if (db.is_sybase)
-	    tables = freetds_sybase_tables;
+        if (db.is_sybase)
+            tables = freetds_sybase_tables;
         else
-	    tables = freetds_mssql_tables;
+            tables = freetds_mssql_tables;
 
     on_success db.commit();
     on_error db.rollback();
 
     foreach string table in (tables.keyIterator()) {
-	tprintf(2, "creating table %n\n", table);
-	db.exec(tables{table});
+        tprintf(2, "creating table %n\n", table);
+        db.exec(tables{table});
     }
 
     # create procedures if any
     foreach my proc in (keys object_map{driver}.procs) {
-	tprintf(2, "creating procedure %n\n", proc);
-	db.exec(object_map{driver}.procs{proc});
+        tprintf(2, "creating procedure %n\n", proc);
+        db.exec(object_map{driver}.procs{proc});
     }
 
     # create functions if any
     foreach my func in (object_map{driver}.funcs.keyIterator()) {
-	tprintf(2, "creating function %n\n", func);
-	db.exec(object_map{driver}.funcs{func});
+        tprintf(2, "creating function %n\n", func);
+        db.exec(object_map{driver}.funcs{func});
     }
 
     db.exec("insert into family values ( 1, 'Smith' )");
@@ -314,39 +314,39 @@ sub drop_test_datamodel(db) {
     # the commits are needed for databases like postgresql, where errors will prohibit and further
     # actions from being taken on the Datasource
     foreach my table in (keys object_map{driver}.tables)
-	try { 
-	    db.exec("drop table " + table);
-	    db.commit(); 
-	    tprintf(2, "dropped table %n\n", table);
-	}
-        catch () { 
-	    db.commit(); 
-	}
-    
+        try {
+            db.exec("drop table " + table);
+            db.commit();
+            tprintf(2, "dropped table %n\n", table);
+        }
+        catch () {
+            db.commit();
+        }
+
     # drop procedures and ignore exceptions
     foreach string proc in (keys object_map{driver}.procs) {
-	string cmd = object_map{driver}.drop_proc_cmd ?? "drop procedure";
-	try { 
-	    db.exec(cmd + " " + proc); 
-	    db.commit(); 
-	    tprintf(2, "dropped procedure %n\n", proc);
-	} 
-	catch () { 
-	    db.commit(); 
-	}
+        string cmd = object_map{driver}.drop_proc_cmd ?? "drop procedure";
+        try {
+            db.exec(cmd + " " + proc);
+            db.commit();
+            tprintf(2, "dropped procedure %n\n", proc);
+        }
+        catch () {
+            db.commit();
+        }
     }
 
     # drop functions and ignore exceptions
     foreach string func in (keys object_map{driver}.funcs) {
-	string cmd = object_map{driver}.drop_func_cmd ?? "drop function";
-	try { 
-	    db.exec(cmd + " " + func); 
-	    db.commit(); 
-	    tprintf(2, "dropped function %n\n", func);
-	} 
-	catch () { 
-	    db.commit(); 
-	}
+        string cmd = object_map{driver}.drop_func_cmd ?? "drop function";
+        try {
+            db.exec(cmd + " " + func);
+            db.commit();
+            tprintf(2, "dropped function %n\n", func);
+        }
+        catch () {
+            db.commit();
+        }
     }
 }
 
@@ -356,14 +356,14 @@ Datasource sub getDS() {
 
 sub tprintf(v, msg) {
     if (v <= o.verbose)
-	vprintf(msg, argv);
+        vprintf(msg, argv);
 }
 
 sub test_value(v1, v2, msg) {
     ++test_count;
-    if (v1 == v2)
-	tprintf(1, "OK: %s test\n", msg);
-    else {
+    if (v1 == v2) {
+            tprintf(1, "OK: %s test\n", msg);
+    } else {
         tprintf(0, "ERROR: %s test failed! (%n != %n)\n", msg, v1, v2);
         errors++;
     }
@@ -372,41 +372,41 @@ sub test_value(v1, v2, msg) {
 const family_hash = (
   "Jones" : (
       "people" : (
-	  "John" : (
-	      "dob" : 1995-03-23,
-	      "eyes" : "brown",
-	      "hair" : "brown" ),
-	  "Alan" : (
-	      "dob" : 1992-06-04,
-	      "eyes" : "blue",
-	      "hair" : "black" ) ) ),
+          "John" : (
+              "dob" : 1995-03-23,
+              "eyes" : "brown",
+              "hair" : "brown" ),
+          "Alan" : (
+              "dob" : 1992-06-04,
+              "eyes" : "blue",
+              "hair" : "black" ) ) ),
     "Smith" : (
-	"people" : (
-	    "Arnie" : (
-		"dob" : 1983-05-13,
-		"eyes" : "hazel",
-		"hair" : "blond" ),
-	    "Carol" : ( 
-		"dob" : 2003-07-23,
-		"eyes" : "grey",
-		"hair" : "brown" ),
-	    "Isaac" : ( 
-		"dob" : 2000-04-04,
-		"eyes" : "green",
-		"hair" : "red" ),
-	    "Bernard" : ( 
-		"dob" : 1979-02-27,
-		"eyes" : "brown",
-		"hair" : "brown" ),
-	    "Sylvia" : (
-		"dob" : 1994-11-10,
-		"eyes" : "blue",
-		"hair" : "blond" ) ) ) );
+        "people" : (
+            "Arnie" : (
+                "dob" : 1983-05-13,
+                "eyes" : "hazel",
+                "hair" : "blond" ),
+            "Carol" : (
+                "dob" : 2003-07-23,
+                "eyes" : "grey",
+                "hair" : "brown" ),
+            "Isaac" : (
+                "dob" : 2000-04-04,
+                "eyes" : "green",
+                "hair" : "red" ),
+            "Bernard" : (
+                "dob" : 1979-02-27,
+                "eyes" : "brown",
+                "hair" : "brown" ),
+            "Sylvia" : (
+                "dob" : 1994-11-10,
+                "eyes" : "blue",
+                "hair" : "blond" ) ) ) );
 
 sub context_test(Datasource db) {
-    # first we select all the data from the tables and then use 
+    # first we select all the data from the tables and then use
     # context statements to order the output hierarchically
-    
+
     # context statements are most useful when a set of queries can be executed once
     # and the results processed many times by creating "views" with context statements
 
@@ -419,30 +419,30 @@ sub context_test(Datasource db) {
     # display each family sorted by family name
     my fl;
     context family (db.select("select * from family")) sortBy (%name) {
-	my pl;
-	tprintf(2, "Family %d: %s\n", %family_id, %name);
+        my pl;
+        tprintf(2, "Family %d: %s\n", %family_id, %name);
 
-	# display people, sorted by eye color, descending
-	context people (people) 
-	    sortDescendingBy (find %value in attributes 
-			      where (%attribute == "eyes" 
-				     && %person_id == %people:person_id)) 
-	    where (%family_id == %family:family_id)
-	{
-	    my al;
-	    tprintf(2, "  %s, born %s\n", %name, format_date("Month DD, YYYY", %dob));
-	    context (attributes) sortBy (%attribute) where (%person_id == %people:person_id) {
-		al.%attribute = %value;
-		tprintf(2, "    has %s %s\n", %value, %attribute);
-	    }
-	    # leave out the ID fields and name from hash under name; subtracting a 
-	    # string from a hash removes that key from the result
-	    # this is "doing it the hard way", there is only one key left, 
-	    # "dob", then attributes are added directly into the person hash
-	    pl.%name = %% - "family_id" - "person_id" - "name" + al;
-	}
-	# leave out family_id and name fields (leaving an empty hash)
-	fl.%name = %% - "family_id" - "name" + ( "people" : pl );
+        # display people, sorted by eye color, descending
+        context people (people)
+            sortDescendingBy (find %value in attributes
+                              where (%attribute == "eyes"
+                                     && %person_id == %people:person_id))
+            where (%family_id == %family:family_id)
+        {
+            my al;
+            tprintf(2, "  %s, born %s\n", %name, format_date("Month DD, YYYY", %dob));
+            context (attributes) sortBy (%attribute) where (%person_id == %people:person_id) {
+                al.%attribute = %value;
+                tprintf(2, "    has %s %s\n", %value, %attribute);
+            }
+            # leave out the ID fields and name from hash under name; subtracting a
+            # string from a hash removes that key from the result
+            # this is "doing it the hard way", there is only one key left,
+            # "dob", then attributes are added directly into the person hash
+            pl.%name = %% - "family_id" - "person_id" - "name" + al;
+        }
+        # leave out family_id and name fields (leaving an empty hash)
+        fl.%name = %% - "family_id" - "name" + ( "people" : pl );
     }
 
     # test context ordering
@@ -455,13 +455,13 @@ sub context_test(Datasource db) {
 sub test_timeout(db, c) {
     db.setTransactionLockTimeout(1ms);
     try {
-	# this should cause a TRANSACTION-LOCK-TIMEOUT exception to be thrown
-	db.exec("insert into family values (3, 'Test')\n");
-	test_value(True, False, "transaction timeout");
-	db.exec("delete from family where name = 'Test'");
+        # this should cause a TRANSACTION-LOCK-TIMEOUT exception to be thrown
+        db.exec("insert into family values (3, 'Test')\n");
+        test_value(True, False, "transaction timeout");
+        db.exec("delete from family where name = 'Test'");
     }
     catch (ex) {
-	test_value(True, True, "transaction timeout");
+        test_value(True, True, "transaction timeout");
     }
     # signal parent thread to continue
     c.dec();
@@ -474,7 +474,7 @@ sub transaction_test(Datasource db) {
     # first, we insert a new row into "family" but do not commit it
     int rows = db.exec("insert into family values (3, 'Test')\n");
     if (rows !== 1)
-	printf("FAILED INSERT, rows=%y\n", rows);
+        printf("FAILED INSERT, rows=%y\n", rows);
 
     # now we verify that the new row is visible to the inserting datasource
     *string name = db.selectRow("select name from family where family_id = 3").name;
@@ -488,14 +488,14 @@ sub transaction_test(Datasource db) {
 
     # wait for child thread to time out
     c.waitForZero();
-    
+
     # now, we commit the transaction
     db.commit();
 
     # now we verify that the new row is visible in the other datasource
     name = ndb.selectRow("select name from family where family_id = 3").name;
     test_value(name, "Test", "third transaction");
-    
+
     # now we delete the row we inserted (so we can repeat the test)
     int cnt = ndb.exec("delete from family where family_id = 3");
     test_value(cnt, 1, "delete row count");
@@ -505,8 +505,8 @@ sub transaction_test(Datasource db) {
 sub oracle_test() {
 }
 
-# here we use a little workaround for modules that provide functions, 
-# namespace additions (constants, classes, etc) needed by test functions 
+# here we use a little workaround for modules that provide functions,
+# namespace additions (constants, classes, etc) needed by test functions
 # at parse time.  To avoid parse errors (as database modules are loaded
 # in this script at run-time when the Datasource class is instantiated)
 # we use a Program object that we parse and run on demand to return the
@@ -545,7 +545,7 @@ exec get_values :string output, :int output");
 
     # we use Datasource::selectRows() in the following queries because we
     # get hash results instead of a hash of lists as with exec in the queries
-    # normally we should not use selectRows to execute a stored procedure, 
+    # normally we should not use selectRows to execute a stored procedure,
     # as the Datasource::selectRows() method will not grab the transaction lock,
     # but we already called Datasource::exec() above, so we have it already.
     # the other alternative would be to call Datasource::beginTransaction() before
@@ -574,39 +574,39 @@ exec get_values_and_multiple_select :string output, :int output");
     test_value(x, ("query0":family_q,"query1":person_q), "multiple_select");
 
     hash args = (
-	"null_f"          : NULL,
-	"varchar_f"       : "varchar", 
-	"char_f"          : "char", 
-	"unichar_f"       : "unichar",
-	"univarchar_f"    : "univarchar",
-	"text_f"          : "test",
-	"unitext_f"       : "test",
-	"bit_f"           : True,
-	"tinyint_f"       : 55, 
-	"smallint_f"      : 4285, 
-	"int_f"           : 405402,
-	"int_f2"          : 214123498,
-	"decimal_f"       : 500.1231, 
-	"float_f"         : 23443.234324234, 
-	"real_f"          : 213.123, 
-	"money_f"         : 3434234250.2034, 
-	"smallmoney_f"    : 211100.1012,
-	"date_f"          : 2007-05-01, 
-	"time_f"          : 10:30:01, 
-	"datetime_f"      : 3459-01-01T11:15:02.250, 
-	"smalldatetime_f" : 2007-12-01T12:01:00, 
-	"binary_f"        : <0badbeef>, 
-	"varbinary_f"     : <feedface>, 
-	"image_f"         : <cafebead>,
-	);
+        "null_f"          : NULL,
+        "varchar_f"       : "varchar",
+        "char_f"          : "char",
+        "unichar_f"       : "unichar",
+        "univarchar_f"    : "univarchar",
+        "text_f"          : "test",
+        "unitext_f"       : "test",
+        "bit_f"           : True,
+        "tinyint_f"       : 55,
+        "smallint_f"      : 4285,
+        "int_f"           : 405402,
+        "int_f2"          : 214123498,
+        "decimal_f"       : 500.1231,
+        "float_f"         : 23443.234324234,
+        "real_f"          : 213.123,
+        "money_f"         : 3434234250.2034,
+        "smallmoney_f"    : 211100.1012,
+        "date_f"          : 2007-05-01,
+        "time_f"          : 10:30:01,
+        "datetime_f"      : 3459-01-01T11:15:02.250,
+        "smalldatetime_f" : 2007-12-01T12:01:00,
+        "binary_f"        : <0badbeef>,
+        "varbinary_f"     : <feedface>,
+        "image_f"         : <cafebead>,
+        );
 
     # insert data
     db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %d, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values(args));
 
     *hash q = db.selectRow("select * from data_test");
     if (o.verbose > 1)
-	foreach string k in (q.keyIterator())
-	    tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
+        foreach string k in (q.keyIterator())
+            tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
 
     # remove values where we know they won't match
     # unitext_f is returned as IMAGE by the server
@@ -615,10 +615,10 @@ exec get_values_and_multiple_select :string output, :int output");
     # rounding errors can happen in real
     q.real_f = round(q.real_f);
     args.real_f = round(args.real_f);
-    
+
     # compare each value
     foreach string k in (q.keyIterator())
-	test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
+        test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
 
     db.commit();
 }
@@ -634,14 +634,14 @@ sub freetds_test(Datasource db) {
     # be able to add custom methods to the Datasource class.  For now, we skip these tests
 
     if (db.is_sybase) {
-	x = db.exec("declare @string varchar(40), @int int
+        x = db.exec("declare @string varchar(40), @int int
 exec get_values :string output, :int output");
-	test_value(x, params, "get_values");
+        test_value(x, params, "get_values");
     }
 
     # we use Datasource::selectRows() in the following queries because we
     # get hash results instead of a hash of lists as with exec in the queries
-    # normally we should not use selectRows to execute a stored procedure, 
+    # normally we should not use selectRows to execute a stored procedure,
     # as the Datasource::selectRows() method will not grab the transaction lock,
     # but we already called Datasource::exec() above, so we have it already.
     # the other alternative would be to call Datasource::beginTransaction() before
@@ -653,14 +653,14 @@ exec get_values :string output, :int output");
 
     # stored proc execute with output params and select results
     if (db.is_sybase) {
-	x = db.selectRows("declare @string varchar(40), @int int
+        x = db.selectRows("declare @string varchar(40), @int int
 exec get_values_and_select :string output, :int output");
-	test_value(x, ("query":family_q,"params":params), "get_values_and_select");
+        test_value(x, ("query":family_q,"params":params), "get_values_and_select");
 
-	# stored proc execute with output params and multiple select results
-	x = db.selectRows("declare @string varchar(40), @int int
+        # stored proc execute with output params and multiple select results
+        x = db.selectRows("declare @string varchar(40), @int int
 exec get_values_and_multiple_select :string output, :int output");
-	test_value(x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
+        test_value(x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
     }
 
     # stored proc execute with just select results
@@ -675,40 +675,40 @@ exec get_values_and_multiple_select :string output, :int output");
     # unichar, univarchar
 
     hash args = (
-	"null_f"          : NULL,
-	"varchar_f"       : "test", 
-	"char_f"          : "test", 
-	"text_f"          : "test",
-	"unitext_f"       : "test",
-	"bit_f"           : True,
-	"tinyint_f"       : 55, 
-	"smallint_f"      : 4285, 
-	"int_f"           : 405402,
-	"int_f2"          : 214123498,
-	"decimal_f"       : 500.1231, 
-	"float_f"         : 23443.234324234, 
-	"real_f"          : 213.123, 
-	"money_f"         : 3434234250.2034, 
-	"smallmoney_f"    : 211100.1012,
-	"date_f"          : 2007-05-01, 
-	"time_f"          : 10:30:01, 
-	"datetime_f"      : 3459-01-01T11:15:02.250, 
-	"smalldatetime_f" : 2007-12-01T12:01:00, 
-	"binary_f"        : <0badbeef>, 
-	"varbinary_f"     : <feedface>, 
-	"image_f"         : <cafebead>,
-	);
+        "null_f"          : NULL,
+        "varchar_f"       : "test",
+        "char_f"          : "test",
+        "text_f"          : "test",
+        "unitext_f"       : "test",
+        "bit_f"           : True,
+        "tinyint_f"       : 55,
+        "smallint_f"      : 4285,
+        "int_f"           : 405402,
+        "int_f2"          : 214123498,
+        "decimal_f"       : 500.1231,
+        "float_f"         : 23443.234324234,
+        "real_f"          : 213.123,
+        "money_f"         : 3434234250.2034,
+        "smallmoney_f"    : 211100.1012,
+        "date_f"          : 2007-05-01,
+        "time_f"          : 10:30:01,
+        "datetime_f"      : 3459-01-01T11:15:02.250,
+        "smalldatetime_f" : 2007-12-01T12:01:00,
+        "binary_f"        : <0badbeef>,
+        "varbinary_f"     : <feedface>,
+        "image_f"         : <cafebead>,
+        );
 
     # remove fields not supported by sql server
     if (!db.is_sybase) {
-	delete args.unitext_f;
-	delete args.date_f;
-	delete args.time_f;
+        delete args.unitext_f;
+        delete args.date_f;
+        delete args.time_f;
     }
 
     string sql = "insert into data_test values (";
     for (int i; i < elements args; ++i)
-	sql += "%v, ";
+        sql += "%v, ";
     sql = substr(sql, 0, -2) + ")";
 
     # insert data, using the values from the hash above
@@ -716,8 +716,8 @@ exec get_values_and_multiple_select :string output, :int output");
 
     *hash q = db.selectRow("select * from data_test");
     if (o.verbose > 1)
-	foreach my k in (keys q)
-	    tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
+        foreach my k in (keys q)
+            tprintf(2, " %-16s= %-10s %N\n", k, type(q{k}), q{k});
 
     # remove values where we know they won't match
     # unitext_f is returned as IMAGE by the server
@@ -726,19 +726,19 @@ exec get_values_and_multiple_select :string output, :int output");
     # rounding errors can happen in real
     q.real_f = round(q.real_f);
     args.real_f = round(args.real_f);
-    
+
     # compare each value
     foreach string k in (q.keyIterator())
-	test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
+        test_value(q{k}, args{k}, sprintf("%s bind and retrieve", k));
 
     db.commit();
 }
 
 sub main() {
     hash test_map = (
-	"sybase": \sybase_test(),
-	"freetds": \freetds_test(),
-	);
+        "sybase": \sybase_test(),
+        "freetds": \freetds_test(),
+        );
 
     parse_command_line();
     Datasource db = getDS();
@@ -747,12 +747,12 @@ sub main() {
     printf("testing %s driver\n", driver);
     my sv = db.getServerVersion();
     if (o.verbose > 1)
-	tprintf(2, "client version=%n\nserver version=%n\n", db.getClientVersion(), sv);
+        tprintf(2, "client version=%n\nserver version=%n\n", db.getClientVersion(), sv);
 
     # determine if the server is a sybase or sql server dataserver
     if (driver == "freetds")
-	if (sv !~ /microsoft/i)
-	    db.is_sybase = True;
+        if (sv !~ /microsoft/i)
+            db.is_sybase = True;
 
     create_datamodel(db);
 
@@ -760,10 +760,10 @@ sub main() {
     transaction_test(db);
     *code test = test_map.(db.getDriverName());
     if (test)
-	test(db);
-    
+        test(db);
+
     if (!o.leave)
-	drop_test_datamodel(db);
+        drop_test_datamodel(db);
     printf("%d/%d tests OK\n", test_count - errors, test_count);
 }
 
