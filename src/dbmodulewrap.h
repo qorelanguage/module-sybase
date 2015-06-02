@@ -237,7 +237,7 @@ class DBModuleWrap {
     }
 
     static bool next(SQLStatement* stmt, ExceptionSink* xsink) {
-        return run<bool>(&Module::describe, stmt, xsink);
+        return run<bool>(&Module::next, stmt, xsink);
     }
 
     static int affected_rows(SQLStatement* stmt, ExceptionSink* xsink) {
