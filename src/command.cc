@@ -30,6 +30,7 @@
 #include <assert.h>
 #include <cstypes.h>
 #include <memory>
+#include <iostream>
 
 #include "command.h"
 #include "connection.h"
@@ -47,7 +48,8 @@ command::command(connection& conn, ExceptionSink* xsink) :
     m_conn(conn),
     m_cmd(0),
     canceled(false),
-    rowcount(-1)
+    rowcount(-1),
+    lastRes(RES_NONE)
 {
   CS_RETCODE err = ct_cmd_alloc(m_conn.getConnection(), &m_cmd);
   if (err != CS_SUCCEED) {
@@ -65,12 +67,13 @@ command::~command() {
 }
 
 int command::send(ExceptionSink *xsink) {
-   CS_RETCODE err = ct_send(m_cmd);
-   if (err != CS_SUCCEED) {
-      m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_send() failed");
-      return -1;
-   }
-   return 0;
+    CS_RETCODE err = ct_send(m_cmd);
+    if (err != CS_SUCCEED) {
+        m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_send() failed");
+        return -1;
+    }
+
+    return 0;
 }
 
 int command::initiate_language_command(const char *cmd_text, ExceptionSink *xsink) {
@@ -86,6 +89,7 @@ int command::initiate_language_command(const char *cmd_text, ExceptionSink *xsin
 bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    CS_INT rows_read;
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
+   lastRes = RES_NONE;
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
            m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
@@ -129,6 +133,7 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
       memset(&datafmt, 0, sizeof(datafmt));
       datafmt.status = CS_INPUTVALUE;
       datafmt.namelen = CS_NULLTERM;
+      sprintf(datafmt.name, "@par%d", int(i + 1));
       datafmt.maxlength = CS_UNUSED;
       datafmt.count = 1;
 
@@ -265,15 +270,29 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
 }
 
 
+int command::get_row_count() {
+    return rowcount;
+}
+
 command::ResType command::read_next_result1(ExceptionSink* xsink) {
     if (xsink->isException())
         return RES_ERROR;
 
     CS_INT result_type;
     CS_RETCODE err = ct_results(m_cmd, &result_type);
-
     switch (err) {
-        case CS_END_RESULTS:
+        case CS_END_RESULTS: {
+            CS_RETCODE ret;
+            rowcount = -1;
+
+            ret = ct_res_info(m_cmd, CS_ROW_COUNT,
+                    (CS_VOID *)&rowcount,
+                    CS_UNUSED, 0);
+            if (ret != CS_SUCCEED) {
+                return RES_END;
+            }
+
+            }
             return RES_END;
         case CS_FAIL: {
              err = ct_cancel(m_conn.getConnection(), m_cmd, CS_CANCEL_ALL);
@@ -384,7 +403,7 @@ void command::retr_colinfo(ExceptionSink* xsink) {
 }
 
 
-AbstractQoreNode *command::read_cols(const Placeholders *ph, ExceptionSink* xsink)
+QoreHashNode *command::read_cols(const Placeholders *ph, ExceptionSink* xsink)
 {
     if (ensure_colinfo(xsink)) return 0;
 

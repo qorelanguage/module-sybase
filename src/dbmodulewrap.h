@@ -18,6 +18,9 @@
 #include <iostream>
 #include <memory>
 #include <map>
+#include <string>
+
+#include "error.h"
 
 namespace ss {
 
@@ -77,6 +80,28 @@ class DBModuleWrap {
         QoreListNode *params;
     };
 
+    template<typename Res, typename Method>
+    static Res run(Method m, SQLStatement *stmt, ExceptionSink *xsink) {
+        try {
+            if (xsink->isException()) return 0;
+            return (module(stmt)->*m)(stmt, xsink);
+        } catch (const Error &e) {
+            e.raise(xsink);
+            return 0;
+        }
+    }
+
+    template<typename Res, typename P1, typename Method>
+    static Res run(Method m, SQLStatement *stmt, P1 p1, ExceptionSink *xsink) {
+        try {
+            if (xsink->isException()) return 0;
+            return (module(stmt)->*m)(stmt, p1, xsink);
+        } catch (const Error &e) {
+            e.raise(xsink);
+            return 0;
+        }
+    }
+
 
     static ModuleWrap * module_wrap(SQLStatement* stmt,
             bool create = true)
@@ -92,7 +117,9 @@ class DBModuleWrap {
 
     static Module * module(SQLStatement* stmt) {
         Module *rv = module_wrap(stmt)->m;
-        assert(rv);
+        if (!rv) {
+            throw Error("DBI:SYBASE", "Not initialized");
+        }
         return rv;
     }
 
@@ -134,73 +161,97 @@ class DBModuleWrap {
     }
 
 
-    static int bind(SQLStatement* stmt, const QoreListNode& l,
+    static int bind(SQLStatement* stmt, const QoreListNode &l,
             ExceptionSink* xsink)
     {
-        return module(stmt)->bind(stmt, l, xsink);
+        ModuleWrap *mv = module_wrap(stmt);
+        mv->set_params(&l, xsink);
+        return 0;
     }
 
-    static int bind_placeholders(SQLStatement* stmt, const QoreListNode& l,
+    static int bind_placeholders(SQLStatement* stmt,
+            const QoreListNode& l,
             ExceptionSink* xsink) 
     {
-        return module(stmt)->bind_placeholders(stmt, l, xsink);
+        try {
+            if (xsink->isException()) return 0;
+            return module(stmt)->bind_placeholders(stmt, l, xsink);
+        } catch (const Error &e) {
+            e.raise(xsink);
+            return 0;
+        }
     }
 
-    static int bind_values(SQLStatement* stmt, const QoreListNode& l,
+    static int bind_values(SQLStatement* stmt,
+            const QoreListNode &l,
             ExceptionSink* xsink)
     {
-        return module(stmt)->bind_values(stmt, l, xsink);
+        // I would rather use boost::ref here, but code is not prepared for
+        // that.
+
+        try {
+            if (xsink->isException()) return 0;
+            return module(stmt)->bind_values(stmt, l, xsink);
+        } catch (const Error &e) {
+            e.raise(xsink);
+            return 0;
+        }
     }
 
     static int exec(SQLStatement* stmt, ExceptionSink* xsink) {
-        ModuleWrap *mv = module_wrap(stmt);
-        StatementHelper sh(stmt);
-        typename Module::Connection *conn = sh.conn();
-        const QoreListNode *args = mv->get_params();
-        const QoreString *query = mv->query.get();
-        return module(stmt)->exec(conn, query, args, mv->raw, xsink);
+        try {
+            ModuleWrap *mv = module_wrap(stmt);
+            StatementHelper sh(stmt);
+            typename Module::Connection *conn = sh.conn();
+            const QoreListNode *args = mv->get_params();
+            const QoreString *query = mv->query.get();
+            return module(stmt)->exec(conn, query, args, mv->raw, xsink);
+        } catch (const Error &e) {
+            e.raise(xsink);
+            return 0;
+        }
     }
 
     static int define(SQLStatement* stmt, ExceptionSink* xsink) {
-        return module(stmt)->define(stmt, xsink);
+        return run<int>(&Module::define, stmt, xsink);
     }
 
     static QoreHashNode* fetch_row(SQLStatement* stmt, ExceptionSink* xsink) {
-        return module(stmt)->fetch_row(stmt, xsink);
+        return run<QoreHashNode *>(&Module::fetch_row, stmt, xsink);
     }
 
     static QoreListNode* fetch_rows(SQLStatement* stmt, int rows,
             ExceptionSink* xsink)
     {
-        return module(stmt)->fetch_rows(stmt, rows, xsink);
+        return run<QoreListNode *>(&Module::fetch_rows, stmt, rows, xsink);
     }
 
     static QoreHashNode* fetch_columns(SQLStatement* stmt, int rows,
             ExceptionSink* xsink)
     {
-        return module(stmt)->fetch_columns(stmt, rows, xsink);
+        return run<QoreHashNode *>(&Module::fetch_columns, stmt, rows, xsink);
     }
 
     static QoreHashNode* describe(SQLStatement* stmt, ExceptionSink* xsink) {
-        return module(stmt)->describe(stmt, xsink);
+        return run<QoreHashNode *>(&Module::describe, stmt, xsink);
     }
 
     static bool next(SQLStatement* stmt, ExceptionSink* xsink) {
-        return module(stmt)->next(stmt, xsink);
+        return run<bool>(&Module::describe, stmt, xsink);
     }
 
     static int affected_rows(SQLStatement* stmt, ExceptionSink* xsink) {
-        return module(stmt)->affected_rows(stmt, xsink);
+        return run<int>(&Module::affected_rows, stmt, xsink);
     }
 
     static QoreHashNode* get_output(SQLStatement* stmt, ExceptionSink* xsink) {
-        return module(stmt)->get_output(stmt, xsink);
+        return run<QoreHashNode *>(&Module::get_output, stmt, xsink);
     }
 
     static QoreHashNode* get_output_rows(SQLStatement* stmt,
             ExceptionSink* xsink)
     {
-        return module(stmt)->get_output_rows(stmt, xsink);
+        return run<QoreHashNode *>(&Module::get_output_rows, stmt, xsink);
     }
 
 

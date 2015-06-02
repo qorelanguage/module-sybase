@@ -3,6 +3,9 @@
 
 #include <string>
 #include <sstream>
+#include <memory>
+
+#include "error.h"
 
 namespace ss {
 
@@ -34,6 +37,42 @@ template<typename Con>
 void delete_container(Con &c) {
     delete_range(c.begin(), c.end());
 }
+
+template<typename T>
+class SafePtr {
+  public:
+    SafePtr() {}
+
+    explicit SafePtr(T *t) : p(t) {}
+
+    void reset(T *t = 0) {
+        p.reset(t);
+    }
+
+    T * release() {
+        return p.release();
+    }
+
+    T * get() { return p.get(); }
+
+    T * safe_get() {
+        if (!p.get()) {
+            throw ss::Error("DBI:SYBASE", "Not initialized");
+        }
+        return p.get();
+    }
+
+    T * operator->() {
+        return safe_get();
+    }
+
+    T & operator*() {
+        return *safe_get();
+    }
+
+  private:
+    std::auto_ptr<T> p;
+};
 
 
 }

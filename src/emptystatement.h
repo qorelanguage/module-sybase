@@ -8,7 +8,7 @@
 namespace ss {
 
 class EmptyStatement {
-  private:
+  protected:
         void log(const char *s) {
             std::cout << s << std::endl;
         }

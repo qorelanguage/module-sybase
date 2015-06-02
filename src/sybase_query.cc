@@ -145,6 +145,8 @@ next:
        ;
    } // while
 
+   s = m_cmd.getBuffer();
+   s = 0;
    //printd(5, "size=%d, m_cmd=%s\n", param_list.size(), m_cmd.getBuffer());
    return 0;
 }

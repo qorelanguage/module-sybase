@@ -33,6 +33,7 @@
 #include "sybase_query.h"
 #include "row_output_buffers.h"
 #include "conversions.h"
+#include "utils.h"
 
 class connection;
 
@@ -70,6 +71,7 @@ public:
 class command {
 public:
     enum ResType {
+        RES_NONE,
         RES_PARAM,
         RES_STATUS,
         RES_ROW,
@@ -81,12 +83,13 @@ public:
 
 
 private:
-    std::auto_ptr<sybase_query> query;
+    ss::SafePtr<sybase_query> query;
 
     connection& m_conn;
     CS_COMMAND* m_cmd;
     bool canceled;
     CS_INT rowcount;
+    ResType lastRes;
 
     Columns colinfo;
     row_output_buffers out_buffers;
@@ -103,11 +106,6 @@ private:
     int get_row_description(row_result_t &result, unsigned column_count, class ExceptionSink *xsink);
     int setup_output_buffers(const row_result_t &input_row_descriptions, class ExceptionSink *xsink);
 
-    AbstractQoreNode *read_cols(const Placeholders *placeholder_list, ExceptionSink* xsink);
-
-    AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink);
-    AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
-
     int append_buffers_to_list(row_result_t &column_info, row_output_buffers& all_buffers, class QoreHashNode *h, ExceptionSink* xsink);
 
     QoreHashNode *output_buffers_to_hash(const Placeholders *ph, ExceptionSink* xsink);
@@ -117,13 +115,16 @@ private:
 
 public:
     ResType read_next_result(ExceptionSink* xsink) {
-        ResType res;
-        while ((res = read_next_result1(xsink)) == RES_RETRY) {}
-        return res;
+        if (lastRes == RES_DONE) lastRes = RES_NONE;
+        if (lastRes != RES_NONE) return lastRes;
+        while ((lastRes = read_next_result1(xsink)) == RES_RETRY) {}
+        return lastRes;
     }
 
     QoreHashNode * fetch_row(ExceptionSink* xsink, const Placeholders *ph = 0);
 
+
+    int get_row_count();
 
     DLLLOCAL command(connection& conn, ExceptionSink* xsink);
     DLLLOCAL ~command();
@@ -143,15 +144,18 @@ public:
     DLLLOCAL int set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL AbstractQoreNode *read_output(bool list, bool &disconnect, ExceptionSink* xsink);
 
+    QoreHashNode *read_cols(const Placeholders *placeholder_list, ExceptionSink* xsink);
+    AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink);
+    AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
+
+
+    void set_placeholders(const Placeholders &ph) {
+        query->placeholders = ph;
+    }
 
     int bind_query(std::auto_ptr<sybase_query> &query,
             const QoreListNode *args,
             ExceptionSink*);
-};
-
-class sybase_rows {
-
-
 };
 
 

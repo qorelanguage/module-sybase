@@ -10,14 +10,15 @@
 #include <qore/Datasource.h>
 #include <qore/QoreListNode.h>
 #include <qore/QoreHashNode.h>
-
+#include <qore/QoreValue.h>
 
 
 #include "connection.h"
 #include "emptystatement.h"
 #include "command.h"
-
 #include "dbmodulewrap.h"
+#include "utils.h"
+
 namespace ss {
 
 inline bool expect_row(command::ResType rt) {
@@ -29,6 +30,7 @@ inline bool expect_row(command::ResType rt) {
             return false;
     }
 }
+
 
 class Statement : public EmptyStatement {
     AbstractQoreNode *_execRes;
@@ -44,12 +46,12 @@ class Statement : public EmptyStatement {
 
     ~Statement() {}
 
-    std::auto_ptr<command> context;
+    SafePtr<command> context;
+    Placeholders placeholders;
 public:
     typedef connection Connection;
 
-
-    Statement() : _execRes(0) { }
+    Statement() : _execRes(0) {}
 
     static void Delete(Statement *self, ExceptionSink* xsink) {
         if (!self) return;
@@ -71,12 +73,12 @@ public:
         {
             context.reset(conn->create_command(query, args, xsink));
         }
+        context->set_placeholders(placeholders);
+        context->read_next_result(xsink);
         return 0;
     }
 
     bool next(SQLStatement* stmt, ExceptionSink* xsink) {
-        if (xsink->isException()) return false;
-        if (!context.get()) return false;
         command::ResType res = context->read_next_result(xsink);
         if (expect_row(res)) {
             return true;
@@ -86,7 +88,6 @@ public:
     }
 
     QoreHashNode * fetch_row(SQLStatement* stmt, ExceptionSink* xsink) {
-        if (!context.get()) return 0;
         return context->fetch_row(xsink);
     }
 
@@ -104,11 +105,38 @@ public:
 
         // next was already called once
         do {
+            if (rows <= 0) return reslist.release();
+            rows--;
             if (xsink->isException()) return 0;
             reslist->insert(fetch_row(stmt, xsink));
         } while (next(stmt, xsink));
         return reslist.release();
     }
+
+
+    int affected_rows(SQLStatement* stmt, ExceptionSink* xsink) {
+        return context->get_row_count();
+    }
+
+
+    QoreHashNode* fetch_columns(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
+        return context->read_cols(0,  xsink);
+    }
+
+    int bind_placeholders(SQLStatement* stmt,
+            const QoreListNode& l,
+            ExceptionSink* xsink)
+    {
+        placeholders.clear();
+        ConstListIterator it(l);
+        while (it.next()) {
+            QoreValue v(it.getValue());
+            QoreStringNode *s = v.get<QoreStringNode>();
+            placeholders.push_back(s->getBuffer());
+        }
+        return 0;
+    }
+
 };
 
 void init(qore_dbi_method_list &methods) {
