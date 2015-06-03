@@ -208,7 +208,7 @@ class DBModuleWrap {
             return module(stmt)->exec(conn, query, args, mv->raw, xsink);
         } catch (const Error &e) {
             e.raise(xsink);
-            return 0;
+            return -1;
         }
     }
 
