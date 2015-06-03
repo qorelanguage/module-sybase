@@ -87,13 +87,12 @@ sub test_value(any v1, any v2, string msg) {
 
 sub create_table(DatasourcePool dsp) {
     SQLStatement drop_stmt(dsp);
-    #drop_stmt.prepare("drop table test");
+    drop_stmt.prepare("drop table test");
 
     on_exit drop_stmt.commit();
     
     try {
         drop_stmt.exec();
-	drop_stmt.commit();
     }
     catch (hash ex) {
         info("ignoring drop table error (%s: %s)", ex.err, ex.desc);
@@ -102,7 +101,6 @@ sub create_table(DatasourcePool dsp) {
     drop_stmt.prepare("create table test (dt datetime, d date, t time, sdt smalldatetime)");
     drop_stmt.exec();
     printf("done\n");
-    drop_stmt.commit();
 }
 
 sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
@@ -170,7 +168,6 @@ sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
     select_stmt.exec();
     v = select_stmt.fetchColumns(-1);
     test_value(v.size(), 4, "fetch columns 2");
-
     info("columns: %N", v);
 }
 
