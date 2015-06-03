@@ -132,19 +132,18 @@ public:
     DLLLOCAL CS_COMMAND* operator()() const { return m_cmd; }
     DLLLOCAL connection& getConnection() const { return m_conn; }
 
-    // returns 0=OK, -1=error (exception raised)
-    DLLLOCAL int send(ExceptionSink* xsink);
-    // returns 0=OK, -1=error (exception raised)
-    DLLLOCAL int initiate_language_command(const char *cmd_text, class ExceptionSink *xsink);
+    DLLLOCAL void send(ExceptionSink* xsink);
+    DLLLOCAL void  initiate_language_command(const char *cmd_text, class ExceptionSink *xsink);
     // returns true if data returned, false if not
     DLLLOCAL bool fetch_row_into_buffers(class ExceptionSink *xsink);
     // returns the number of columns in the result
     DLLLOCAL unsigned get_column_count(ExceptionSink *xsink);
     // returns 0=OK, -1=error (exception raised)
-    DLLLOCAL int set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL void set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL AbstractQoreNode *read_output(bool list, bool &disconnect, ExceptionSink* xsink);
 
-    QoreHashNode *read_cols(const Placeholders *placeholder_list, ExceptionSink* xsink);
+    QoreHashNode *read_cols(const Placeholders *placeholder_list,
+            ExceptionSink* xsink);
     AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink);
     AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
 

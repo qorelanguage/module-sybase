@@ -78,27 +78,31 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
 
    CS_RETCODE err = ct_cmd_alloc(m_connection, &cmd);
    if (err != CS_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:ERROR", "ct_cmd_alloc() failed");
+      do_exception(xsink, "DBI:SYBASE:ERROR", "ct_cmd_alloc() failed");
 
    ON_BLOCK_EXIT(ct_cmd_drop, cmd);
    ScopeGuard canceller = MakeGuard(ct_cancel, (CS_CONNECTION*)0, cmd, CS_CANCEL_ALL);
 
    err = ct_command(cmd, CS_LANG_CMD, (CS_CHAR*)sql_text, strlen(sql_text), CS_END);
    if (err != CS_SUCCEED)
-      return do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_command() failed");
+      do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_command() failed");
 
    err = ct_send(cmd);
    if (err != CS_SUCCEED)
-      return do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_send() failed");
+      do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_send() failed");
 
    // no results expected
    CS_INT result_type;
    err = ct_results(cmd, &result_type);
    if (err != CS_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() returned error code %d", err);
+        do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", 
+                "connection::direct_execute(): ct_results()"
+                " returned error code %d", err);
 
-   if (result_type != CS_CMD_SUCCEED && do_check_exception(xsink, true, "DBI:SYBASE:EXEC-ERROR", "connection::direct_execute(): ct_results() failed with result_type = %d", result_type))
-       return -1;
+   if (result_type != CS_CMD_SUCCEED)
+       do_check_exception(xsink, true, "DBI:SYBASE:EXEC-ERROR",
+               "connection::direct_execute(): ct_results()"
+               " failed with result_type = %d", result_type);
 
    while((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
    canceller.Dismiss();
@@ -125,7 +129,7 @@ command * connection::create_command(const QoreString *cmd_text,
 
     std::auto_ptr<command> cmd(new command(*this, xsink));
     cmd->bind_query(query, qore_args, xsink);
-    if (cmd->send(xsink)) return 0;
+    cmd->send(xsink);
     return cmd.release();
 }
 
@@ -139,7 +143,7 @@ command * connection::create_command(const QoreString *cmd_text,
 
     std::auto_ptr<command> cmd(new command(*this, xsink));
     cmd->bind_query(query, 0, xsink);
-    if (cmd->send(xsink)) return 0;
+    cmd->send(xsink);
     return cmd.release();
 }
 
@@ -363,14 +367,14 @@ int connection::init(const char* username,
    CS_BOOL cs_bool = CS_TRUE;
    ret = ct_options(m_connection, CS_SET, CS_OPT_CHAINXACTS, &cs_bool, CS_UNUSED, 0);
    if (ret != CS_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:INIT-ERROR", "ct_options(CS_OPT_CHAINXACTS) failed");
+      do_exception(xsink, "DBI:SYBASE:INIT-ERROR", "ct_options(CS_OPT_CHAINXACTS) failed");
 
    // Set default type of string representation of DATETIME to long (like Jan 1 1990 12:32:55:0000 PM)
    // Without this some routines in conversions.cc would fail.
    CS_INT aux = CS_DATES_LONG;
    ret = cs_dt_info(m_context.get_context(), CS_SET, NULL, CS_DT_CONVFMT, CS_UNUSED, (CS_VOID*)&aux, sizeof(aux), 0);
    if (ret != CS_SUCCEED)
-      return do_exception(xsink, "DBI:SYBASE:INIT-ERROR", "cs_dt_info(CS_DT_CONVFMT) failed");
+      do_exception(xsink, "DBI:SYBASE:INIT-ERROR", "cs_dt_info(CS_DT_CONVFMT) failed");
 
    return purge_messages(xsink);
 }
@@ -435,9 +439,7 @@ int connection::purge_messages(ExceptionSink *xsink) {
 // if check = true, ignore server messages:
 // 3902: The COMMIT TRANSACTION request has no corresponding BEGIN TRANSACTION
 // 3903: The ROLLBACK TRANSACTION request has no corresponding BEGIN TRANSACTION
-int connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr) {
-   SimpleRefHolder<QoreStringNode> eh(estr);
-
+void connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr) {
    int count = 0;
    int num;
    CS_RETCODE ret = ct_diag(m_connection, CS_STATUS, CS_CLIENTMSG_TYPE, CS_UNUSED, &num);
@@ -490,13 +492,13 @@ int connection::do_check_exception(ExceptionSink *xsink, bool check, const char 
    ret = ct_diag(m_connection, CS_CLEAR, CS_ALLMSG_TYPE, CS_UNUSED, 0);
    assert(ret == CS_SUCCEED);
    if (check && fnd_ignore && num == 1)
-      return 0;
-   xsink->raiseException(err, eh.release());
-   return -1;
+      return;
+
+   throw ss::Error(err, estr->getBuffer());
 }
 
-int connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...) {
-   QoreStringNode *estr = new QoreStringNode;
+void connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...) {
+   SimpleRefHolder<QoreStringNode> estr(new QoreStringNode);
    va_list args;
    while (fmt) {
       va_start(args, fmt);
@@ -507,11 +509,11 @@ int connection::do_check_exception(ExceptionSink *xsink, bool check, const char 
          break;
       }
    }
-   return do_check_exception(xsink, check, err, estr);
+   do_check_exception(xsink, check, err, *estr);
 }
 
-int connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...) {
-   QoreStringNode *estr = new QoreStringNode;
+void connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...) {
+   SimpleRefHolder<QoreStringNode> estr(new QoreStringNode);
    va_list args;
    while (fmt) {
       va_start(args, fmt);
@@ -522,7 +524,7 @@ int connection::do_exception(ExceptionSink *xsink, const char *err, const char *
          break;
       }
    }
-   return do_check_exception(xsink, false, err, estr);
+   do_check_exception(xsink, false, err, *estr);
 }
 
 /*

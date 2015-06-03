@@ -73,7 +73,7 @@ public:
         {
             context.reset(conn->create_command(query, args, xsink));
         }
-        context->set_placeholders(placeholders);
+        //context->set_placeholders(placeholders);
         context->read_next_result(xsink);
         return 0;
     }
@@ -100,17 +100,25 @@ public:
     QoreListNode* fetch_rows(SQLStatement* stmt, int rows,
             ExceptionSink* xsink)
     {
+        int r = rows;
         ReferenceHolder<QoreListNode> reslist(xsink);
         reslist = new QoreListNode();
 
         // next was already called once
         do {
-            if (rows <= 0) return reslist.release();
-            rows--;
+            // acording the doc rows <=0 means fetch all
+            if (r > 0) {
+                if (rows <= 0) return reslist.release();
+                rows--;
+            }
             if (xsink->isException()) return 0;
             reslist->insert(fetch_row(stmt, xsink));
         } while (next(stmt, xsink));
         return reslist.release();
+    }
+
+    QoreHashNode* get_output(SQLStatement* stmt, ExceptionSink* xsink) {
+        return context->read_cols(&placeholders, xsink);
     }
 
 

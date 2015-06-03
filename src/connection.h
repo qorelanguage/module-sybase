@@ -165,9 +165,9 @@ private:
             bool doBinding=true);
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
-    DLLLOCAL int do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
+    DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
     // returns -1 if an exception was thrown, 0 if all errors were ignored
-    DLLLOCAL int do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
+    DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
 
 public:
 
@@ -196,7 +196,7 @@ public:
     // discard all messages
     DLLLOCAL void discard_messages();
     // returns -1
-    DLLLOCAL int do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...);
+    DLLLOCAL void do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...);
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int direct_execute(const char *sql_text, ExceptionSink *xsink);
     

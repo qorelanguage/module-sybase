@@ -75,6 +75,21 @@ int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_HAS_STATEMENT
    ;
 
+
+#define BEGIN_CALLBACK \
+       do { \
+           try { do {} while(0)
+
+#define END_CALLBACK(RV) \
+           } catch (const ss::Error &e) { \
+               e.raise(xsink); \
+               return RV; \
+           }\
+      } while(0)
+
+
+
+
 #ifdef DEBUG
 // exported
 AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
@@ -107,204 +122,164 @@ AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink
 #endif
 
 static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
-   // username is a required parameter
-   if (!ds->getUsername()) {
-      xsink->raiseException("DATASOURCE-MISSING-USERNAME", "Datasource has an empty username parameter");
-      return -1;
-   }
+    BEGIN_CALLBACK;
+    // username is a required parameter
+    if (!ds->getUsername()) {
+        xsink->raiseException("DATASOURCE-MISSING-USERNAME", "Datasource has an empty username parameter");
+        return -1;
+    }
 
-   // DB name is a required parameter
-   if (!ds->getDBName()) {
-      xsink->raiseException("DATASOURCE-MISSING-DBNAME", "Datasource has an empty dbname parameter");
-      return -1;
-   }
+    // DB name is a required parameter
+    if (!ds->getDBName()) {
+        xsink->raiseException("DATASOURCE-MISSING-DBNAME", "Datasource has an empty dbname parameter");
+        return -1;
+    }
 
-   // set the encoding for the connection
-   if (ds->getDBEncoding()) {
-      const QoreEncoding *enc = name_to_QoreEncoding(ds->getDBEncoding());
-      ds->setQoreEncoding(enc);
-   }
-   else {
-      const char *enc = QoreEncoding_to_SybaseName(QCS_DEFAULT);
-      // if the encoding cannot be mapped, throw a Qore-language exception and return
-      if (!enc) {
-	 xsink->raiseException("DBI:SYBASE:UNKNOWN-CHARACTER-SET", "cannot find the Sybase character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
-	 return -1;
-      }
-      ds->setDBEncoding(enc);
-      ds->setQoreEncoding(QCS_DEFAULT);
-   }
+    // set the encoding for the connection
+    if (ds->getDBEncoding()) {
+        const QoreEncoding *enc = name_to_QoreEncoding(ds->getDBEncoding());
+        ds->setQoreEncoding(enc);
+    }
+    else {
+        const char *enc = QoreEncoding_to_SybaseName(QCS_DEFAULT);
+        // if the encoding cannot be mapped, throw a Qore-language exception and return
+        if (!enc) {
+            xsink->raiseException("DBI:SYBASE:UNKNOWN-CHARACTER-SET", "cannot find the Sybase character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
+            return -1;
+        }
+        ds->setDBEncoding(enc);
+        ds->setQoreEncoding(QCS_DEFAULT);
+    }
 
-   // create the connection object
-   std::auto_ptr<connection> sc(new connection(ds, xsink));
-   if (*xsink)
-      return -1;
+    // create the connection object
+    std::auto_ptr<connection> sc(new connection(ds, xsink));
+    if (*xsink)
+        return -1;
 
 #ifdef QORE_HAS_DATASOURCE_PORT
-   int port = ds->getPort();
+    int port = ds->getPort();
 #else
-   int port = 0;
+    int port = 0;
 #endif
 
-   if (port && !ds->getHostName()) {
-      xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
-      return -1;
-   }
+    if (port && !ds->getHostName()) {
+        xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
+        return -1;
+    }
 
-   if (!port && ds->getHostName()) {
-      xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and port must be set to override the interfaces file", ds->getHostName());
-      return -1;
-   }
+    if (!port && ds->getHostName()) {
+        xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and port must be set to override the interfaces file", ds->getHostName());
+        return -1;
+    }
 
-   // make the actual connection to the database
-   sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
-   // return with an error if it didn't work
-   if (*xsink)
-      return -1;
+    // make the actual connection to the database
+    sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
+    // return with an error if it didn't work
+    if (*xsink)
+        return -1;
 
-   // set the private data
-   ds->setPrivateData(sc.release());
+    // set the private data
+    ds->setPrivateData(sc.release());
 
-   // return 0 for OK
-   return 0;
+    // return 0 for OK
+    return 0;
+    END_CALLBACK(-1);
 }
 
 static int sybase_close(Datasource *ds) {
-   connection* sc = (connection*)ds->getPrivateData();
-   ds->setPrivateData(0);
-   delete sc;
-
+   try {
+       connection* sc = (connection*)ds->getPrivateData();
+       ds->setPrivateData(0);
+       delete sc;
+   } catch (const ss::Error &e) {}
    return 0;
 }
 
-//------------------------------------------------------------------------------
-static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr,
+        const QoreListNode *args, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec(qstr, args, xsink);
+   END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr,
+        const QoreListNode *args, ExceptionSink *xsink) 
+{
+   BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   //printd(5, "sybase_select_rows(ds=%08p, qstr='%s', args=%08p)\n", ds, qstr->getBuffer(), args);
    return conn->exec_rows(qstr, args, xsink);
+   END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr,
+        const QoreListNode *args, ExceptionSink *xsink) 
+{
+   BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec(qstr, args, xsink);
+   END_CALLBACK(0);
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
 static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->execRaw(qstr, xsink);
+   END_CALLBACK(0);
 }
 #endif
 
 static int sybase_commit(Datasource *ds, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
    connection* conn = (connection*)ds->getPrivateData();
    return conn->commit(xsink);
+   END_CALLBACK(0);
 }
 
 static int sybase_rollback(Datasource *ds, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
    connection* conn = (connection*)ds->getPrivateData();
    return conn->rollback(xsink);
+   END_CALLBACK(0);
 }
 
 static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
    context m_context(xsink);
    if (!m_context)
       return 0;
 
    return m_context.get_client_version(xsink);
+   END_CALLBACK(0);
 }
 
 static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
    connection* conn = (connection*)ds->getPrivateData();
    return conn->get_server_version(xsink);
+   END_CALLBACK(0);
 }
-
-/*
-// constants are not needed now as specifying placeholder buffer types is not necessary
-static void add_constants(QoreNamespace* ns) {
-}
-
-#ifdef SYBASE
-static QoreNamespace sybase_ns("Sybase");
-#else
-static QoreNamespace sybase_ns("FreeTDS");
-#endif
-
-static void init_namespace() {
-   sybase_ns.addConstant("CS_CHAR_TYPE", new QoreBigIntNode(CS_CHAR_TYPE));
-   sybase_ns.addConstant("CS_BINARY_TYPE", new QoreBigIntNode(CS_BINARY_TYPE));
-   sybase_ns.addConstant("CS_LONGCHAR_TYPE", new QoreBigIntNode(CS_LONGCHAR_TYPE));
-   sybase_ns.addConstant("CS_LONGBINARY_TYPE", new QoreBigIntNode(CS_LONGBINARY_TYPE));
-   sybase_ns.addConstant("CS_TEXT_TYPE", new QoreBigIntNode(CS_TEXT_TYPE));
-   sybase_ns.addConstant("CS_IMAGE_TYPE", new QoreBigIntNode(CS_IMAGE_TYPE));
-   sybase_ns.addConstant("CS_TINYINT_TYPE", new QoreBigIntNode(CS_TINYINT_TYPE));
-   sybase_ns.addConstant("CS_SMALLINT_TYPE", new QoreBigIntNode(CS_SMALLINT_TYPE));
-   sybase_ns.addConstant("CS_INT_TYPE", new QoreBigIntNode(CS_INT_TYPE));
-   sybase_ns.addConstant("CS_REAL_TYPE", new QoreBigIntNode(CS_REAL_TYPE));
-   sybase_ns.addConstant("CS_FLOAT_TYPE", new QoreBigIntNode(CS_FLOAT_TYPE));
-   sybase_ns.addConstant("CS_BIT_TYPE", new QoreBigIntNode(CS_BIT_TYPE));
-   sybase_ns.addConstant("CS_DATETIME_TYPE", new QoreBigIntNode(CS_DATETIME_TYPE));
-   sybase_ns.addConstant("CS_DATETIME4_TYPE", new QoreBigIntNode(CS_DATETIME4_TYPE));
-   sybase_ns.addConstant("CS_MONEY_TYPE", new QoreBigIntNode(CS_MONEY_TYPE));
-   sybase_ns.addConstant("CS_MONEY4_TYPE", new QoreBigIntNode(CS_MONEY4_TYPE));
-   sybase_ns.addConstant("CS_NUMERIC_TYPE", new QoreBigIntNode(CS_NUMERIC_TYPE));
-   sybase_ns.addConstant("CS_DECIMAL_TYPE", new QoreBigIntNode(CS_DECIMAL_TYPE));
-   sybase_ns.addConstant("CS_VARCHAR_TYPE", new QoreBigIntNode(CS_VARCHAR_TYPE));
-   sybase_ns.addConstant("CS_VARBINARY_TYPE", new QoreBigIntNode(CS_VARBINARY_TYPE));
-   sybase_ns.addConstant("CS_LONG_TYPE", new QoreBigIntNode(CS_LONG_TYPE));
-   sybase_ns.addConstant("CS_SENSITIVITY_TYPE", new QoreBigIntNode(CS_SENSITIVITY_TYPE));
-   sybase_ns.addConstant("CS_BOUNDARY_TYPE", new QoreBigIntNode(CS_BOUNDARY_TYPE));
-   sybase_ns.addConstant("CS_VOID_TYPE", new QoreBigIntNode(CS_VOID_TYPE));
-   sybase_ns.addConstant("CS_USHORT_TYPE", new QoreBigIntNode(CS_USHORT_TYPE));
-   sybase_ns.addConstant("CS_UNICHAR_TYPE", new QoreBigIntNode(CS_UNICHAR_TYPE));
-#ifdef CS_BLOB_TYPE
-   sybase_ns.addConstant("CS_BLOB_TYPE", new QoreBigIntNode(CS_BLOB_TYPE));
-#endif
-#ifdef CS_DATE_TYPE
-   sybase_ns.addConstant("CS_DATE_TYPE", new QoreBigIntNode(CS_DATE_TYPE));
-#endif
-#ifdef CS_TIME_TYPE
-   sybase_ns.addConstant("CS_TIME_TYPE", new QoreBigIntNode(CS_TIME_TYPE));
-#endif
-#ifdef CS_UNITEXT_TYPE
-   sybase_ns.addConstant("CS_UNITEXT_TYPE", new QoreBigIntNode(CS_UNITEXT_TYPE));
-#endif
-#ifdef CS_BIGINT_TYPE
-   sybase_ns.addConstant("CS_BIGINT_TYPE", new QoreBigIntNode(CS_BIGINT_TYPE));
-#endif
-#ifdef CS_USMALLINT_TYPE
-   sybase_ns.addConstant("CS_USMALLINT_TYPE", new QoreBigIntNode(CS_USMALLINT_TYPE));
-#endif
-#ifdef CS_UINT_TYPE
-   sybase_ns.addConstant("CS_UINT_TYPE", new QoreBigIntNode(CS_UINT_TYPE));
-#endif
-#ifdef CS_UBIGINT_TYPE
-   sybase_ns.addConstant("CS_UBIGINT_TYPE", new QoreBigIntNode(CS_UBIGINT_TYPE));
-#endif
-#ifdef CS_XML_TYPE
-   sybase_ns.addConstant("CS_XML_TYPE", new QoreBigIntNode(CS_XML_TYPE));
-#endif
-}
- */
 
 
 static int sybase_opt_set(Datasource* ds, const char* opt,
         const AbstractQoreNode* val, ExceptionSink* xsink)
 {
-   connection *conn = (connection*)ds->getPrivateData();
-   return conn->setOption(opt, val, xsink);
+   BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    return conn->setOption(opt, val, xsink);
+   END_CALLBACK(0);
 }
 
 static AbstractQoreNode* sybase_opt_get(const Datasource* ds,
         const char* opt) 
 {
-    connection *conn = (connection*)ds->getPrivateData();
-    return conn->getOption(opt);
+    try {
+        connection *conn = (connection*)ds->getPrivateData();
+        return conn->getOption(opt);
+    } catch (const ss::Error &e) {
+        return 0;
+    }
 }
 
 
@@ -314,7 +289,6 @@ static AbstractQoreNode* sybase_opt_get(const Datasource* ds,
 
 namespace ss {
     void init(qore_dbi_method_list &methods);
-
 }
 
 QoreStringNode *sybase_module_init() {

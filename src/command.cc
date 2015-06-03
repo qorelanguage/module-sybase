@@ -66,24 +66,19 @@ command::~command() {
   ct_cmd_drop(m_cmd);
 }
 
-int command::send(ExceptionSink *xsink) {
+void command::send(ExceptionSink *xsink) {
     CS_RETCODE err = ct_send(m_cmd);
     if (err != CS_SUCCEED) {
         m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_send() failed");
-        return -1;
     }
-
-    return 0;
 }
 
-int command::initiate_language_command(const char *cmd_text, ExceptionSink *xsink) {
+void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsink) {
    assert(cmd_text && cmd_text[0]);
    CS_RETCODE err = ct_command(m_cmd, CS_LANG_CMD, (CS_CHAR*)cmd_text, CS_NULLTERM, CS_UNUSED);
    if (err != CS_SUCCEED) {
       m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_command(CS_LANG_CMD, '%s') failed with error %d", cmd_text, (int)err);
-      return -1;
    }
-   return 0;
 }
 
 bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
@@ -93,7 +88,6 @@ bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
            m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
-           return false;
       }
       return true;
    }
@@ -109,18 +103,16 @@ unsigned command::get_column_count(ExceptionSink* xsink) {
    CS_RETCODE err = ct_res_info(m_cmd, CS_NUMDATA, &num_cols, CS_UNUSED, NULL);
    if (err != CS_SUCCEED) {
       m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_res_info() failed with error %d", (int)err);
-      return 0;
    }
    if (num_cols <= 0) {
       m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_res_info() failed");
-      return 0;
    }
    return num_cols;
 }
 
 
 // FIXME: use ct_setparam to avoid copying data
-int command::set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink) {
+void command::set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink) {
    unsigned nparams = query.param_list.size();
 
    for (unsigned i = 0; i < nparams; ++i) {
@@ -153,7 +145,7 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
               m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
                   "ct_param() for 'null' failed for parameter %u with error %d",
                   i, (int)err);
-              return -1;
+              return;
            }
            continue;
       }
@@ -165,7 +157,7 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
            const QoreStringNode *str = reinterpret_cast<const QoreStringNode *>(val);
            // ensure we bind with the proper encoding for the connection
            TempEncodingHelper s(str, m_conn.getEncoding(), xsink);
-           if (!s) return -1;
+           if (!s) throw ss::Error("DBI:SYBASE:EXEC-ERROR", "encoding");
 
            int slen = s->strlen();
            datafmt.datatype = CS_CHAR_TYPE;
@@ -192,7 +184,7 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
            CS_DATETIME dt;
            ss::Conversions conv(xsink);
            if (conv.DateTime_to_DATETIME(date, dt, xsink))
-              return -1;
+              throw ss::Error("DBI:SYBASE:EXEC-ERROR", "can't convert date");
 
            datafmt.datatype = CS_DATETIME_TYPE;
            err = ct_param(m_cmd, &datafmt, &dt, sizeof(dt), 0);
@@ -253,20 +245,18 @@ int command::set_params(sybase_query &query, const QoreListNode *args, Exception
       }
 
       default:
-          xsink->raiseException("DBI:SYBASE:BIND-ERROR",
+          m_conn.do_exception(xsink, "DBI:SYBASE:BIND-ERROR",
                   "do not know how to bind values of type '%s'",
                   val->getTypeName());
-          return -1;
+          return;
       } // switch(ntype)
 
       if (err != CS_SUCCEED) {
           m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
                   "ct_param() for binary parameter %u failed with error",
                   i, (int)err);
-          return -1;
       }
    }
-   return 0;
 }
 
 
@@ -781,16 +771,11 @@ int command::bind_query(std::auto_ptr<sybase_query> &q,
         const QoreListNode *args,
         ExceptionSink *xsink)
 {
-    int rv = 0;
     query.reset(q.release());
 
-    rv = initiate_language_command(query->buff(), xsink);
-    if (rv) return rv;
+    initiate_language_command(query->buff(), xsink);
 
-    if (args) {
-        rv = set_params(*query, args, xsink);
-        if (rv) return rv;
-    }
+    if (args) set_params(*query, args, xsink);
 
     return 0;
 }
