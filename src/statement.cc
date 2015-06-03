@@ -108,11 +108,14 @@ public:
         do {
             // acording the doc rows <=0 means fetch all
             if (r > 0) {
-                if (rows <= 0) return reslist.release();
+                if (rows <= 0) break;
                 rows--;
             }
             if (xsink->isException()) return 0;
-            reslist->insert(fetch_row(stmt, xsink));
+            ReferenceHolder<QoreHashNode> h(xsink);
+            h = fetch_row(stmt, xsink);
+            if (!h) continue;
+            reslist->insert(h.release());
         } while (next(stmt, xsink));
         return reslist.release();
     }
