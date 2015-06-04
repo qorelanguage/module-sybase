@@ -356,8 +356,10 @@ AbstractQoreNode *command::read_output(
             case RES_ERROR:
                 return 0;
             case RES_PARAM:
+                retr_colinfo(xsink);
                 qresult = read_rows(&query->placeholders, true, xsink);
                 rf.add(qresult);
+                colinfo.set_dirty();
                 break;
             case RES_ROW:
                 qresult = read_rows(0, list, xsink);
@@ -369,7 +371,10 @@ AbstractQoreNode *command::read_output(
                 rf.done(rowcount);
                 continue;
             case RES_STATUS:
+                retr_colinfo(xsink);
                 qresult = read_rows(0, list, xsink);
+                // TODO: check status?
+                colinfo.set_dirty();
                 continue;
             default:
                 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
