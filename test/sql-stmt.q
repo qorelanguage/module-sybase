@@ -61,10 +61,10 @@ select count(1) into @count from user_objects where status = @status;
 
     create_table(ds);
     test1(insert_stmt, select_stmt);
-    test2(select_into_stmt);
+    #test2(select_into_stmt);
     test3(select_err_stmt);
     test4(delete_stmt, select_stmt);
-    test5(tsql);
+    #test5(tsql);
 }
 
 sub info(string msg) {
