@@ -6,63 +6,102 @@
 namespace ss {
 
 class ResultFactory {
-public:
-    ResultFactory(ExceptionSink *xsink) :
-        xsink(xsink),
-        last(xsink),
-        reslist(xsink),
-        dirty(false)
-    {}
-
-    void add(ReferenceHolder<AbstractQoreNode> &rh) {
-        add(*rh);
-        rh.release();
+    static std::string keygen(int i) {
+        std::ostringstream oss;
+        oss << "query" << i;
+        return oss.str();
     }
 
-    // insert new list/hash to the result
-    void add(AbstractQoreNode *tt) {
-        ReferenceHolder<AbstractQoreNode> t(tt, xsink);
-        dirty = true;
-        if (last) {
-            if (!reslist) reslist = new QoreHashNode();
-            std::ostringstream oss;
-            oss << "query" << reslist->size();
-            reslist->setKeyValue(oss.str().c_str(),
-                    last.release(), xsink);
-        }
+    enum LastType {
+        NONE, PARAM, QUERY
+    };
+public:
+    ResultFactory(ExceptionSink *xsink) :
+        params(xsink),
+        reslist(xsink),
+        last(0),
+        xsink(xsink),
+        skiprows(false),
+        lasttype(NONE)
+    { }
 
-        if (!t) return;
-        last = t.release();
+    void add(ReferenceHolder<AbstractQoreNode> &rh, bool list = true) {
+        add(rh.release(), list);
+    }
+
+    void add_params(ReferenceHolder<AbstractQoreNode> &rh) {
+        add_params(rh.release());
+    }
+
+    void add_params(AbstractQoreNode *tt) {
+        lasttype = PARAM;
+        params.push_back(tt);
+        last = tt;
+    }
+
+    void add(AbstractQoreNode *tt, bool list = true) {
+        lasttype = QUERY;
+        reslist.push_back(tt);
+        // don't add rowcount to the hash of lists (db.select())
+        if (!list) skiprows = true;
+        last = tt;
     }
 
     // call on CS_CMD_DONE
     void done(int rowcount) {
-        if (dirty) {
-            dirty = false;
+        if (skiprows) {
+            skiprows = false;
+            last = 0;
             return;
         }
 
-        // Datasource::getServerVersion workaround
-        if (rowcount >= 0)
-            add(new QoreBigIntNode(rowcount));
+        if (rowcount <= 0) {
+            last = 0;
+            return;
+        }
+
+        if (!last) {
+            reslist.push_back(new QoreBigIntNode(rowcount));
+            return;
+        }
+
+        QoreValue val(last);
+        if (val.getType() != QoreHashNode::TYPE) {
+            last = 0;
+            return;
+        }
+
+        val.get<QoreHashNode>()
+            ->setKeyValue("rowcount",
+                    new QoreBigIntNode(rowcount),
+                    xsink);
     }
 
-    bool is_dirty() const { return dirty; }
-
     AbstractQoreNode * res() {
-        if (!reslist) {
-            return last.release();
+        if (params.empty()) {
+            return reslist.release_smart(keygen);
         }
-        add(0);
-        return reslist.release();
+
+        if (reslist.empty()) {
+            return params.release_smart(keygen);
+        }
+
+        ReferenceHolder<QoreHashNode> rv(xsink);
+        rv = new QoreHashNode();
+
+        rv->setKeyValue("query", reslist.release_smart(keygen), xsink);
+        rv->setKeyValue("params", params.release_smart(keygen), xsink);
+        return rv.release();
     }
 
 private:
-    ExceptionSink *xsink;
-    ReferenceHolder<AbstractQoreNode> last;
-    ReferenceHolder<QoreHashNode> reslist;
+    RefHolderVector params;
+    RefHolderVector reslist;
     // true if some resuld was added before DONE
-    bool dirty;
+    AbstractQoreNode *last;
+    ExceptionSink *xsink;
+    bool skiprows;
+    LastType lasttype;
 };
 
 } // nemespace ss

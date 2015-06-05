@@ -4,6 +4,8 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <vector>
+
 
 #include "error.h"
 
@@ -75,6 +77,70 @@ class SafePtr {
 };
 
 
-}
+
+class RefHolderVector {
+    typedef std::vector<AbstractQoreNode *> Vector;
+public:
+    RefHolderVector(ExceptionSink *xsink) :
+        xsink(xsink)
+    {}
+    
+
+    typedef Vector::iterator iterator;
+    typedef Vector::const_iterator const_iterator;
+
+    iterator begin() { return v.begin(); }
+    iterator end() { return v.end(); }
+    const_iterator begin() const { return v.begin(); }
+    const_iterator end() const { return v.end(); }
+
+    ~RefHolderVector() {
+        clear();
+    };
+
+    void clear() {
+        for (iterator it = begin(); it != end(); ++it) {
+            (*it)->deref(xsink);
+        }
+        v.clear();
+    }
+
+    size_t size() const { return v.size(); }
+    bool empty() const { return v.empty(); }
+
+    void push_back(AbstractQoreNode *n) {
+        v.push_back(n);
+    }
+
+    template<typename Fn>
+    QoreHashNode * release_to_hash(Fn keygen) {
+        int i = 0;
+        ReferenceHolder<QoreHashNode> h(xsink);
+        h = new QoreHashNode();
+        for (iterator it = begin(); it != end(); ++it) {
+            std::string key = keygen(i++);
+            h->setKeyValue(key.c_str(), *it, xsink);
+        }
+        v.clear();
+        return h.release();
+    }
+
+    template<typename Fn>
+    AbstractQoreNode * release_smart(Fn keygen) {
+        if (empty()) return 0;
+        if (size() == 1) {
+            AbstractQoreNode *rv = v[0];
+            v.clear();
+            return rv;
+        }
+        return release_to_hash(keygen);
+    }
+
+private:
+    ExceptionSink *xsink;
+    Vector v;
+};
+
+} // namespace ss
 
 #endif /* SYBASE_SRC_UTILS_H */

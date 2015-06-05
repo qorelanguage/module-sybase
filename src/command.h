@@ -111,12 +111,19 @@ private:
     QoreHashNode *output_buffers_to_hash(const Placeholders *ph, ExceptionSink* xsink);
     AbstractQoreNode *get_node(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
 
+    // call ct_result() once. Takes care of return value
     ResType read_next_result1(ExceptionSink* xsink);
 
 public:
     ResType read_next_result(ExceptionSink* xsink) {
         if (lastRes == RES_DONE) lastRes = RES_NONE;
         if (lastRes != RES_NONE) return lastRes;
+        /**
+         Can't ask for result if rastRes==:
+            * STATUS, PARAM or ROW - must ct_fetch() the values first
+            * END or ERROR - reasonable, we're finished
+            * RETRY - never gets here
+         */
         while ((lastRes = read_next_result1(xsink)) == RES_RETRY) {}
         return lastRes;
     }

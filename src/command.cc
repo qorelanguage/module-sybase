@@ -84,7 +84,6 @@ void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsi
 bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    CS_INT rows_read;
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
-   lastRes = RES_NONE;
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
            m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
@@ -92,7 +91,8 @@ bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
       return true;
    }
    if (err == CS_END_DATA) {
-      return false;
+       lastRes = RES_NONE;
+       return false;
    }
    m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_fetch() returned errno %d", (int)err);
    return false;
@@ -366,13 +366,12 @@ AbstractQoreNode *command::read_output(
             case RES_PARAM:
                 retr_colinfo(xsink);
                 qresult = read_rows(&query->placeholders, xsink);
-                add_rowcount(*qresult, 1, xsink);
-                rf.add(qresult);
-                colinfo.set_dirty();
+                //add_rowcount(*qresult, 1, xsink);
+                rf.add_params(qresult);
                 break;
             case RES_ROW:
                 qresult = read_rows(0, list, xsink);
-                rf.add(qresult);
+                rf.add(qresult, list);
                 break;
             case RES_END:
                 return rf.res();
