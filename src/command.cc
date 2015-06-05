@@ -340,15 +340,6 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
     return RES_ERROR;
 }
 
-static void add_rowcount(AbstractQoreNode *an,
-        int rowcount, ExceptionSink* xsink) {
-    if (!an) return;
-    if (an->getType() != QoreHashNode::TYPE) return;
-    QoreValue qv(an);
-    QoreHashNode *h = qv.get<QoreHashNode>();
-    h->setKeyValue("rowcount", new QoreBigIntNode(rowcount), xsink);
-}
-
 AbstractQoreNode *command::read_output(
         bool list,
         bool &disconnect,
