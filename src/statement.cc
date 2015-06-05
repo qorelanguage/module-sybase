@@ -79,6 +79,8 @@ public:
         {
             context.reset(conn->create_command(query, args, xsink));
         }
+        // not sure what to do with the returned value here
+        context->read_next_result(xsink);
         return 0;
     }
 
@@ -152,7 +154,6 @@ public:
         }
         return 0;
     }
-
 };
 
 void init(qore_dbi_method_list &methods) {
