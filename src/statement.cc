@@ -33,15 +33,21 @@ inline bool expect_row(command::ResType rt) {
 
 
 class Statement : public EmptyStatement {
-    AbstractQoreNode *_execRes;
+    QoreHashNode *_execRes;
 
-    AbstractQoreNode * get_res() {
-        return _execRes;
+    bool has_res() {
+        return _execRes ? true : false;
     }
 
-    void set_res(AbstractQoreNode *res, ExceptionSink* xsink) {
+    void set_res(QoreHashNode *res, ExceptionSink* xsink) {
         if (_execRes) _execRes->deref(xsink);
         _execRes = res;
+    }
+
+    QoreHashNode * release_res() {
+        QoreHashNode *rv = _execRes;
+        _execRes = 0;
+        return rv;
     }
 
     ~Statement() {}
@@ -73,24 +79,23 @@ public:
         {
             context.reset(conn->create_command(query, args, xsink));
         }
-        //context->set_placeholders(placeholders);
-        context->read_next_result(xsink);
         return 0;
     }
 
     bool next(SQLStatement* stmt, ExceptionSink* xsink) {
         command::ResType res = context->read_next_result(xsink);
         if (expect_row(res)) {
-            return true;
+            if (!has_res()) {
+                set_res(context->fetch_row(xsink), xsink);
+            }
         }
 
-        return false;
+        return has_res();
     }
 
     QoreHashNode * fetch_row(SQLStatement* stmt, ExceptionSink* xsink) {
-        return context->fetch_row(xsink);
+        return  release_res();
     }
-
 
     int define(SQLStatement* stmt, ExceptionSink* xsink) {
         return 0;

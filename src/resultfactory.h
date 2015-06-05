@@ -21,7 +21,6 @@ public:
         reslist(xsink),
         last(0),
         xsink(xsink),
-        skiprows(false),
         lasttype(NONE)
     { }
 
@@ -42,19 +41,11 @@ public:
     void add(AbstractQoreNode *tt, bool list = true) {
         lasttype = QUERY;
         reslist.push_back(tt);
-        // don't add rowcount to the hash of lists (db.select())
-        if (!list) skiprows = true;
         last = tt;
     }
 
     // call on CS_CMD_DONE
     void done(int rowcount) {
-        if (skiprows) {
-            skiprows = false;
-            last = 0;
-            return;
-        }
-
         if (rowcount <= 0) {
             last = 0;
             return;
@@ -65,16 +56,7 @@ public:
             return;
         }
 
-        QoreValue val(last);
-        if (val.getType() != QoreHashNode::TYPE) {
-            last = 0;
-            return;
-        }
-
-        val.get<QoreHashNode>()
-            ->setKeyValue("rowcount",
-                    new QoreBigIntNode(rowcount),
-                    xsink);
+        last = 0;
     }
 
     AbstractQoreNode * res() {
@@ -100,7 +82,6 @@ private:
     // true if some resuld was added before DONE
     AbstractQoreNode *last;
     ExceptionSink *xsink;
-    bool skiprows;
     LastType lasttype;
 };
 
