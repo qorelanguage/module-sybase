@@ -1,0 +1,118 @@
+#%requires freetds
+%requires sybase
+%new-style
+
+%requires UnitTest
+
+any addr =    "sybase:test/testtest@SDELL";
+
+Datasource ds(addr);
+
+string tdata = "create table ssmrt_table_%s (%s)";
+string tdrop = "drop table ssmrt_table_%s";
+
+UnitTest unit();
+
+hash cols = (
+"null_f": "null_f char(1) null",
+"varchar_f": "varchar_f varchar(40) not null",
+"char_f": "char_f char(40) not null",
+"text_f": "text_f text not null",
+"unitext_f": "unitext_f unitext not null",
+"bit_f": "bit_f bit not null",
+"tinyint_f": "tinyint_f tinyint not null",
+"smallint_f": "smallint_f smallint not null",
+"int_f": "int_f int not null",
+"int_f2": "int_f2 int not null",
+"decimal_f": "decimal_f decimal(10,4) not null",
+"float_f": "float_f float not null",
+"real_f": "real_f real not null",
+"money_f": "money_f money not null",
+"smallmoney_f": "smallmoney_f smallmoney not null",
+"date_f": "date_f date not null",
+"time_f": "time_f time not null",
+"datetime_f": "datetime_f datetime not null",
+"smalldatetime_f": "smalldatetime_f smalldatetime not null",
+"binary_f": "binary_f binary(4) not null",
+"varbinary_f": "varbinary_f varbinary(4) not null",
+"image_f": "image_f image not null",
+);
+
+hash args = (
+    "null_f"          : NULL,
+    "varchar_f"       : "varchar",
+    "char_f"          : "char",
+    "unichar_f"       : "unichar",
+    "univarchar_f"    : "univarchar",
+    "text_f"          : "test",
+    "unitext_f"       : "test",
+    "bit_f"           : True,
+    "tinyint_f"       : 55,
+    "smallint_f"      : 4285,
+    "int_f"           : 405402,
+    "int_f2"          : 214123498,
+    "decimal_f"       : 500.1231,
+    "float_f"         : 23443.234324234,
+    "real_f"          : 213.123,
+    "money_f"         : 3434234250.2034,
+    "smallmoney_f"    : 211100.1012,
+    "date_f"          : 2007-05-01,
+    "time_f"          : 10:30:01,
+    "datetime_f"      : 3459-01-01T11:15:02.250,
+    "smalldatetime_f" : 2007-12-01T12:01:00,
+    "binary_f"        : <0badbeef>,
+    "varbinary_f"     : <feedface>,
+    "image_f"         : <cafebead>,
+    );
+
+
+
+
+
+sub create_smrt_tables() {
+    foreach string k in (cols.keys()) {
+        try {
+            string command = sprintf(tdata, k, cols{k});
+            ds.exec(command);
+        } catch(h) {} 
+    }
+    ds.commit();
+}
+
+sub drop_smrt_tables() {
+    foreach string k in (cols.keys()) {
+        string command = sprintf(tdrop, k);
+        try {
+            ds.exec(command);
+        } catch () {}
+    }
+    ds.commit();
+}
+
+
+sub test_insert(string col) {
+    string itempl = "insert into %s values (%v)";
+    string ttempl = "ssmrt_table_%s";
+    
+    string t = sprintf(ttempl, col);
+    string query = sprintf(itempl, t);
+    
+    ds.vexec(query, args{col});
+    ds.commit();
+}
+
+
+
+create_smrt_tables();
+
+foreach string k in (cols.keys()) {
+    if (k == "null_f") continue;
+    try {
+        test_insert(k);
+        unit.ok(True, sprintf("type: %s", k));
+    } catch (hash e) {
+        unit.ok(False, sprintf("type: %s", k));
+    }
+}
+
+drop_smrt_tables();
