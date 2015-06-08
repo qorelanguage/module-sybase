@@ -2,7 +2,7 @@
 %requires sybase
 %new-style
 
-%requires UnitTest
+%requires QUnit
 
 any addr =    "sybase:test/testtest@SDELL";
 
@@ -11,10 +11,7 @@ Datasource ds(addr);
 string tdata = "create table ssmrt_table_%s (%s)";
 string tdrop = "drop table ssmrt_table_%s";
 
-UnitTest unit();
-
 hash cols = (
-"null_f": "null_f char(1) null",
 "varchar_f": "varchar_f varchar(40) not null",
 "char_f": "char_f char(40) not null",
 "text_f": "text_f text not null",
@@ -39,7 +36,6 @@ hash cols = (
 );
 
 hash args = (
-    "null_f"          : NULL,
     "varchar_f"       : "varchar",
     "char_f"          : "char",
     "unichar_f"       : "unichar",
@@ -65,16 +61,12 @@ hash args = (
     "image_f"         : <cafebead>,
     );
 
-
-
-
-
 sub create_smrt_tables() {
     foreach string k in (cols.keys()) {
         try {
             string command = sprintf(tdata, k, cols{k});
             ds.exec(command);
-        } catch(h) {} 
+        } catch(h) {}
     }
     ds.commit();
 }
@@ -89,30 +81,46 @@ sub drop_smrt_tables() {
     ds.commit();
 }
 
-
 sub test_insert(string col) {
-    string itempl = "insert into %s values (%v)";
-    string ttempl = "ssmrt_table_%s";
-    
-    string t = sprintf(ttempl, col);
-    string query = sprintf(itempl, t);
-    
-    ds.vexec(query, args{col});
-    ds.commit();
-}
-
-
-
-create_smrt_tables();
-
-foreach string k in (cols.keys()) {
-    if (k == "null_f") continue;
     try {
-        test_insert(k);
-        unit.ok(True, sprintf("type: %s", k));
-    } catch (hash e) {
-        unit.ok(False, sprintf("type: %s", k));
+        string itempl = "insert into %s values (%v)";
+        string ttempl = "ssmrt_table_%s";
+
+        string t = sprintf(ttempl, col);
+        string query = sprintf(itempl, t);
+
+        ds.vexec(query, args{col});
+        ds.commit();
+        return True;
+    } catch() {
+        return False;
     }
 }
 
-drop_smrt_tables();
+public class QUnitTest inherits QUnit::Test {
+    constructor() {
+        create_smrt_tables();
+
+        testFunctions = ();
+        foreach string k in (cols.keys()) {
+                # this trick makse "object" from string
+                list s = list(k);
+                hash item = ("func": sub() {
+                    testInsert(s[0]);
+                }, "name":
+                sprintf("test %s", k));
+
+            testFunctions += item;
+        }
+    }
+
+    testInsert(string k) {
+        testAssertion(\test_insert(), (k));
+    }
+
+    destructor() {
+        drop_smrt_tables();
+    }
+}
+
+return new QUnitTest().main();
