@@ -4,9 +4,8 @@
 
 %requires QUnit
 
-any addr =    "sybase:test/testtest@SDELL";
 
-Datasource ds(addr);
+our Datasource ds;
 
 string tdata = "create table ssmrt_table_%s (%s)";
 string tdrop = "drop table ssmrt_table_%s";
@@ -99,16 +98,18 @@ sub test_insert(string col) {
 
 public class QUnitTest inherits QUnit::Test {
     constructor() {
+        string addr = getEnv("DB_SYBASE", "sybase:test/test@sybase");
+        ds = new Datasource(addr);
         create_smrt_tables();
 
         testFunctions = ();
         foreach string k in (cols.keys()) {
-                # this trick makse "object" from string
-                list s = list(k);
-                hash item = ("func": sub() {
-                    testInsert(s[0]);
-                }, "name":
-                sprintf("test %s", k));
+            # this trick makse "object" from string
+            list s = list(k);
+            hash item = ("func": sub() {
+                testInsert(s[0]);
+            }, "name":
+            sprintf("test %s", k));
 
             testFunctions += item;
         }
