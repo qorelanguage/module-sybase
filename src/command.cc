@@ -188,7 +188,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
       case NT_DATE: {
            const DateTimeNode *date = reinterpret_cast<const DateTimeNode *>(val);
            CS_DATETIME dt;
-           ss::Conversions conv;
+           ss::Conversions conv(xsink);
            if (conv.DateTime_to_DATETIME(date, dt, xsink))
               throw ss::Error("DBI:SYBASE:EXEC-ERROR", "can't convert date");
 
@@ -768,7 +768,7 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
     case CS_DATETIME_TYPE: {
        CS_DATETIME* value = (CS_DATETIME*)(buffer.value);
 
-       ss::Conversions conv;
+       ss::Conversions conv(xsink);
        // NOTE: can't find a USER_* define for 38!
        if (datafmt.usertype == 38)
             return conv.TIME_to_DateTime(*value, m_conn.getTZ());
@@ -776,7 +776,7 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
        return conv.DATETIME_to_DateTime(*value, m_conn.getTZ());
     }
     case CS_DATETIME4_TYPE: {
-       ss::Conversions conv;
+       ss::Conversions conv(xsink);
        CS_DATETIME4* value = (CS_DATETIME4*)(buffer.value);
        return conv.DATETIME4_to_DateTime(*value);
     }
