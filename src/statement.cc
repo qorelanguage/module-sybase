@@ -123,7 +123,7 @@ public:
             ReferenceHolder<QoreHashNode> h(xsink);
             h = fetch_row(stmt, xsink);
             if (!h) continue;
-            reslist->insert(h.release());
+            reslist->push(h.release());
         } while (next(stmt, xsink));
         return reslist.release();
     }
