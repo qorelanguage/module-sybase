@@ -47,7 +47,6 @@ static std::string get_placeholder_at(const Placeholders *ph, size_t i) {
 command::command(connection& conn, ExceptionSink* xsink) :
     m_conn(conn),
     m_cmd(0),
-    canceled(false),
     rowcount(-1),
     lastRes(RES_NONE)
 {
@@ -61,15 +60,21 @@ command::command(connection& conn, ExceptionSink* xsink) :
 //------------------------------------------------------------------------------
 command::~command() {
   if (!m_cmd) return;
-  if (!canceled)
-     ct_cancel(0, m_cmd, CS_CANCEL_ALL);
+  // cancel only unfinished, not already canceled command
+  if (lastRes != RES_CANCELED && lastRes != RES_END) {
+     if (ct_cancel(0, m_cmd, CS_CANCEL_ALL) != CS_SUCCEED) {
+        throw ss::Error("DBI-EXEC-EXCEPTION", "ct_cancel failed");
+     }
+  }
   ct_cmd_drop(m_cmd);
 }
 
 void command::send(ExceptionSink *xsink) {
     CS_RETCODE err = ct_send(m_cmd);
+
     if (err != CS_SUCCEED) {
-        m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_send() failed");
+        m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+                "ct_send() failed");
     }
 }
 
@@ -91,6 +96,7 @@ bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
       return true;
    }
    if (err == CS_END_DATA) {
+       // all data read, we can continue reading results
        lastRes = RES_NONE;
        return false;
    }
@@ -268,6 +274,16 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
     if (xsink->isException())
         return RES_ERROR;
 
+    switch (lastRes) {
+        case RES_DONE:
+        case RES_NONE:
+        case RES_RETRY:
+            // we can read result only in this states
+            break;
+        default:
+            return lastRes;
+    }
+
     CS_INT result_type;
     CS_RETCODE err = ct_results(m_cmd, &result_type);
     switch (err) {
@@ -285,8 +301,6 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
             }
             return RES_END;
         case CS_FAIL: {
-             err = ct_cancel(m_conn.getConnection(), m_cmd, CS_CANCEL_ALL);
-             canceled = true;
              // TODO: handle err == CS_FAIL
              xsink->raiseException("DBI:SYBASE:EXEC-ERROR",
                      "command::read_output(): ct_results() failed with"
@@ -320,6 +334,8 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
             return RES_DONE;
         }
         case CS_CMD_SUCCEED:
+            // the command has no output, continue by reading
+            // next result
             return RES_RETRY;
         case CS_CMD_FAIL:
             m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",

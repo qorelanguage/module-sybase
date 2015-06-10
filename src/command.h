@@ -79,6 +79,7 @@ public:
         RES_DONE,
         RES_ERROR,
         RES_RETRY,
+        RES_CANCELED,
     };
 
 
@@ -87,7 +88,6 @@ private:
 
     connection& m_conn;
     CS_COMMAND* m_cmd;
-    bool canceled;
     CS_INT rowcount;
     ResType lastRes;
 
@@ -116,8 +116,6 @@ private:
 
 public:
     ResType read_next_result(ExceptionSink* xsink) {
-        if (lastRes == RES_DONE) lastRes = RES_NONE;
-        if (lastRes != RES_NONE) return lastRes;
         /**
          Can't ask for result if rastRes==:
             * STATUS, PARAM or ROW - must ct_fetch() the values first
@@ -130,6 +128,11 @@ public:
 
     QoreHashNode * fetch_row(ExceptionSink* xsink, const Placeholders *ph = 0);
 
+    void cancel() {
+        if (lastRes == RES_END) return;
+        ct_cancel(0, m_cmd, CS_CANCEL_ALL);
+        lastRes = RES_CANCELED;
+    }
 
     int get_row_count();
 

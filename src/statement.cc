@@ -71,6 +71,7 @@ public:
             bool raw,
             ExceptionSink* xsink)
     {
+        if (context.get()) context->cancel();
 #ifdef _QORE_HAS_DBI_EXECRAW
         if (raw) {
             context.reset(conn->create_command(query, xsink));
