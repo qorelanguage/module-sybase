@@ -81,42 +81,41 @@ sub drop_smrt_tables() {
 }
 
 sub test_insert(string col) {
-    try {
-        string itempl = "insert into %s values (%v)";
-        string ttempl = "ssmrt_table_%s";
+    string itempl = "insert into %s values (%v)";
+    string ttempl = "ssmrt_table_%s";
 
-        string t = sprintf(ttempl, col);
-        string query = sprintf(itempl, t);
+    string t = sprintf(ttempl, col);
+    string query = sprintf(itempl, t);
 
-        ds.vexec(query, args{col});
-        ds.commit();
-        return True;
-    } catch() {
-        return False;
-    }
+    ds.vexec(query, args{col});
+    ds.commit();
+    return True;
 }
+
 
 public class QUnitTest inherits QUnit::Test {
     constructor() {
         string addr = getEnv("DB_SYBASE", "sybase:test/test@sybase");
         ds = new Datasource(addr);
         create_smrt_tables();
-
+ 
         testFunctions = ();
+    
         foreach string k in (cols.keys()) {
-            # this trick makse "object" from string
-            list s = list(k);
-            hash item = ("func": sub() {
-                testInsert(s[0]);
-            }, "name":
-            sprintf("test %s", k));
-
-            testFunctions += item;
+            testFunctions += ("func" : \testInsert(),
+                "name": sprintf("type insert %s", k), "args": list(k));
         }
     }
 
     testInsert(string k) {
+        string detail = sprintf("type: %s", k);
         testAssertion(\test_insert(), (k));
+    }
+
+    basicTest() {
+        foreach string k in (cols.keys()) {
+            testInsert(k);
+        }
     }
 
     destructor() {
