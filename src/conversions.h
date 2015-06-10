@@ -36,7 +36,7 @@ namespace ss {
 
 class Conversions {
 public:
-    Conversions(ExceptionSink* xsink) : xsink(xsink) {}
+    Conversions() {}
 
     int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME& out, ExceptionSink* xsink);
 
@@ -47,8 +47,6 @@ public:
         const AbstractQoreZoneInfo *tz = 0);
 
     DateTimeNode* DATETIME4_to_DateTime(CS_DATETIME4& dt);
-private:
-    ExceptionSink* xsink;
 };
 
 } // namespace ss
