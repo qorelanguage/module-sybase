@@ -287,18 +287,7 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
     CS_INT result_type;
     CS_RETCODE err = ct_results(m_cmd, &result_type);
     switch (err) {
-        case CS_END_RESULTS: {
-            CS_RETCODE ret;
-            rowcount = -1;
-
-            ret = ct_res_info(m_cmd, CS_ROW_COUNT,
-                    (CS_VOID *)&rowcount,
-                    CS_UNUSED, 0);
-            if (ret != CS_SUCCEED) {
-                return RES_END;
-            }
-
-            }
+        case CS_END_RESULTS:
             return RES_END;
         case CS_FAIL: {
              // TODO: handle err == CS_FAIL
