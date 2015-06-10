@@ -537,7 +537,7 @@ if test "${with_sybase}" = yes; then
    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <ctpublic.h>
 	 ]],[[
-CS_CONTEXT *m_context; ct_init(m_context, CS_VERSION_100);
+CS_CONTEXT *m_context;
 	]])], sybase_links=yes, sybase_links=no)
 
    CXXFLAGS="$SAVE_CXXFLAGS"
