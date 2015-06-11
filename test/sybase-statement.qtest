@@ -17,7 +17,7 @@ public class QUnitTest inherits QUnit::Test {
         DatasourcePool ds;
         bool initialized = False;
     }
-    
+
     drop_test_tables() {
         SQLStatement drop_stmt(ds);
         drop_stmt.prepare("drop table test");
@@ -66,7 +66,7 @@ public class QUnitTest inherits QUnit::Test {
                 "name": "delete rows", "args": ()),
         );
     }
-    
+
     test_insert() {
         bool ok = True;
         SQLStatement stmt(ds);
@@ -112,6 +112,11 @@ public class QUnitTest inherits QUnit::Test {
                 throw "SELECT-FAILED", "fetchRows result doesn't match";
             }
         }
+
+        stmt.exec();
+        if (stmt.fetchRows(2).size() != 2) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
         stmt.commit();
     }
 
@@ -126,6 +131,31 @@ public class QUnitTest inherits QUnit::Test {
 
         stmt.prepare(query);
         list res2 = stmt.fetchRows();
+
+        stmt.exec();
+        if (stmt.fetchRows(2).size() != 2) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
+
+        stmt.exec();
+        if (stmt.fetchRows(1).size() != 1) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
+
+        stmt.exec();
+        if (stmt.fetchRows(10).size() != 5) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
+
+        stmt.exec();
+        if (stmt.fetchRows(0).size() != 5) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
+
+        stmt.exec();
+        if (stmt.fetchRows(-1).size() != 5) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
 
         stmt.prepare(query);
         list res3 = ();
@@ -187,7 +217,7 @@ public class QUnitTest inherits QUnit::Test {
         } catch() {}
 
         if (!ok) throw "STMT-FAILED", "expected error";
-        
+
         SQLStatement stmt(ds);
         stmt.prepare("select * from test");
         while (stmt.next()) {
@@ -231,7 +261,7 @@ public class QUnitTest inherits QUnit::Test {
         if (h{"name"}.size() != 5) {
             throw "STMT-FAILED", "unexpected result";
         }
- 
+
         stmt.commit();
     }
 }
