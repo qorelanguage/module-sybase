@@ -1,0 +1,201 @@
+
+%new-style
+
+
+%requires QUnit
+
+our hash numbers = (
+    0: "zero",
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four"
+);
+
+public class QUnitTest inherits QUnit::Test {
+    private {
+        DatasourcePool ds;
+        bool initialized = False;
+    }
+    
+    drop_test_tables() {
+        SQLStatement drop_stmt(ds);
+        drop_stmt.prepare("drop table test");
+
+        on_exit drop_stmt.commit();
+
+        try {
+            drop_stmt.exec();
+        }
+        catch (hash ex) {}
+    }
+
+    create_test_tables() {
+        SQLStatement drop_stmt(ds);
+        on_exit drop_stmt.commit();
+        drop_stmt.prepare("create table test" +
+            "(name varchar(40), number int)");
+        drop_stmt.exec();
+    }
+
+    setUp() {
+        if (initialized) return;
+        string connstr = getEnv("DB_SYBASE", "sybase:test/test@sybase");
+        ds = new DatasourcePool(connstr);
+        drop_test_tables();
+        create_test_tables();
+        initialized = True;
+    }
+
+    tearDown() {
+    }
+
+    constructor() {
+        testFunctions = (
+            ("func" : \test_insert(),
+                "name": "insert values", "args": ()),
+            ("func" : \test_select(),
+                "name": "select values", "args": ()),
+            ("func" : \test_stmt_eq_select(),
+                "name": "ds.select eq statement", "args": ()),
+            ("func" : \test_error(),
+                "name": "error stmt", "args": ()),
+            ("func" : \test_delete(),
+                "name": "delete rows", "args": ()),
+        );
+    }
+    
+    test_insert() {
+        bool ok = True;
+        SQLStatement stmt(ds);
+        stmt.prepare("insert into test values (%v, %v)");
+        for (int i = 0; i < 5; i++) {
+            stmt.exec(numbers{i}, i);
+            if (stmt.affectedRows() != 1) ok = False;
+        }
+        stmt.commit();
+        if (!ok) throw "INSERT-FAILED", "stmt.affectedRows() != 1";
+    }
+
+    test_select() {
+        SQLStatement stmt(ds);
+        stmt.prepare("select name from test where number=%v");
+        stmt.exec(3); # this should be canceled
+        for (int i = 0; i < 5; i++) {
+            stmt.exec(i);
+
+            int cnt = 0;
+
+            while (stmt.next()) {
+                cnt ++;
+                hash row = stmt.fetchRow();
+                if (row{"name"} != numbers{i})
+                    throw "SELECT-FAILED", "incoret values read";
+            }
+            if (cnt != 1) {
+                throw "SELECT-FAILED", "incoret number of rows read";
+            }
+        }
+
+        stmt.prepare("select * from test");
+        stmt.exec();
+        list rows = stmt.fetchRows();
+        if (rows.size() != 5) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
+        for (int i = 0; i < 5; i++) {
+            int n = rows[i]{"number"};
+            string s = rows[i]{"name"};
+            if (numbers{n} != s) {
+                throw "SELECT-FAILED", "fetchRows result doesn't match";
+            }
+        }
+        stmt.commit();
+    }
+
+    test_stmt_eq_select() {
+        # try all 3 methods for reading results
+        # and check all the methods returns the
+        # same result.
+
+        string query = "select * from test";
+        list res1 = ds.selectRows(query);
+        SQLStatement stmt(ds);
+
+        stmt.prepare(query);
+        list res2 = stmt.fetchRows();
+
+        stmt.prepare(query);
+        list res3 = ();
+        while (stmt.next()) {
+            hash row = stmt.fetchRow();
+            res3 += row;
+        }
+
+        # just to be sure, there should be 5 rows in the table
+        if (res1.size() != 5) {
+            throw "SELECT-FAILED", "incoret number of rows read";
+        }
+
+        # all the results must be the same
+        if (res2 != res1 || res1 != res3) {
+            throw "SELECT-FAILED",
+                "ds.selectRows() and stmt.fetchRows() fives different results";
+        }
+
+        stmt.commit();
+    }
+
+    test_delete() {
+        string query = "delete from test";
+        SQLStatement stmt(ds);
+        stmt.prepare(query);
+        stmt.exec();
+        if  (stmt.affectedRows() != 5) {
+            throw "SELECT-FAILED", "expected 5 deleted rows";
+        }
+        stmt.rollback();
+        stmt.exec();
+        if  (stmt.affectedRows() != 5) {
+            throw "SELECT-FAILED", "expected 5 deleted rows";
+        }
+        stmt.commit();
+        stmt.exec();
+        if  (stmt.affectedRows() != 0) {
+            throw "SELECT-FAILED", "expected 0 deleted rows";
+        }
+        stmt.commit();
+    }
+
+    test_error() {
+        bool ok = True;
+        try {
+            SQLStatement stmt(ds);
+            stmt.prepare("select * from table_which_doesnt_exist");
+            stmt.exec();
+            ok = False;
+        } catch() {}
+
+        if (!ok) throw "STMT-FAILED", "expected error";
+
+        try {
+            SQLStatement stmt(ds);
+            stmt.next();
+            ok = False;
+        } catch() {}
+
+        if (!ok) throw "STMT-FAILED", "expected error";
+        
+        SQLStatement stmt(ds);
+        stmt.prepare("select * from test");
+        while (stmt.next()) {
+            stmt.fetchRow();
+        }
+        if (stmt.fetchRow() != NOTHING) {
+            throw "STMT-FAILED", "expected NOTHING";
+        }
+        stmt.rollback();
+    }
+}
+
+return new QUnitTest().main();
