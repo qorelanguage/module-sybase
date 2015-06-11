@@ -402,7 +402,9 @@ void command::retr_colinfo(ExceptionSink* xsink) {
 }
 
 
-QoreHashNode *command::read_cols(const Placeholders *ph, ExceptionSink* xsink)
+QoreHashNode *command::read_cols(const Placeholders *ph,
+        int cnt,
+        ExceptionSink* xsink)
 {
     if (ensure_colinfo(xsink)) return 0;
 
@@ -411,7 +413,7 @@ QoreHashNode *command::read_cols(const Placeholders *ph, ExceptionSink* xsink)
     row_result_t &descriptions = colinfo.datafmt;
 
     // setup hash of lists if necessary
-    QoreHashNode *h = new QoreHashNode();
+    ReferenceHolder<QoreHashNode> h(new QoreHashNode(), xsink);
     for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
         std::string col_name;
 
@@ -425,12 +427,12 @@ QoreHashNode *command::read_cols(const Placeholders *ph, ExceptionSink* xsink)
     }
 
     while (fetch_row_into_buffers(xsink)) {
-        if (append_buffers_to_list(descriptions, out_buffers, h, xsink))
+        if (append_buffers_to_list(descriptions, out_buffers, *h, xsink))
             return 0;
+        if (--cnt == 0) break;
     }
-    return h;
+    return h.release();
 }
-
 
 
 QoreHashNode * command::fetch_row(ExceptionSink* xsink, const Placeholders *ph)
@@ -450,19 +452,19 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph,
     ReferenceHolder<AbstractQoreNode> rv(xsink);
     QoreListNode *l = 0;
     while (fetch_row_into_buffers(xsink)) {
-        QoreHashNode *h = output_buffers_to_hash(ph, xsink);
+        ReferenceHolder<QoreHashNode> h(output_buffers_to_hash(ph, xsink), xsink);
         if (*xsink) return 0;
         if (rv) {
             if (!l) {
-                // convert to list - several rows
-                l = new QoreListNode();
+                ReferenceHolder<QoreListNode> lholder(new QoreListNode(), xsink);
+                l = *lholder;
                 l->push(rv.release());
-                rv = l;
+                rv = lholder.release();
             }
-            l->push(h);
+            l->push(h.release());
         }
         else
-            rv = h;
+            rv = h.release();
     }
     return rv.release();
 }
@@ -693,13 +695,13 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt,
               return new QoreNumberNode(value);
           }
 
-          QoreStringNode *s = new QoreStringNode(value,
-                      buffer.value_len - 1, encoding);
+          ReferenceHolder<QoreStringNode> s(new QoreStringNode(value,
+                      buffer.value_len - 1, encoding), xsink);
 
           if (need_trim(datafmt)) {
              s->trim_trailing(' ');
           }
-          return s;
+          return s.release();
      }
 
      case CS_VARBINARY_TYPE:

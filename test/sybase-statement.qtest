@@ -1,4 +1,4 @@
-
+#!/usr/bin/env qore
 %new-style
 
 
@@ -60,6 +60,8 @@ public class QUnitTest inherits QUnit::Test {
                 "name": "ds.select eq statement", "args": ()),
             ("func" : \test_error(),
                 "name": "error stmt", "args": ()),
+            ("func" : \test_fetch_columns(),
+                "name": "fetch columns stmt", "args": ()),
             ("func" : \test_delete(),
                 "name": "delete rows", "args": ()),
         );
@@ -195,6 +197,42 @@ public class QUnitTest inherits QUnit::Test {
             throw "STMT-FAILED", "expected NOTHING";
         }
         stmt.rollback();
+    }
+
+    test_fetch_columns() {
+        string query = "select * from test";
+        SQLStatement stmt(ds);
+        stmt.prepare(query);
+        hash res1 = stmt.fetchColumns(3);
+        hash res2 = stmt.fetchColumns(3);
+
+        if (res1{"name"}.size() != 3 || res2{"number"}.size() != 2) {
+            throw "STMT-FAILED", "unexpected result";
+        }
+        if (res1{"number"}.size() != 3 || res2{"name"}.size() != 2) {
+            throw "STMT-FAILED", "unexpected result";
+        }
+
+
+        hash h = res1;
+        int idx = -1;
+        for (int i = 0; i < 5; i++) {
+            idx++;
+            string name = numbers{i};
+            if (h{"name"}[idx] != name) {
+                throw "STMT-FAILED", "unexpected result";
+            }
+            if (i == 2) { h = res2; idx = -1; }
+        }
+
+        stmt.prepare(query);
+        stmt.exec();
+        h = stmt.fetchColumns(-1);
+        if (h{"name"}.size() != 5) {
+            throw "STMT-FAILED", "unexpected result";
+        }
+ 
+        stmt.commit();
     }
 }
 

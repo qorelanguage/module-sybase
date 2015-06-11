@@ -1,4 +1,5 @@
-#%requires freetds
+#!/usr/bin/env qore
+
 %requires sybase
 %new-style
 

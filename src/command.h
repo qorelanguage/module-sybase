@@ -153,7 +153,17 @@ public:
     DLLLOCAL AbstractQoreNode *read_output(bool list, bool &disconnect, ExceptionSink* xsink);
 
     QoreHashNode *read_cols(const Placeholders *placeholder_list,
+            int cnt,
             ExceptionSink* xsink);
+
+    QoreHashNode *read_cols(const Placeholders *placeholder_list,
+            ExceptionSink* xsink) 
+    {
+        return read_cols(placeholder_list, -1, xsink);
+    }
+
+
+
     AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink);
     AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
 

@@ -52,9 +52,6 @@ select count(1) into @count from user_objects where status = @status;
     test4(delete_stmt, select_stmt);
 }
 
-sub info(string msg) {
-    unit.info(msg);
-}
 
 sub create_table(DatasourcePool dsp) {
     SQLStatement drop_stmt(dsp);
@@ -66,7 +63,6 @@ sub create_table(DatasourcePool dsp) {
         drop_stmt.exec();
     }
     catch (hash ex) {
-        info("ignoring drop table error (%s: %s)", ex.err, ex.desc);
     }
 
     drop_stmt.prepare("create table test (dt datetime, d date, t time, sdt smalldatetime)");
@@ -74,20 +70,13 @@ sub create_table(DatasourcePool dsp) {
 }
 
 sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
-    info("test1");
-    #TimeZone::setRegion("America/Chicago");
-
     date now = now_us();
-    info("current time: %n", now);
 
     binary bin = binary("hello");
 
     {
-        info("starting insert");
-
         code insert = sub () {
             insert_stmt.bind(now, now, now, now);
-            info("bind done: %y", now);
 
             insert_stmt.beginTransaction();
             on_success insert_stmt.commit();
@@ -106,7 +95,6 @@ sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
         now = now_us();
         insert();
     }
-    info("commit done");
 
     on_exit select_stmt.commit();
 
@@ -115,21 +103,17 @@ sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
     while (select_stmt.next()) {
         ++rows;
         hash rv = select_stmt.fetchRow();
-        info("row: %y", rv);
     }
 
     unit.cmp(rows, 4, "next and fetch");
 
     select_stmt.close();
-    info("closed");
 
     select_stmt.exec();
     any v = select_stmt.fetchRows(-1);
     unit.cmp(elements v, 4, "fetch rows");
-    info("rows: %N", v);
 
     select_stmt.close();
-    info("closed");
 
     select_stmt.exec();
     v = select_stmt.fetchColumns(-1);
@@ -138,37 +122,29 @@ sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
     select_stmt.exec();
     v = select_stmt.fetchColumns(-1);
     unit.cmp(v.size(), 4, "fetch columns 2");
-    info("columns: %N", v);
 }
 
 sub test3(SQLStatement stmt) {
-    info("test3");
     try {
         stmt.beginTransaction();
-        info("begin transaction");
         stmt.exec();
         unit.cmp(True, False, "first negative select");
     }
     catch (ex) {
-        info("%s: %s", ex.err, ex.desc);
         unit.cmp(True, True, "first negative select");
     }
     try {
         on_success stmt.commit();
         on_error stmt.rollback();
         any rv = stmt.fetchColumns(-1);
-        info("ERR rows=%N", rv);
         unit.cmp(True, False, "second negative select");
     }
     catch (ex) {
-        info("%s: %s", ex.err, ex.desc);
         unit.cmp(True, True, "second negative select");
     }
-    info("rollback done");
 }
 
 sub test4(SQLStatement delete_stmt, SQLStatement select_stmt) {
-    info("test4");
     {
         delete_stmt.beginTransaction();
         on_success delete_stmt.commit();
@@ -176,13 +152,11 @@ sub test4(SQLStatement delete_stmt, SQLStatement select_stmt) {
         unit.cmp(4, delete_stmt.affectedRows(), "affected rows");
         delete_stmt.close();
     }
-    info("commit done");
 
     select_stmt.exec();
     on_exit select_stmt.commit();
     any rv = select_stmt.fetchRows();
     unit.cmp(rv, (), "select after delete");
-    #info("test: %N", stmt.fetchRows());
 }
 
 main();

@@ -139,7 +139,7 @@ public:
 
 
     QoreHashNode* fetch_columns(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
-        return context->read_cols(0,  xsink);
+        return context->read_cols(0,  rows, xsink);
     }
 
     int bind_placeholders(SQLStatement* stmt,
