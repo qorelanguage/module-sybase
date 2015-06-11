@@ -116,7 +116,7 @@ public:
         do {
             // acording the doc rows <=0 means fetch all
             if (r > 0) {
-                if (rows <= 0) break;
+                if (rows < 0) break;
                 rows--;
             }
             if (xsink->isException()) return 0;
