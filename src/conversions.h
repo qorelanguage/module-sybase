@@ -36,19 +36,17 @@ namespace ss {
 
 class Conversions {
 public:
-    Conversions(ExceptionSink* xsink) : xsink(xsink) {}
+   DLLLOCAL Conversions() {}
+   
+   DLLLOCAL int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME& out, ExceptionSink* xsink);
 
-    int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME& out, ExceptionSink* xsink);
+   DLLLOCAL DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt,
+					   const AbstractQoreZoneInfo *tz = 0);
 
-    DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt,
-        const AbstractQoreZoneInfo *tz = 0);
+   DLLLOCAL DateTimeNode* DATETIME_to_DateTime(CS_DATETIME& dt,
+					       const AbstractQoreZoneInfo *tz = 0);
 
-    DateTimeNode* DATETIME_to_DateTime(CS_DATETIME& dt,
-        const AbstractQoreZoneInfo *tz = 0);
-
-    DateTimeNode* DATETIME4_to_DateTime(CS_DATETIME4& dt);
-private:
-    ExceptionSink* xsink;
+   DLLLOCAL DateTimeNode* DATETIME4_to_DateTime(CS_DATETIME4& dt);
 };
 
 } // namespace ss
