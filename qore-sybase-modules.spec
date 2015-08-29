@@ -36,12 +36,12 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.0.3
+Version: 1.0.4
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
 URL: http://www.qoretechnologies.com/qore
-Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.gz
+Source: https://github.com/qorelanguage/%{name}/releases/download/release-%{version}/%{name}-%{version}.tar.bz2
 #Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
@@ -75,7 +75,7 @@ output placeholders.
 %defattr(-,root,root,-)
 %dir %{module_dir}
 %{module_dir}/sybase-api-%{module_api}.qmod
-%doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
+%doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS test/sybase-statement.qtest test/sybase-types.qtest docs/sybase/html
 %endif
 
 
@@ -105,7 +105,7 @@ databases.
 %defattr(-,root,root,-)
 %dir %{module_dir}
 %{module_dir}/freetds-api-%{module_api}.qmod
-%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/sybase-module-doc.html
+%doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS test/sybase-statement.qtest test/sybase-types.qtest docs/sybase/html
 
 %prep
 %setup -q
@@ -123,6 +123,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Sat Aug 29 2015 David Nichols <david@qore.org>
+- updated version to 1.0.4
+
 * Thu Jun 25 2009 David Nichols <david_nichols@users.sourceforge.net>
 - updated version to 1.0.3
 

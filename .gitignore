@@ -29,3 +29,11 @@ src/*.dox.h
 src/qc_*.cpp
 src/ql_*.cpp
 src/QC_*.cpp
+
+# temporary doc files
+docs/*.tag
+docs/doxyfile
+docs/mainpage.dox
+docs/sybase/
+docs/qlib/Doxyfile.*
+docs/qlib/*.dox.h

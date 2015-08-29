@@ -1,0 +1,214 @@
+/** @mainpage Qore sybase Module
+
+    @tableofcontents
+
+    @section sybaseintro Introduction to the sybase and freetds Modules
+
+    Both the \c sybase and \c freetds modules are built from the same sources; this documentation will describe both modules.  They share most of their functionality, but there are differences, both depending on the client libraries used, and according to the database server connected.
+
+    The \c sybase and \c freetds modules provide drivers to Qore's DBI system, allowing Qore programs to access Sybase (both modules) databases and Microsoft SQL Server (the \c freetds module) through the @ref Qore::SQL::Datasource "Datasource", @ref Qore::SQL::DatasourcePool "DatasourcePool", and @ref Qore::SQL::SQLStatement "SQLStatement" classes.
+
+    Both modules are released under a choice of two licenses:
+    - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
+    - MIT (see COPYING.MIT in the source distribution for more information)
+    .
+    Both modules are tagged as such in the modules' headers (meaning they can be loaded unconditionally regardless of how the %Qore library was initialized).
+
+    Example of creating a connection with the \c sybase driver:
+    @code
+$db = new Datasource("sybase:user/pass@dbname(utf8):host:4100");
+    @endcode
+
+    Example of creating a connection with the \c freetds driver:
+    @code
+$db = new Datasource("freetds:user/pass@dbname(utf8):host:1433");
+    @endcode
+
+    This driver supports the following DBI capabilities:
+    - \c DBI_CAP_TIME_ZONE_SUPPORT
+    - \c DBI_CAP_TRANSACTION_MANAGEMENT
+    - \c DBI_CAP_CHARSET_SUPPORT
+    - \c DBI_CAP_LOB_SUPPORT
+    - \c DBI_CAP_STORED_PROCEDURES
+    - \c DBI_CAP_BIND_BY_VALUE
+    - \c DBI_CAP_HAS_EXECRAW
+    - \c DBI_CAP_HAS_STATEMENT
+    - \c DBI_CAP_HAS_SELECT_ROW
+    - \c DBI_CAP_HAS_NUMBER_SUPPORT
+    - \c DBI_CAP_HAS_OPTION_SUPPORT
+    - \c DBI_CAP_SERVER_TIME_ZONE
+    - \c DBI_CAP_AUTORECONNECT
+
+    The driver employs efficient binary bindings for all non-text data types.
+
+    The @ref Qore::SQL::Datasource::getServerVersion() and @ref Qore::SQL::Datasource::getClientVersion() methods are implemented for both drivers. @ref Qore::SQL::Datasource::getServerVersion() returns a string giving server information similar to the following:
+    @verbatim
+Adaptive Server Enterprise/15.0.1/EBF 13827/P/x86_64/Enterprise Linux/ase1501/2379/64-bit/OPT/Mon Aug 14 22:15:25 2006
+    @endverbatim
+
+    The @ref Qore::SQL::Datasource::getClientVersion() returns a string giving version information.  For example, for freetds:
+    @verbatim
+freetds v0.82 (threadsafe, default tds version=4.2)
+    @endverbatim
+
+Or for Sybase:
+    @verbatim
+Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.21-27.ELsmp x86_64/BUILD1500-073/OPT/Mon May 15 03:18:58 2006
+    @endverbatim
+
+    This driver allows all types of statements to be executed through @ref Qore::SQL::Datasource::select(), @ref Qore::SQL::Datasource::selectRows(), and @ref Qore::SQL::{Datasource::exec() (and related methods), however rules about @ref Qore::SQL::Datasource locking or @ref Qore::SQL::DatasourcePool allocations still apply as usual. If a stored procedure is executed with @ref Qore::SQL::Datasource::selectRows(), then any query results returned will be returned in either a hash format (if only one row was returned), or as a list of hashes (for multiple rows).
+
+    Unlike many other Qore DBI drivers, this driver allows and can return results from multiple select statements issued with a single call. Additionally, it's possible for a stored procedure to return output paramters as well as one or more result sets from select statements. The output format for commands like this differs from standard Qore DBI formats as follows:
+
+    |!Query Type|!Result Format
+    |Multiple Selects|A hash is returned with a key giving the results from each select statement. The key names have the format <tt>query</tt><i>#</i>, where \a # is an increasing integer starting with 0.
+    |Return Parameters Only|A hash is returned with keys giving the output parameter values, as long as the placeholder format (ex: \c :name) was used for the output parameters, otherwise the key names in the output will be an increasing integer starting with 0 (i.e. 0, 1, etc). If a count of affected rows is available, it's returned in the \c rowcount key.
+    |Return Parameters and Result Set(s)|As above, but with an addition key: \c query, giving the result set. If multiple result sets are returned, then the \c query key will be a hash with \c query# keys giving the results for each query in order.
+
+    @section sybaseoptions sybase and freetds Driver Options
+
+    The \c sybase and \c freetds drivers support the following DBI options:
+    - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
+    - \c "string-numbers": return numeric types as strings (for backwards-compatibility)
+    - \c "numeric-numbers": return numeric types as arbitrary-precision number values
+    - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone; see @ref timezone.
+
+    Options can be set in the @ref Qore::SQL::Datasource or @ref Qore::SQL::DatasourcePool constructors as in the following examples:
+    @code
+Dataource ds("sybase:user/pass@db{numeric-numbers,timezone=Europe/Vienna}");
+DataourcePool dsp("freetds:user/pass@db%host.internal:1433{optimal-numbers}");
+    @endcode
+
+    Options are stored separately for each connection.
+
+    @subsection sybase_number_options Number Options
+
+    The number options (\c "optimal-numbers", \c "string-numbers", and \c "numeric-numbers") are all mutually-exclusive; setting one automatically disables the others.   These options also ignore their arguments; the last one set takes effect (also note that setting it with any value sets the option, even @ref False).
+
+    The default if no other option is explicitly set is \c "optimal-numbers".  Note that this represents a change from previous versions where \c NUMERIC or \c DECIMAL values were returned as strings in order to avoid the loss of information.  To set the old behavior, set the \c "string-numbers" option when creating the \c Datasource or \c DatasourcePool object.
+
+    \c NUMERIC or \c DECIMAL output values:
+    - \c "optimal-numbers": return numeric values as an integer if possible, if not as an arbitrary-precision number
+    - \c "string-numbers": return numeric values as strings (for backwards-compatibility)
+    - \c "numeric-numbers": return numeric values as arbitrary-precision number values
+
+    @section sybasetrans Transaction Management
+
+    Transaction management is supported by enabling chained transaction mode on each connection. In autocommit mode in the @ref Qore::SQL::Datasource class, Qore executes a commit after every request to the server.
+
+    The transaction isolation level is left at the default, 1, \c "read committed", which is the default for all Qore drivers as well.
+
+    @section sybase_timezone Time Zone Support
+
+    The driver now sets the server's time zone rules when the connection is established; this is taken from the current time zone settings of the calling Program object and can also be overridden/changed by setting the \c "timezone" driver option (see @ref sybaseoptions).
+
+    All date/time values bound by value are converted to the server's time zone before binding to ensure that date/time values are stored correctly in the server.
+
+    When selecting date/time values, the values returned are tagged with the server's time zone.
+
+    Note that the above rules are applied when the current Program's time zone settings are different than the connection's time zone settings at the time when the write operation (bind) read operation (select) is performed.  This is meant to provide consistent support to connecting to a database server in a different time zone.
+
+    @section sybasebind Binding and Types
+
+    Note that binding by placeholder is not required or supported by this driver as values are returned directly; Qore DBI placeholder buffer specifications are ignored when the \c sybase and \c freetds drivers are used.
+
+    When retrieving data, data types are converted to Qore types as per @ref sybase_to_qore.
+
+    @subsection sybase_and_freetds_binding_by_value Binding by Value
+
+    \c DATETIME and \c TIME data types have a resolution of 1/300th of a second. Qore uses floating-point operations to convert to or from microseconds when binding and retrieving data and rounds to the nearest integer to minimize conversion errors.
+
+    @subsubsection sybase_binding_by_value Binding by Value with the sybase Driver
+
+    The following table gives data mapping when binding qore types by value with the \c sybase driver.
+
+    |!QoreType|!sybase Type|!Description
+    |\c Type::Int|\c CS_BIGINT_TYPE|Sybase's integer type is only 32 bits, integers greater than 2147483647 bound to an \c INT column will only have their lower 32 bits saved to Sybase.
+    |\c Type::Float|\c CS_FLOAT_TYPE|direct conversion
+    |\c Type::Boolean|\c CS_BIT_TYPE|True = 1, False = 0
+    |\c Type::String|\c CS_CHAR_TYPE|direct conversion
+    |\c Type::Date|\c CS_DATETIME_TYPE|milliseconds are rounded to 1/300 second values
+    |\c Type::Binary|\c CS_BINARY_TYPE|direct conversion
+
+    @subsubsection freetds_binding_by_value Binding by Value with the freetds Driver
+
+    The following table gives data mapping when binding qore types by value with the \c freetds driver.
+
+    |!QoreType|!freetds Type|!Description
+    |\c Type::Int|\c CS_BIGINT_TYPE, \c CS_INT_TYPE or \c CS_FLOAT_TYPE|Integer type is only 32-bits, integers greater than 2147483647 bound to an \c INT column will only have their lower 32 bits saved to the database.  If the ~FreeTDS version used to compile this driver does not support \c CS_BIGINT_TYPE, then integers 32 bits or smaller will be bound as \c CS_INT_TYPE, and larger integers will be bound as \c CS_FLOAT_TYPE.
+    |\c Type::Float|\c CS_FLOAT_TYPE|direct conversion
+    |\c Type::Boolean|\c CS_BIT_TYPE|True = 1, False = 0
+    |\c Type::String|\c CS_CHAR_TYPE|direct conversion
+    |\c Type::Date|\c CS_DATETIME_TYPE|milliseconds are rounded to 1/300 second values
+    |\c Type::Binary|\c CS_BINARY_TYPE|direct conversion
+
+    @subsection sybase_to_qore Database to Qore Type Mappings
+    |!Data Type|!Qore Type|!Driver|!Notes
+    |\c TINYINT|@ref Qore::Type::Int|both|direct conversion
+    |\c SMALLINT|@ref Qore::Type::Int|both|direct conversion
+    |\c INT|@ref Qore::Type::Int|both|direct conversion
+    |\c BIGINT|@ref Qore::Type::Int|both|direct conversion
+    |\c DECIMAL, NUMERIC|depends on options|both|see @ref sybase_number_options
+    |\c FLOAT|@ref Qore::Type::Float|both|direct conversion
+    |\c REAL|@ref Qore::Type::Float|both|direct conversion
+    |\c MONEY|@ref Qore::Type::Float|both|direct conversion
+    |\c SMALLMONEY|@ref Qore::Type::Float|both|direct conversion
+    |\c DATETIME|@ref Qore::Type::Date|both|1/300 second values are converted and rounded to the nearest microsecond
+    |\c SMALLDATETIME|@ref Qore::Type::Date|both|direct conversion
+    |\c DATE|@ref Qore::Type::Date|both|direct conversion
+    |\c TIME|@ref Qore::Type::Date|both|Date portion is set to '1970-01-01'; 1/300 second values are converted and rounded to the nearest microsecond
+    |\c CHAR|@ref Qore::Type::String|both|trailing blanks are removed
+    |\c VARCHAR|@ref Qore::Type::String|both|direct conversion
+    |\c UNICHAR|@ref Qore::Type::String|sybase|trailing blanks are removed
+    |\c UNIVARCHAR|@ref Qore::Type::String|sybase|trailing blanks are removed
+    |\c TEXT|@ref Qore::Type::String|both|direct conversion
+    |\c UNITEXT|@ref Qore::Type::Binary|both|this data is returned as type \c IMAGE from the dataserver, so a binary object is returned by the driver
+    |\c BINARY|@ref Qore::Type::Binary|both|direct conversion
+    |\c VARBINARY|@ref Qore::Type::Binary|both|direct conversion
+    |\c IMAGE|@ref Qore::Type::Binary|both|direct conversion
+
+    @section sybasestoredprocs Stored Procedures
+
+    Stored procedure execution is supported, the following is an example of a stored procedure call with output parameters:
+    @verbatim
+create procedure get_values @string varchar(80) output, @int int output
+as
+select @string = 'hello there'
+select @int = 150
+commit -- to maintain transaction count
+    @endverbatim
+
+    Qore code to call this procedure:
+    @verbatim
+# note that if the output parameters are declared as @string and @int, the driver cannot
+# return the parameter result hash with key names corresponding to the param names.
+# ":string" and ":int" is qore placeholder syntax, consistent with other Qore DBI
+# driver placeholder syntax
+
+hash $result = $db.exec("declare @string varchar(40), @int int
+exec get_values :string output, :int output");
+    @endverbatim
+
+    @note FreeTDS Limitations\n
+    The \c freetds driver is not able to retrieve output parameter values when executing queries on MS SQL Server 2000 or above (tds version 5.0 or above), due to the fact that newer MS SQL Server dataservers no longer return output parameter information through the TDS protocol as with Sybase and previous versions of SQL Server.  A future version of this driver should offer an alternative Datasource method allowing explicit stored procedure execution through ct-lib RPC functions, which will allow output parameters to be returned.\n\n
+    There are other issues with data types, character encoding, and more when using this driver; please see http://www.freetds.org for more information.
+
+    @section sybasereleasenotes Release Notes
+
+    @subsection sybase_104 sybase Driver Version 1.0.4
+
+    <b>New Features and Bug Fixes</b>
+    - implemented support for the prepared statement API
+    - implemented support for binding and retrieving "number" types
+    - implemented support for the following DBI options:
+      - \c "optimal-numbers": return \c NUMERIC or \c DECIMAL types as an integer if possible, if not as an arbitrary-precision number
+      - \c "string-numbers": return \c NUMERIC or \c DECIMAL types as strings (for backwards-compatibility)
+      - \c "numeric-numbers": return \c NUMERIC or \c DECIMAL types as arbitrary-precision number values
+      - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone; see @ref sybase_timezone.
+
+    @subsection sybase103 sybase Driver Version 1.0.3
+
+    <b>New Features and Bug Fixes</b>
+    - implemented support for specifying the hostname and port in the datasource in order to override the interfaces file
+
+*/
