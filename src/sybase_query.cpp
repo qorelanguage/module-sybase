@@ -1,12 +1,12 @@
 /*
-  sybase_query.cc
+  sybase_query.cpp
 
   Sybase DB layer for QORE
   uses Sybase OpenClient C library
 
   Qore Programming language
 
-  Copyright (C) 2007 Qore Technologies
+  Copyright (C) 2007 - 2015 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public

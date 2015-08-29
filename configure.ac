@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-sybase-modules], [1.0.3],
+AC_INIT([qore-sybase-modules], [1.0.4],
         [David Nichols <david@qore.org>],
         [qore-sybase-modules])
 AM_INIT_AUTOMAKE
@@ -142,10 +142,10 @@ if test "$enable_64bit" = "auto"; then
    # turn on 64-bit by default if compiling on a 64-bit platform
    case "${host_cpu}" in
        *64*)
-                 enable_64bit=yes 
+                 enable_64bit=yes
                  ;;
        s390x)
-                 enable_64bit=yes 
+                 enable_64bit=yes
                  ;;
        *)        case "${host_os}" in
                      darwin*)   mv=`uname -r|cut -f1 -d.`
@@ -628,7 +628,7 @@ CS_CONTEXT *m_context = 0; ct_init(m_context, CS_VERSION_100);
       # without this "test" below, the shell will crap out
       test
 
-      # check if freetds supports ct_loc_alloc, etc, if it has CS_SYB_LANG_CHARSET defined, 
+      # check if freetds supports ct_loc_alloc, etc, if it has CS_SYB_LANG_CHARSET defined,
       # then it will be OK
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <cspublic.h>
@@ -738,7 +738,7 @@ if test "$enable_optimization" = "yes"; then
     elif test "$CXX" = "CC" -a "`echo $host_os|cut -b-7`" = "solaris"; then
         # remove -g with Solaris CC as it reduces optimization levels
 	CXXFLAGS="`echo $CXXFLAGS| sed s/-g//` -xO5" # Solaris CC
-    elif test -n "`echo $CXX|grep aCC`"; then 
+    elif test -n "`echo $CXX|grep aCC`"; then
         # remove -g with HP-UX aCC as it reduces optimization levels
 	CXXFLAGS="`echo $CXXFLAGS| sed s/-g//` +O4" # HP-UX aCC
     fi

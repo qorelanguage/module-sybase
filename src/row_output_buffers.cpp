@@ -1,12 +1,12 @@
 /*
-  row_output_buffers.cc
+  row_output_buffers.cpp
 
   Sybase DB layer for QORE
   uses Sybase OpenClient C library
 
   Qore Programming language
 
-  Copyright (C) 2007 Qore Technologies
+  Copyright (C) 2007 - 2015 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -32,10 +32,7 @@
 #include "utils.h"
 
 output_value_buffer::output_value_buffer(unsigned size) :
-    indicator(0),
-    value(0),
-    value_len(0)
-{
+    indicator(0), value(0), value_len(0) {
     if (size < 7) size = 7; // ensure at least 8 bytes are allocated. hmmm, why?
     value = new char[size + 1]; // terminator for strings
     value[size] = 0; // this is required since the result values from sybase or
@@ -43,13 +40,11 @@ output_value_buffer::output_value_buffer(unsigned size) :
                      // strlen() everywhere...
 }
 
-output_value_buffer::~output_value_buffer()
-{
+output_value_buffer::~output_value_buffer() {
    delete [] value;
 }
 
-row_output_buffers::~row_output_buffers()
-{
+row_output_buffers::~row_output_buffers() {
     reset();
 }
 

@@ -1,12 +1,12 @@
 /*
-  encoding_helpers.cc
+  encoding_helpers.cpp
 
   Sybase DB layer for QORE
   uses Sybase OpenClient C library
 
   Qore Programming language
 
-  Copyright (C) 2007 Qore Technologies
+  Copyright (C) 2007 - 2015 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -49,8 +49,7 @@ static rev_encoding_map_t encoding_rmap;
 
 // See http://infocenter.sybase.com/help/index.jsp?topic=/com.sybase.dc35823_1500/html/uconfig/X29127.htm
 // for supported languages
-static bool init_encoding_maps()
-{
+static bool init_encoding_maps() {
   DO_MAP("utf8",     QCS_UTF8);
   DO_MAP("iso_1",    QCS_ISO_8859_1);   // Western Europe Latin
   DO_MAP("iso88592", QCS_ISO_8859_2);   // Central Europe Latin
@@ -62,31 +61,23 @@ static bool init_encoding_maps()
   DO_MAP("iso15",    QCS_ISO_8859_15);  // latin 1 with euro
   DO_MAP("ascii8",   QCS_USASCII);
   DO_MAP("koi8",     QCS_KOI8_R); // Cyrilic
-  return 0;   
+  return 0;
 }
 static bool encoding_dummy = init_encoding_maps();
 
 #undef DO_MAP
 
 //------------------------------------------------------------------------------
-const QoreEncoding* name_to_QoreEncoding(const char* name)
-{
+const QoreEncoding* name_to_QoreEncoding(const char* name) {
    const_encoding_map_t::const_iterator it = encoding_map.find(name);
    if (it != encoding_map.end()) return it->second;
    return QEM.findCreate((char*)name);
 }
 
 //------------------------------------------------------------------------------
-const char* QoreEncoding_to_SybaseName(const QoreEncoding *enc)
-{
+const char* QoreEncoding_to_SybaseName(const QoreEncoding *enc) {
    rev_encoding_map_t::const_iterator it = encoding_rmap.find(enc);
    if (it != encoding_rmap.end()) return it->second;
    return 0;
 }
-
-#ifdef DEBUG
-//#  include "tests/encoding_helpers_tests.cc"
-#endif
-
-// EOF
 

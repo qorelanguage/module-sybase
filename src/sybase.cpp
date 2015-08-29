@@ -1,12 +1,12 @@
 /*
-  sybase.cc
+  sybase.cpp
 
   Sybase DB layer for QORE
   uses Sybase OpenClient C library
 
   Qore Programming language
 
-  Copyright (C) 2003 - 2014 Qore Technologies, sro
+  Copyright (C) 2003 - 2015 Qore Technologies, sro
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -61,7 +61,8 @@ DLLEXPORT char qore_module_license_str[] = "MIT";
 static DBIDriver* DBID_SYBASE;
 
 // capabilities of this driver
-int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT
+int DBI_SYBASE_CAPS =
+   DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_CHARSET_SUPPORT
    | DBI_CAP_LOB_SUPPORT
    | DBI_CAP_STORED_PROCEDURES
@@ -72,9 +73,16 @@ int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT
 #ifdef _QORE_HAS_DBI_EXECRAW
    | DBI_CAP_HAS_EXECRAW
 #endif
-   | DBI_CAP_HAS_STATEMENT
+#ifdef _QORE_HAS_DBI_EXECRAW
+   |DBI_CAP_HAS_EXECRAW
+#endif
+#ifdef _QORE_HAS_TIME_ZONES
+   |DBI_CAP_TIME_ZONE_SUPPORT
+#endif
+#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
+   |DBI_CAP_SERVER_TIME_ZONE
+#endif
    ;
-
 
 #define BEGIN_CALLBACK \
        do { \
@@ -86,9 +94,6 @@ int DBI_SYBASE_CAPS = DBI_CAP_TRANSACTION_MANAGEMENT
                return RV; \
            }\
       } while(0)
-
-
-
 
 #ifdef DEBUG
 // exported
@@ -195,26 +200,21 @@ static int sybase_close(Datasource *ds) {
    return 0;
 }
 
-static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr,
-        const QoreListNode *args, ExceptionSink *xsink) {
+static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec(qstr, args, xsink);
    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr,
-        const QoreListNode *args, ExceptionSink *xsink) 
-{
+static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec_rows(qstr, args, xsink);
    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr,
-        const QoreListNode *args, ExceptionSink *xsink) 
-{
+static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec(qstr, args, xsink);
@@ -261,19 +261,14 @@ static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink
    END_CALLBACK(0);
 }
 
-
-static int sybase_opt_set(Datasource* ds, const char* opt,
-        const AbstractQoreNode* val, ExceptionSink* xsink)
-{
+static int sybase_opt_set(Datasource* ds, const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
    BEGIN_CALLBACK;
     connection *conn = (connection*)ds->getPrivateData();
     return conn->setOption(opt, val, xsink);
    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_opt_get(const Datasource* ds,
-        const char* opt) 
-{
+static AbstractQoreNode* sybase_opt_get(const Datasource* ds, const char* opt) {
     try {
         connection *conn = (connection*)ds->getPrivateData();
         return conn->getOption(opt);
@@ -281,11 +276,6 @@ static AbstractQoreNode* sybase_opt_get(const Datasource* ds,
         return 0;
     }
 }
-
-
-
-
-
 
 namespace ss {
     void init(qore_dbi_method_list &methods);
@@ -316,11 +306,9 @@ QoreStringNode *sybase_module_init() {
    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
    methods.add(QDBI_METHOD_GET_SERVER_VERSION, sybase_get_server_version);
 
-
    methods.add(QDBI_METHOD_OPT_SET, sybase_opt_set);
    methods.add(QDBI_METHOD_OPT_GET, sybase_opt_get);
-   
-   
+
    methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'numeric-numbers'");
    methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
    methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
@@ -333,7 +321,6 @@ QoreStringNode *sybase_module_init() {
 
    ss::init(methods);
 
-
 #ifdef SYBASE
    DBID_SYBASE = DBI.registerDriver("sybase", methods, DBI_SYBASE_CAPS);
 #else
@@ -344,12 +331,6 @@ QoreStringNode *sybase_module_init() {
 }
 
 void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns) {
-/*
-  // this is commented out because the constants are not needed (or documented) at the moment
-  // maybe later we can use them
-   QORE_TRACE("sybase_module_ns_init()");
-   qns->addInitialNamespace(sybase_ns.copy());
-*/
 }
 
 void sybase_module_delete() {

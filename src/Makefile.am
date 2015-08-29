@@ -1,10 +1,10 @@
 if COND_SINGLE_COMPILATION_UNIT
-SYBASE_SOURCES = single-compilation-unit.cc
+SYBASE_SOURCES = single-compilation-unit.cpp
 else
-SYBASE_SOURCES = sybase.cc connection.cc\
-				 conversions.cc command.cc\
-				 encoding_helpers.cc sybase_query.cc\
-				 row_output_buffers.cc statement.cc
+SYBASE_SOURCES = sybase.cpp connection.cpp\
+				 conversions.cpp command.cpp\
+				 encoding_helpers.cpp sybase_query.cpp\
+				 row_output_buffers.cpp statement.cpp
 endif
 
 lib_LTLIBRARIES =
@@ -21,7 +21,7 @@ freetds_la_LDFLAGS = -module -avoid-version ${FREETDS_LIBS}
 freetds_la_CPPFLAGS = $(QORE_CPPFLAGS) $(FREETDS_INCLUDES) -DFREETDS=1
 endif
 
-INCLUDES = -I$(top_srcdir)/include 
+INCLUDES = -I$(top_srcdir)/include
 
 if COND_PROFILE
 AM_CXXFLAGS=-g -pg

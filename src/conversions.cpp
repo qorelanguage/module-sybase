@@ -1,12 +1,12 @@
 /*
-  conversions.cc
+  conversions.cpp
 
   Sybase DB layer for QORE
   uses Sybase OpenClient C library
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2010 Qore Technologies
+  Copyright (C) 2007 - 2015 Qore Technologies
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -93,10 +93,10 @@ int Conversions::DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME &out, Exce
       return -1;
    }
    int64 secs = dt->getEpochSeconds();
-   
+
    if (check_epoch(secs, *dt, xsink))
       return -1;
-   
+
    int days = secs / 86400;
    out.dtdays = days + SYB_DAYS_TO_EPOCH;
 

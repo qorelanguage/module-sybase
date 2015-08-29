@@ -1,4 +1,15 @@
 -------------
+Version 1.0.4
+-------------
+
+implemented:
+- the statement API to support the SQLStatement class (DBI_CAP_HAS_STATEMENT)
+- support for driver options
+- support for time zones in date/time values (DBI_CAP_TIME_ZONE_SUPPORT)
+- support for arbitrary-precision numbers (DBI_CAP_HAS_NUMBER_SUPPORT)
+- support for server-side time zones (DBI_CAP_SERVER_TIME_ZONE)
+
+-------------
 Version 1.0.3
 -------------
 
@@ -18,7 +29,7 @@ Version 1.0.2
 -------------
 
 added auto-reconnect feature to driver; will automatically reconnect to the
-server if the connection is dropped while not in a transaction.  
+server if the connection is dropped while not in a transaction.
 Auto-reconnect has been tested with both sybase and freetds drivers.
 
 updated configure to check the directory specified with --prefix first when

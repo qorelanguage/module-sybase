@@ -1,12 +1,12 @@
 /*
-  sybase_connection.cc
+  sybase_connection.cpp
 
   Sybase DB layer for QORE
   uses Sybase OpenClient C library or FreeTDS' ct-lib
 
   Qore Programming Language
 
-  Copyright (C) 2007 Qore Technolgoies sro
+  Copyright (C) 2007 - 2015 Qore Technolgoies sro
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -95,7 +95,7 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
    CS_INT result_type;
    err = ct_results(cmd, &result_type);
    if (err != CS_SUCCEED)
-        do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", 
+        do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
                 "connection::direct_execute(): ct_results()"
                 " returned error code %d", err);
 
@@ -370,7 +370,7 @@ int connection::init(const char* username,
       do_exception(xsink, "DBI:SYBASE:INIT-ERROR", "ct_options(CS_OPT_CHAINXACTS) failed");
 
    // Set default type of string representation of DATETIME to long (like Jan 1 1990 12:32:55:0000 PM)
-   // Without this some routines in conversions.cc would fail.
+   // Without this some routines in conversions.cpp would fail.
    CS_INT aux = CS_DATES_LONG;
    ret = cs_dt_info(m_context.get_context(), CS_SET, NULL, CS_DT_CONVFMT, CS_UNUSED, (CS_VOID*)&aux, sizeof(aux), 0);
    if (ret != CS_SUCCEED)
@@ -461,13 +461,13 @@ void connection::do_check_exception(ExceptionSink *xsink, bool check, const char
          estr->sprintf(", OS error %d: %s", cmsg.osnumber, cmsg.osstring);
       count++;
    }
-   
+
    ret = ct_diag(m_connection, CS_STATUS, CS_SERVERMSG_TYPE, CS_UNUSED, &num);
    assert(ret == CS_SUCCEED);
    CS_SERVERMSG smsg;
 
    bool fnd_ignore = !check;
-   
+
    for (int i = 1; i <= num; ++i) {
       ret = ct_diag(m_connection, CS_GET, CS_SERVERMSG_TYPE, i, &smsg);
       if (!fnd_ignore && ret == CS_SUCCEED && (smsg.msgnumber == 3902 || smsg.msgnumber == 3903))
@@ -662,13 +662,4 @@ DLLLOCAL const AbstractQoreZoneInfo* connection::getTZ() const {
     return currentTZ();
 }
 
-
-#ifdef DEBUG
-//#  include "tests/connection_tests.cc"
-//#  include "tests/direct_execute_tests.cc"
-//#  include "tests/executor_tests.cc"
-//#  include "tests/executor_rpc_tests.cc"
-#endif
-
-// EOF
 
