@@ -84,7 +84,7 @@ public:
     RefHolderVector(ExceptionSink *xsink) :
         xsink(xsink)
     {}
-    
+
 
     typedef Vector::iterator iterator;
     typedef Vector::const_iterator const_iterator;
@@ -116,7 +116,7 @@ public:
     QoreHashNode * release_to_hash(Fn keygen) {
         int i = 0;
         ReferenceHolder<QoreHashNode> h(xsink);
-        h = new QoreHashNode();
+        h = new QoreHashNode;
         for (iterator it = begin(); it != end(); ++it) {
             std::string key = keygen(i++);
             h->setKeyValue(key.c_str(), *it, xsink);

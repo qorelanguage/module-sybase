@@ -210,7 +210,14 @@ static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, c
 static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->exec_rows(qstr, args, xsink);
+   AbstractQoreNode* rv = conn->exec_rows(qstr, args, xsink);
+   if (get_node_type(rv) == NT_HASH) {
+      QoreListNode* l = new QoreListNode;
+      l->push(rv);
+      rv = l;
+   }
+   return rv;
+   //return conn->exec_rows(qstr, args, xsink);
    END_CALLBACK(0);
 }
 
