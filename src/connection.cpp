@@ -104,7 +104,7 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
                "connection::direct_execute(): ct_results()"
                " failed with result_type = %d", result_type);
 
-   while((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
+   while ((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
    canceller.Dismiss();
 
    return purge_messages(xsink);
@@ -147,21 +147,16 @@ command * connection::create_command(const QoreString *cmd_text,
     return cmd.release();
 }
 
-AbstractQoreNode *connection::exec_intern(QoreString *cmd_text,
-        const QoreListNode *qore_args,
-        bool need_list,
-        ExceptionSink* xsink,
-        bool doBinding)
-{
+AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink, bool doBinding) {
     std::auto_ptr<command> cmd;
-    if (doBinding) {
+    if (doBinding)
         cmd.reset(create_command(cmd_text, qore_args, xsink));
-    } else {
+    else
         cmd.reset(create_command(cmd_text, xsink));
-    }
 
     while (true) {
-        if (xsink->isException()) return 0;
+        if (*xsink)
+            return 0;
 
         bool disconnect = false;
 
@@ -171,9 +166,8 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text,
         if (*xsink)
             return 0;
 
-        if (!disconnect) {
+        if (!disconnect)
             return result.release();
-        }
 
         // see if we need to reconnect and try again
         ct_close(m_connection, CS_FORCE_CLOSE);
@@ -200,14 +194,21 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text,
         init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
         // return with an error if it didn't work
         if (*xsink) {
-            // make sure and mark Datasource as closed
-            ds->connectionAborted();
-            return 0;
+	   // make sure and mark Datasource as closed
+	   ds->connectionAborted();
+	   return 0;
         }
 
         // if the connection was aborted while in a transaction, return now
         if (wasInTransaction(ds))
             return 0;
+
+#ifdef DEBUG
+	// otherwise show the exception on stdout in debug mode
+	xsink->handleExceptions();
+#endif
+	// clear any exceptions that have been ignored
+	xsink->clear();
 
         printd(5, "connection::exec_intern() this=%p auto reconnected to %s@%s\n", this, ds->getUsername(), ds->getDBName());
     }
@@ -223,7 +224,9 @@ AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode *pa
       return 0;
 
    std::auto_ptr<QoreString> tmp(query);
-   return exec_intern(query, parameters, false, xsink);
+   ReferenceHolder<> rv(exec_intern(query, parameters, false, xsink), xsink);
+   purge_messages(xsink);
+   return rv.release();
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
@@ -234,7 +237,9 @@ AbstractQoreNode *connection::execRaw(const QoreString *cmd, ExceptionSink *xsin
       return 0;
 
    std::auto_ptr<QoreString> tmp(query);
-   return exec_intern(query, 0, false, xsink, false);
+   ReferenceHolder<> rv(exec_intern(query, 0, false, xsink, false), xsink);
+   purge_messages(xsink);
+   return rv.release();
 }
 #endif
 
@@ -245,16 +250,22 @@ AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNod
       return 0;
 
    std::auto_ptr<QoreString> tmp(query);
-   return exec_intern(query, parameters, true, xsink);
+   ReferenceHolder<> rv(exec_intern(query, parameters, true, xsink), xsink);
+   purge_messages(xsink);
+   return rv.release();
 }
 
 // returns 0=OK, -1=error (exception raised)
 int connection::commit(ExceptionSink *xsink) {
+   // first clear any pending results in case a statement was in progress (does not clear any actions already effected with exec())
+   ct_cancel(m_connection, 0, CS_CANCEL_ALL);
    return direct_execute("commit", xsink);
 }
 
 // returns 0=OK, -1=error (exception raised)
 int connection::rollback(ExceptionSink *xsink) {
+   // first clear any pending results in case a statement was in progress
+   ct_cancel(m_connection, 0, CS_CANCEL_ALL);
    return direct_execute("rollback", xsink);
 }
 
@@ -266,8 +277,7 @@ int connection::init(const char* username,
         const QoreEncoding *n_enc,
         const char *hostname,
         int port,
-        ExceptionSink* xsink)
-{
+        ExceptionSink* xsink) {
    assert(!m_connection);
 
    printd(5, "connection::init() user=%s pass=%s dbname=%s, db_enc=%s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
@@ -578,13 +588,11 @@ CS_RETCODE connection::servermsg_callback(CS_CONTEXT* ctx, CS_CONNECTION* conn, 
 */
 
 // get client version
-QoreStringNode *connection::get_client_version(ExceptionSink *xsink)
-{
+QoreStringNode *connection::get_client_version(ExceptionSink *xsink) {
    return m_context.get_client_version(xsink);
 }
 
-AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink)
-{
+AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink) {
    AbstractQoreNode *res = exec_intern(&ver_str, 0, true, xsink);
    if (!res)
       return 0;
@@ -601,9 +609,7 @@ AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink)
    return rv;
 }
 
-DLLLOCAL int connection::setOption(const char* opt,
-        const AbstractQoreNode* val, ExceptionSink* xsink)
-{
+DLLLOCAL int connection::setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
     if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
         numeric_support = OPT_NUM_OPTIMAL;
         return 0;
@@ -634,7 +640,6 @@ DLLLOCAL int connection::setOption(const char* opt,
     return 0;
 }
 
-
 DLLLOCAL AbstractQoreNode* connection::getOption(const char* opt) {
     if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
         return get_bool_node(numeric_support == OPT_NUM_OPTIMAL);
@@ -656,10 +661,7 @@ DLLLOCAL AbstractQoreNode* connection::getOption(const char* opt) {
     return 0;
 }
 
-
 DLLLOCAL const AbstractQoreZoneInfo* connection::getTZ() const {
     if (server_tz) return server_tz;
     return currentTZ();
 }
-
-

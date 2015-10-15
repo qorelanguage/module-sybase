@@ -270,7 +270,7 @@ int command::get_row_count() {
 }
 
 command::ResType command::read_next_result1(ExceptionSink* xsink) {
-   if (xsink->isException())
+   if (*xsink)
       return RES_ERROR;
 
    switch (lastRes) {
@@ -285,6 +285,7 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
 
    CS_INT result_type;
    CS_RETCODE err = ct_results(m_cmd, &result_type);
+   //printf("command::read_next_result1 result: %d\n", err);
    switch (err) {
       case CS_END_RESULTS:
 	 return RES_END;
@@ -380,9 +381,8 @@ AbstractQoreNode *command::read_output(bool list, bool &disconnect, ExceptionSin
 				"don't know how to handle result type");
 	    break;
       }
-      if (xsink->isException()) {
+      if (*xsink)
 	 return 0;
-      }
    }
 }
 
