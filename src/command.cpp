@@ -487,8 +487,8 @@ int command::get_row_description(row_result_t &result, unsigned column_count, Ex
       datafmt.count = 1; // fetch just single row per every ct_fetch()
       bool is_multi_byte = m_conn.getEncoding()->isMultiByte();
 
-      //printd(5, "command::get_row_description(): name=%s type=%d usertype=%d\n",
-      //        datafmt.name, datafmt.datatype, datafmt.usertype);
+      printd(5, "command::get_row_description(): name=%s type=%d usertype=%d\n",
+	     datafmt.name, datafmt.datatype, datafmt.usertype);
 
       datafmt.origin_datatype = datafmt.datatype;
       switch (datafmt.datatype) {
@@ -505,6 +505,12 @@ int command::get_row_description(row_result_t &result, unsigned column_count, Ex
 	    datafmt.format = CS_FMT_NULLTERM;
 	    break;
 
+	    // freetds only works with CS_FMT_PADBLANK with CS_CHAR columns it seems
+	    // however this is also compatible with Sybase's ct-lib
+	 case CS_CHAR_TYPE:
+	    datafmt.format = CS_FMT_PADBLANK;
+	    break;
+
 	 case CS_LONGCHAR_TYPE:
 	 case CS_VARCHAR_TYPE:
 	 case CS_TEXT_TYPE:
@@ -512,12 +518,6 @@ int command::get_row_description(row_result_t &result, unsigned column_count, Ex
 	    if (is_multi_byte)
 	       datafmt.maxlength *= 2;
 	    datafmt.format = CS_FMT_NULLTERM;
-	    break;
-
-	    // freetds only works with CS_FMT_PADBLANK with CS_CHAR columns it seems
-	    // however this is also compatible with Sybase's ct-lib
-	 case CS_CHAR_TYPE:
-	    datafmt.format = CS_FMT_PADBLANK;
 	    break;
 
 #ifdef FREETDS
@@ -656,20 +656,28 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
    switch (datafmt.datatype) {
       case CS_LONGCHAR_TYPE:
       case CS_VARCHAR_TYPE:
-      case CS_TEXT_TYPE:
-      case CS_CHAR_TYPE: {
+      case CS_TEXT_TYPE: {
 	 CS_CHAR* value = (CS_CHAR*)(buffer.value);
 
-	 if (use_numbers(m_conn) && is_number(datafmt)) {
+	 if (use_numbers(m_conn) && is_number(datafmt))
 	    return new QoreNumberNode(value);
-	 }
 
-	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value,
-							      buffer.value_len - 1, encoding), xsink);
+	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value, buffer.value_len - 1, encoding), xsink);
 
-	 if (need_trim(datafmt)) {
+	 if (need_trim(datafmt))
 	    s->trim_trailing(' ');
-	 }
+	 return s.release();
+      }
+
+      case CS_CHAR_TYPE: {
+	 CS_CHAR* value = (CS_CHAR*)(buffer.value);
+	 if (use_numbers(m_conn) && is_number(datafmt))
+	    return new QoreNumberNode(value);
+
+	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value, buffer.value_len, encoding), xsink);
+
+	 if (need_trim(datafmt))
+	    s->trim_trailing(' ');
 	 return s.release();
       }
 

@@ -207,6 +207,16 @@ static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, c
    END_CALLBACK(0);
 }
 
+/*
+static AbstractQoreNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+   BEGIN_CALLBACK;
+   connection *conn = (connection*)ds->getPrivateData();
+   return conn->exec_row(qstr, args, xsink);
+   //return conn->exec_rows(qstr, args, xsink);
+   END_CALLBACK(0);
+}
+*/
+
 static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
@@ -224,7 +234,8 @@ static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qs
 static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->exec(qstr, args, xsink);
+   AbstractQoreNode* rv = conn->exec(qstr, args, xsink);
+   return rv ? rv : new QoreBigIntNode(0);
    END_CALLBACK(0);
 }
 
@@ -232,7 +243,8 @@ static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, con
 static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->execRaw(qstr, xsink);
+   AbstractQoreNode* rv = conn->execRaw(qstr, xsink);
+   return rv ? rv : new QoreBigIntNode(0);
    END_CALLBACK(0);
 }
 #endif
