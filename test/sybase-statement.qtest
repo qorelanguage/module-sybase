@@ -1,10 +1,12 @@
 #!/usr/bin/env qore
-%new-style
 
+%new-style
 
 %requires QUnit
 
-our hash numbers = (
+%exec-class SybaseStatementTest
+
+const Numbers = (
     0: "zero",
     1: "one",
     2: "two",
@@ -12,76 +14,79 @@ our hash numbers = (
     4: "four"
 );
 
-public class QUnitTest inherits QUnit::Test {
+public class SybaseStatementTest inherits QUnit::Test {
     private {
         DatasourcePool ds;
-        bool initialized = False;
     }
 
     drop_test_tables() {
-        SQLStatement drop_stmt(ds);
-        drop_stmt.prepare("drop table test");
+        SQLStatement stmt(ds);
+        on_success stmt.commit();
+        on_error stmt.rollback();
 
-        on_exit drop_stmt.commit();
+        stmt.prepare("drop table test");
+
+        on_exit stmt.commit();
 
         try {
-            drop_stmt.exec();
+            stmt.exec();
         }
         catch (hash ex) {}
     }
 
     create_test_tables() {
-        SQLStatement drop_stmt(ds);
-        on_exit drop_stmt.commit();
-        drop_stmt.prepare("create table test" +
-            "(name varchar(40), number int)");
-        drop_stmt.exec();
+        SQLStatement stmt(ds);
+        on_success stmt.commit();
+        on_error stmt.rollback();
+
+        stmt.prepare("create table test (name varchar(40), number int)");
+        stmt.exec();
     }
 
     setUp() {
-        if (initialized) return;
-        string connstr = getEnv("DB_SYBASE", "sybase:test/test@sybase");
-        ds = new DatasourcePool(connstr);
-        drop_test_tables();
-        create_test_tables();
-        initialized = True;
     }
 
     tearDown() {
     }
 
-    constructor() {
-        testFunctions = (
-            ("func" : \test_insert(),
-                "name": "insert values", "args": ()),
-            ("func" : \test_select(),
-                "name": "select values", "args": ()),
-            ("func" : \test_stmt_eq_select(),
-                "name": "ds.select eq statement", "args": ()),
-            ("func" : \test_error(),
-                "name": "error stmt", "args": ()),
-            ("func" : \test_fetch_columns(),
-                "name": "fetch columns stmt", "args": ()),
-            ("func" : \test_delete(),
-                "name": "delete rows", "args": ()),
-        );
+    constructor() : Test("SybaseStatementTest", "1.0") {
+        string connstr = getEnv("DB_SYBASE", "freetds:test/test@mssql");
+        ds = new DatasourcePool(connstr);
+        create_test_tables();
+
+        on_exit
+            drop_test_tables();
+
+        addTestCase("insert values", \test_insert());
+        addTestCase("select values", \test_stmt_eq_select());
+        addTestCase("stmt select values", \test_stmt_eq_select());
+        addTestCase("stmt error", \test_error());
+        addTestCase("stmt fetch columns", \test_fetch_columns());
+        addTestCase("delete rows", \test_delete());
+
+        set_return_value(main());
     }
 
     test_insert() {
-        bool ok = True;
         SQLStatement stmt(ds);
+        on_error stmt.rollback();
+
         stmt.prepare("insert into test values (%v, %v)");
         for (int i = 0; i < 5; i++) {
-            stmt.exec(numbers{i}, i);
-            if (stmt.affectedRows() != 1) ok = False;
+            stmt.exec(Numbers{i}, i);
+            testAssertionValue("affected rows " + i, stmt.affectedRows(), 1);
         }
         stmt.commit();
-        if (!ok) throw "INSERT-FAILED", "stmt.affectedRows() != 1";
+
+        # uncomment to test reconnections - restart the server while waiting
+        #printf("waiting 30s..."); flush(); sleep(30); print("\n");
     }
 
     test_select() {
         SQLStatement stmt(ds);
-        stmt.prepare("select name from test where number=%v");
+        on_error stmt.rollback();
+
+        stmt.prepare("select name from test where number = %v");
         stmt.exec(3); # this should be canceled
         for (int i = 0; i < 5; i++) {
             stmt.exec(i);
@@ -89,34 +94,27 @@ public class QUnitTest inherits QUnit::Test {
             int cnt = 0;
 
             while (stmt.next()) {
-                cnt ++;
+                cnt++;
                 hash row = stmt.fetchRow();
-                if (row{"name"} != numbers{i})
-                    throw "SELECT-FAILED", "incoret values read";
+                testAssertionValue(sprintf("value %d-%d", i, $#), row.name, Numbers{i});
             }
-            if (cnt != 1) {
-                throw "SELECT-FAILED", "incoret number of rows read";
-            }
+            testAssertionValue("row count " + i, cnt, 1);
+            testAssertionValue("affected rows " + i, stmt.affectedRows(), 1);
         }
 
         stmt.prepare("select * from test");
         stmt.exec();
         list rows = stmt.fetchRows();
-        if (rows.size() != 5) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
-        for (int i = 0; i < 5; i++) {
+        testAssertionValue("fetchRows", rows.size(), 5);
+
+        for (int i = 0; i < rows.size(); i++) {
             int n = rows[i]{"number"};
             string s = rows[i]{"name"};
-            if (numbers{n} != s) {
-                throw "SELECT-FAILED", "fetchRows result doesn't match";
-            }
+            testAssertionValue("fetchRows " + i, Numbers{n}, s);
         }
 
         stmt.exec();
-        if (stmt.fetchRows(2).size() != 2) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("fetchRows size", stmt.fetchRows(2).size(), 2);
         stmt.commit();
     }
 
@@ -128,34 +126,25 @@ public class QUnitTest inherits QUnit::Test {
         string query = "select * from test";
         list res1 = ds.selectRows(query);
         SQLStatement stmt(ds);
+        on_error stmt.rollback();
 
         stmt.prepare(query);
         list res2 = stmt.fetchRows();
 
         stmt.exec();
-        if (stmt.fetchRows(2).size() != 2) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("fetchRows size 1", stmt.fetchRows(2).size(), 2);
 
         stmt.exec();
-        if (stmt.fetchRows(1).size() != 1) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("fetchRows size 2", stmt.fetchRows(1).size(), 1);
 
         stmt.exec();
-        if (stmt.fetchRows(10).size() != 5) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("fetchRows size 3", stmt.fetchRows(10).size(), 5);
 
         stmt.exec();
-        if (stmt.fetchRows(0).size() != 5) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("fetchRows size 4", stmt.fetchRows(0).size(), 5);
 
         stmt.exec();
-        if (stmt.fetchRows(-1).size() != 5) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("fetchRows size 5", stmt.fetchRows(-1).size(), 5);
 
         stmt.prepare(query);
         list res3 = ();
@@ -165,15 +154,12 @@ public class QUnitTest inherits QUnit::Test {
         }
 
         # just to be sure, there should be 5 rows in the table
-        if (res1.size() != 5) {
-            throw "SELECT-FAILED", "incoret number of rows read";
-        }
+        testAssertionValue("select result size", res1.size(), 5);
 
         # all the results must be the same
-        if (res2 != res1 || res1 != res3) {
-            throw "SELECT-FAILED",
-                "ds.selectRows() and stmt.fetchRows() fives different results";
-        }
+        testAssertionValue("select result 1", res2, res1);
+        testAssertionValue("select result 2", res3, res1);
+        testAssertionValue("select result 3", res2, res3);
 
         stmt.commit();
     }
@@ -181,34 +167,36 @@ public class QUnitTest inherits QUnit::Test {
     test_delete() {
         string query = "delete from test";
         SQLStatement stmt(ds);
+        on_error stmt.rollback();
+
         stmt.prepare(query);
         stmt.exec();
-        if  (stmt.affectedRows() != 5) {
-            throw "SELECT-FAILED", "expected 5 deleted rows";
-        }
+        testAssertionValue("affected rows 1", stmt.affectedRows(), 5);
+
         stmt.rollback();
         stmt.exec();
-        if  (stmt.affectedRows() != 5) {
-            throw "SELECT-FAILED", "expected 5 deleted rows";
-        }
+        testAssertionValue("affected rows 2", stmt.affectedRows(), 5);
+
         stmt.commit();
         stmt.exec();
-        if  (stmt.affectedRows() != 0) {
-            throw "SELECT-FAILED", "expected 0 deleted rows";
-        }
+        testAssertionValue("affected rows 3", stmt.affectedRows(), 0);
+
         stmt.commit();
     }
 
     test_error() {
         bool ok = True;
+        on_exit ds.rollback();
+
         try {
             SQLStatement stmt(ds);
             stmt.prepare("select * from table_which_doesnt_exist");
             stmt.exec();
             ok = False;
+            testAssertionValue("select error", 0, 1);
         } catch() {}
 
-        if (!ok) throw "STMT-FAILED", "expected error";
+        testAssertionValue("select error 1", ok, True);
 
         try {
             SQLStatement stmt(ds);
@@ -216,54 +204,49 @@ public class QUnitTest inherits QUnit::Test {
             ok = False;
         } catch() {}
 
-        if (!ok) throw "STMT-FAILED", "expected error";
+        testAssertionValue("select error 2", ok, True);
 
         SQLStatement stmt(ds);
         stmt.prepare("select * from test");
         while (stmt.next()) {
             stmt.fetchRow();
         }
-        if (stmt.fetchRow() != NOTHING) {
-            throw "STMT-FAILED", "expected NOTHING";
-        }
+
+        testAssertionValue("select error 3", stmt.fetchRow(), NOTHING);
+
         stmt.rollback();
     }
 
     test_fetch_columns() {
         string query = "select * from test";
         SQLStatement stmt(ds);
+        on_exit stmt.rollback();
+
         stmt.prepare(query);
         hash res1 = stmt.fetchColumns(3);
         hash res2 = stmt.fetchColumns(3);
 
-        if (res1{"name"}.size() != 3 || res2{"number"}.size() != 2) {
-            throw "STMT-FAILED", "unexpected result";
-        }
-        if (res1{"number"}.size() != 3 || res2{"name"}.size() != 2) {
-            throw "STMT-FAILED", "unexpected result";
-        }
+        testAssertionValue("fetch columns 1", res1.name.size(), 3);
+        testAssertionValue("fetch columns 2", res2.number.size(), 2);
 
+        testAssertionValue("fetch columns 3", res1.number.size(), 3);
+        testAssertionValue("fetch columns 4", res2.name.size(), 2);
 
         hash h = res1;
         int idx = -1;
         for (int i = 0; i < 5; i++) {
             idx++;
-            string name = numbers{i};
-            if (h{"name"}[idx] != name) {
-                throw "STMT-FAILED", "unexpected result";
-            }
+            string name = Numbers{i};
+            testAssertionValue("fetch columns 5-" + i, h.name[idx], name);
+
             if (i == 2) { h = res2; idx = -1; }
         }
 
         stmt.prepare(query);
         stmt.exec();
         h = stmt.fetchColumns(-1);
-        if (h{"name"}.size() != 5) {
-            throw "STMT-FAILED", "unexpected result";
-        }
+        testAssertionValue("fetch columns 6", h.name.size(), 5);
 
         stmt.commit();
     }
 }
-
-return new QUnitTest().main();

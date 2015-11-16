@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2015 Qore Technologies
+  Copyright (C) 2007 - 2015 Qore Technologies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -46,17 +46,13 @@ static std::string get_placeholder_at(const Placeholders *ph, size_t i) {
    return ph->at(i);
 }
 
-command::command(connection& conn, ExceptionSink* xsink) :
-   m_conn(conn),
-   m_cmd(0),
-   rowcount(-1),
-   lastRes(RES_NONE) {
+command::command(connection& conn, ExceptionSink* xsink) : m_conn(conn), m_cmd(0), rowcount(-1), lastRes(RES_NONE) {
    CS_RETCODE err = ct_cmd_alloc(m_conn.getConnection(), &m_cmd);
    if (err != CS_SUCCEED) {
-      xsink->raiseException("DBI-EXEC-EXCEPTION", "Sybase call ct_cmd_alloc() failed with error %d", (int)err);
+      xsink->raiseException("TDS-EXEC-EXCEPTION", "Sybase call ct_cmd_alloc() failed with error %d", (int)err);
       return;
    }
-   }
+}
 
 //------------------------------------------------------------------------------
 command::~command() {
@@ -64,7 +60,7 @@ command::~command() {
    // cancel only unfinished, not already canceled command
    if (lastRes != RES_CANCELED && lastRes != RES_END) {
       if (ct_cancel(0, m_cmd, CS_CANCEL_ALL) != CS_SUCCEED) {
-	 throw ss::Error("DBI-EXEC-EXCEPTION", "ct_cancel failed");
+	 throw ss::Error("TDS-EXEC-EXCEPTION", "ct_cancel failed");
       }
    }
    ct_cmd_drop(m_cmd);
@@ -74,8 +70,7 @@ void command::send(ExceptionSink *xsink) {
    CS_RETCODE err = ct_send(m_cmd);
 
    if (err != CS_SUCCEED) {
-      m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
-			  "ct_send() failed");
+      m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_send() failed");
    }
 }
 
@@ -83,7 +78,7 @@ void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsi
    assert(cmd_text && cmd_text[0]);
    CS_RETCODE err = ct_command(m_cmd, CS_LANG_CMD, (CS_CHAR*)cmd_text, CS_NULLTERM, CS_UNUSED);
    if (err != CS_SUCCEED) {
-      m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_command(CS_LANG_CMD, '%s') failed with error %d", cmd_text, (int)err);
+      m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_command(CS_LANG_CMD, '%s') failed with error %d", cmd_text, (int)err);
    }
 }
 
@@ -92,7 +87,7 @@ bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
-	 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
+	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
       }
       return true;
    }
@@ -101,7 +96,7 @@ bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
       lastRes = RES_NONE;
       return false;
    }
-   m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_fetch() returned errno %d", (int)err);
+   m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION", "ct_fetch() returned errno %d", (int)err);
    return false;
 }
 
@@ -109,10 +104,10 @@ unsigned command::get_column_count(ExceptionSink* xsink) {
    CS_INT num_cols;
    CS_RETCODE err = ct_res_info(m_cmd, CS_NUMDATA, &num_cols, CS_UNUSED, NULL);
    if (err != CS_SUCCEED) {
-      m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_res_info() failed with error %d", (int)err);
+      m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION", "ct_res_info() failed with error %d", (int)err);
    }
    if (num_cols <= 0) {
-      m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION", "ct_res_info() failed");
+      m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION", "ct_res_info() failed");
    }
    return num_cols;
 }
@@ -148,7 +143,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	 // SQL NULL value
 	 err = ct_param(m_cmd, &datafmt, 0, CS_UNUSED, -1);
 	 if (err != CS_SUCCEED) {
-	    m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+	    m_conn.do_exception(xsink, "TDS-EXEC-ERROR",
 				"ct_param() for 'null' failed for parameter %u with error %d",
 				i, (int)err);
 	    return;
@@ -163,7 +158,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	    const QoreStringNode *str = reinterpret_cast<const QoreStringNode *>(val);
 	    // ensure we bind with the proper encoding for the connection
 	    TempEncodingHelper s(str, m_conn.getEncoding(), xsink);
-	    if (!s) throw ss::Error("DBI:SYBASE:EXEC-ERROR", "encoding");
+	    if (!s) throw ss::Error("TDS-EXEC-ERROR", "encoding");
 
 	    int slen = s->strlen();
 	    datafmt.datatype = CS_CHAR_TYPE;
@@ -190,7 +185,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	    CS_DATETIME dt;
 	    ss::Conversions conv;
 	    if (conv.DateTime_to_DATETIME(date, dt, xsink))
-	       throw ss::Error("DBI:SYBASE:EXEC-ERROR", "can't convert date");
+	       throw ss::Error("TDS-EXEC-ERROR", "can't convert date");
 
 	    datafmt.datatype = CS_DATETIME_TYPE;
 	    err = ct_param(m_cmd, &datafmt, &dt, sizeof(dt), 0);
@@ -251,14 +246,14 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	 }
 
 	 default:
-	    m_conn.do_exception(xsink, "DBI:SYBASE:BIND-ERROR",
+	    m_conn.do_exception(xsink, "TDS-BIND-ERROR",
 				"do not know how to bind values of type '%s'",
 				val->getTypeName());
 	    return;
       } // switch(ntype)
 
       if (err != CS_SUCCEED) {
-	 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR",
 			     "ct_param() for binary parameter %u failed with error",
 			     i, (int)err);
       }
@@ -269,7 +264,7 @@ int command::get_row_count() {
    return rowcount;
 }
 
-command::ResType command::read_next_result1(ExceptionSink* xsink) {
+command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsink) {
    if (*xsink)
       return RES_ERROR;
 
@@ -290,8 +285,10 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
       case CS_END_RESULTS:
 	 return RES_END;
       case CS_FAIL: {
+         if (cancelIntern())
+            disconnect = true;
 	 // TODO: handle err == CS_FAIL
-	 xsink->raiseException("DBI:SYBASE:EXEC-ERROR",
+	 xsink->raiseException("TDS-EXEC-ERROR",
 			       "command::read_output(): ct_results() failed with"
 			       " CS_FAIL, command canceled");
 	 return RES_ERROR;
@@ -299,7 +296,7 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
       case CS_SUCCEED:
 	 break;
       default:
-	 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR",
 			     "command::read_output(): ct_results() returned error code %d", err);
 	 return RES_ERROR;
    }
@@ -309,11 +306,23 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
 	 CS_RETCODE ret;
 	 rowcount = -1;
 
+         /* from the Sybase docs:
+            if ct_results() returns CS_FAIL:
+            The routine failed; any remaining results are no longer available.
+
+            If ct_results returns CS_FAIL, an application must call ct_cancel
+            with type as CS_CANCEL_ALL before using the affected command
+            structure to send another command.
+
+            If ct_cancel returns CS_FAIL, the application must call
+            ct_close(CS_FORCE_CLOSE) to force the connection closed.
+          */
+
 	 ret = ct_res_info(m_cmd, CS_ROW_COUNT,
 			   (CS_VOID *)&rowcount,
 			   CS_UNUSED, 0);
 	 if (ret != CS_SUCCEED) {
-	    m_conn.do_exception(xsink, "DBI-EXEC-EXCEPTION",
+	    m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION",
 				"ct_res_info() failed with error %d", (int)ret);
 	    m_conn.purge_messages(xsink);
 	    return RES_ERROR;
@@ -327,7 +336,7 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
 	 // next result
 	 return RES_RETRY;
       case CS_CMD_FAIL:
-	 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
+	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR",
 			     "command::read_output(): SQL command failed");
 	 return RES_ERROR;
 
@@ -339,46 +348,56 @@ command::ResType command::read_next_result1(ExceptionSink* xsink) {
 	 return RES_ROW;
    }
 
-   m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
-		       "command::read_output(): ct_results() returned"
-		       " unexpected result type %d", (int)result_type);
+   m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "command::read_output(): ct_results() returned unexpected result type %d", (int)result_type);
    return RES_ERROR;
 }
 
-AbstractQoreNode *command::read_output(bool list, bool &disconnect, ExceptionSink* xsink) {
+AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, ExceptionSink* xsink) {
    ReferenceHolder<AbstractQoreNode> qresult(xsink);
 
    ss::ResultFactory rf(xsink);
 
-   for (;;) {
-      ResType rt = read_next_result(xsink);
+   while (true) {
+      ResType rt = conn.readNextResult(cmd, connection_reset, xsink);
+      if (*xsink || connection_reset)
+         return 0;
+
+      //read_next_result(disconnect, xsink);
       switch (rt) {
 	 case RES_ERROR:
 	    return 0;
+
 	 case RES_PARAM:
-	    retr_colinfo(xsink);
+	    if (retr_colinfo(xsink))
+               return 0;
 	    qresult = read_rows(&query->placeholders, xsink);
 	    //add_rowcount(*qresult, 1, xsink);
 	    rf.add_params(qresult);
 	    break;
-	 case RES_ROW:
+
+         case RES_ROW:
 	    qresult = read_rows(0, list, xsink);
 	    rf.add(qresult, list);
 	    break;
-	 case RES_END:
+
+         case RES_END:
 	    return rf.res();
-	 case RES_DONE:
+
+         case RES_DONE:
 	    rf.done(rowcount);
 	    continue;
-	 case RES_STATUS:
-	    retr_colinfo(xsink);
+
+         case RES_STATUS:
+            if (retr_colinfo(xsink))
+               return 0;
+
 	    qresult = read_rows(0, list, xsink);
 	    // TODO: check status?
 	    colinfo.set_dirty();
 	    continue;
-	 default:
-	    m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR",
-				"don't know how to handle result type");
+
+         default:
+	    m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "command::readOutput(): ct_results() returned unknown result value %d", rt);
 	    break;
       }
       if (*xsink)
@@ -386,13 +405,68 @@ AbstractQoreNode *command::read_output(bool list, bool &disconnect, ExceptionSin
    }
 }
 
-void command::retr_colinfo(ExceptionSink* xsink) {
+/*
+AbstractQoreNode *command::read_output(bool list, bool &disconnect, ExceptionSink* xsink) {
+   ReferenceHolder<AbstractQoreNode> qresult(xsink);
+
+   ss::ResultFactory rf(xsink);
+
+   for (;;) {
+      ResType rt = read_next_result(disconnect, xsink);
+      switch (rt) {
+	 case RES_ERROR:
+	    return 0;
+
+	 case RES_PARAM:
+	    if (retr_colinfo(xsink))
+               return 0;
+	    qresult = read_rows(&query->placeholders, xsink);
+	    //add_rowcount(*qresult, 1, xsink);
+	    rf.add_params(qresult);
+	    break;
+
+         case RES_ROW:
+	    qresult = read_rows(0, list, xsink);
+	    rf.add(qresult, list);
+	    break;
+
+         case RES_END:
+	    return rf.res();
+
+         case RES_DONE:
+	    rf.done(rowcount);
+	    continue;
+
+         case RES_STATUS:
+            if (retr_colinfo(xsink))
+               return 0;
+
+	    qresult = read_rows(0, list, xsink);
+	    // TODO: check status?
+	    colinfo.set_dirty();
+	    continue;
+
+         default:
+	    m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_results() returned unknown result value %d", rt);
+	    break;
+      }
+      if (*xsink)
+	 return 0;
+   }
+}
+*/
+
+int command::retr_colinfo(ExceptionSink* xsink) {
    unsigned columns = get_column_count(xsink);
-   if (xsink->isException()) return;
+   if (*xsink)
+      return -1;
+
    colinfo.reset();
    get_row_description(colinfo.datafmt, columns, xsink);
    setup_output_buffers(colinfo.datafmt, xsink);
    colinfo.dirty = false;
+
+   return 0;
 }
 
 QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, ExceptionSink* xsink) {
@@ -481,7 +555,7 @@ int command::get_row_description(row_result_t &result, unsigned column_count, Ex
 
       CS_RETCODE err = ct_describe(m_cmd, i + 1, &datafmt);
       if (err != CS_SUCCEED) {
-	 m_conn.do_exception(xsink, "DBI_SYBASE:EXEC-ERROR", "ct_describe() failed with error %d", (int)err);
+	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_describe() failed with error %d", (int)err);
 	 return -1;
       }
       datafmt.count = 1; // fetch just single row per every ct_fetch()
@@ -559,7 +633,7 @@ int command::setup_output_buffers(const row_result_t &input_row_descriptions, Ex
 			       out->value, &out->value_len, &out->indicator);
 
       if (err != CS_SUCCEED) {
-	 m_conn.do_exception(xsink, "DBI:SYBASE:EXEC-ERROR", "ct_bind() failed with error %d", (int)err);
+	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_bind() failed with error %d", (int)err);
 	 return -1;
       }
    }
@@ -750,7 +824,7 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
       }
 
       default:
-	 xsink->raiseException("DBI-EXEC-EXCEPTION", "Unknown data type %d", (int)datafmt.datatype);
+	 xsink->raiseException("TDS-EXEC-EXCEPTION", "Unknown data type %d", (int)datafmt.datatype);
 	 return 0;
    } // switch
 }

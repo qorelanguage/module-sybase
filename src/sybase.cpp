@@ -149,7 +149,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
         const char *enc = QoreEncoding_to_SybaseName(QCS_DEFAULT);
         // if the encoding cannot be mapped, throw a Qore-language exception and return
         if (!enc) {
-            xsink->raiseException("DBI:SYBASE:UNKNOWN-CHARACTER-SET", "cannot find the Sybase character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
+            xsink->raiseException("TDS-UNKNOWN-CHARACTER-SET", "cannot find the Sybase character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
             return -1;
         }
         ds->setDBEncoding(enc);
@@ -168,12 +168,12 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
 #endif
 
     if (port && !ds->getHostName()) {
-        xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
+        xsink->raiseException("TDS-CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
         return -1;
     }
 
     if (!port && ds->getHostName()) {
-        xsink->raiseException("DBI:SYBASE:CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and port must be set to override the interfaces file", ds->getHostName());
+        xsink->raiseException("TDS-CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and port must be set to override the interfaces file", ds->getHostName());
         return -1;
     }
 
