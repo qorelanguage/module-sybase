@@ -34,33 +34,32 @@ typedef std::vector<char> param_list_t;
 typedef std::vector<std::string> Placeholders;
 
 struct sybase_query {
-   private:
-      // not implemented
-      sybase_query(const sybase_query &);
-      sybase_query& operator=(const sybase_query &);
+private:
+   // not implemented
+   sybase_query(const sybase_query &);
+   sybase_query& operator=(const sybase_query &);
 
-   public:
-      DLLLOCAL sybase_query() {}
+public:
+   DLLLOCAL sybase_query() {}
 
-      // with %v and %d replaced with @parX
-      QoreString m_cmd;
+   // with %v and %d replaced with @parX
+   QoreString m_cmd;
 
-      param_list_t param_list;
-      Placeholders placeholders;
+   param_list_t param_list;
+   Placeholders placeholders;
 
-      // returns 0=OK, -1=err (exception raised)
-      int init(const QoreString *n_cmd,
-              const QoreListNode *args,
-              class ExceptionSink *xsink);
+   // returns 0=OK, -1=err (exception raised)
+   DLLLOCAL int init(const QoreString *n_cmd,
+                     const QoreListNode *args,
+                     ExceptionSink *xsink);
 
-      int init(const QoreString *n_cmd) {
-          m_cmd = *n_cmd;
-          return 0;
-      }
+   DLLLOCAL void init(const QoreString *n_cmd) {
+      m_cmd = *n_cmd;
+   }
 
-      const char * buff() const {
-          return m_cmd.getBuffer();
-      }
+   DLLLOCAL const char * buff() const {
+      return m_cmd.getBuffer();
+   }
 };
 
 #endif

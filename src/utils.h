@@ -59,7 +59,7 @@ class SafePtr {
 
     T * safe_get() {
         if (!p.get()) {
-            throw ss::Error("DBI:SYBASE", "Not initialized");
+            throw ss::Error("TDS-SYBASE", "Not initialized");
         }
         return p.get();
     }

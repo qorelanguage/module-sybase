@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007
+  Copyright (C) 2007 - 2015 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -33,7 +33,6 @@
 #include <stdarg.h>
 #include <qore/ExceptionSink.h>
 
-
 #include "command.h"
 
 #if defined(SYBASE) || defined(FREETDS_LOCALE)
@@ -50,7 +49,6 @@
 extern QoreThreadLock ct_lock;
 extern QoreThreadLock cs_lock;
 #endif
-
 
 class AbstractQoreZoneInfo;
 
@@ -101,7 +99,7 @@ class context {
          }
 #endif
          if (ret != CS_SUCCEED) {
-            xsink->raiseException("DBI:SYBASE:CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);   
+            xsink->raiseException("TDS-CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);
             return;
          }
 
@@ -115,10 +113,10 @@ class context {
 #endif
          if (ret != CS_SUCCEED) {
             del();
-            xsink->raiseException("DBI:SYBASE:CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
+            xsink->raiseException("TDS-CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
             return;
          }
-         //printd(5, "context::context() this=%p m_context=%p\n", this, m_context);      
+         //printd(5, "context::context() this=%p m_context=%p\n", this, m_context);
       }
 
       DLLLOCAL ~context() {
@@ -139,9 +137,9 @@ class context {
          //printd(5, "olen=%d, ret=%d\n", olen, ret);
          if (ret != CS_SUCCEED) {
             free(buf);
-            xsink->raiseException("DBI:SYBASE:GET-CLIENT-VERSION-ERROR", "ct_config(CS_VER_STRING) failed with error %d", (int)ret);
+            xsink->raiseException("TDS-GET-CLIENT-VERSION-ERROR", "ct_config(CS_VER_STRING) failed with error %d", (int)ret);
             return 0;
-         }  
+         }
          //printd(5, "client version=%s (olen=%d, strlen=%d)\n", buf, olen, strlen(buf));
          return new QoreStringNode(buf, olen - 1, CLIENT_VER_LEN, QCS_DEFAULT);
       }
@@ -160,30 +158,29 @@ private:
     int numeric_support;
     const AbstractQoreZoneInfo* server_tz;
 
+    /*
     AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
             bool need_list, ExceptionSink* xsink,
             bool doBinding=true);
+    */
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
 
+    // returns 0 if reconneced without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
+    DLLLOCAL int closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect = true);
+
 public:
-
-    command * create_command(const QoreString *cmd_text,
-            const QoreListNode *qore_args,
-            ExceptionSink* xsink);
-
-    command * create_command(const QoreString *cmd_text,
-            ExceptionSink* xsink);
-
     static const int OPT_NUM_OPTIMAL = 0;
     static const int OPT_NUM_STRING = 1;
     static const int OPT_NUM_NUMERIC = 2;
 
     DLLLOCAL connection(Datasource *n_ds, ExceptionSink *xsink);
     DLLLOCAL ~connection();
+
+    DLLLOCAL command* setupCommand(const QoreString* cmd_text, const QoreListNode* args, bool raw, ExceptionSink* xsink);
 
     // to be called after the object is constructed
     // returns 0=OK, -1=error (exception raised)
@@ -199,11 +196,14 @@ public:
     DLLLOCAL void do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...);
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int direct_execute(const char *sql_text, ExceptionSink *xsink);
-    
+
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int commit(ExceptionSink *xsink);
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int rollback(ExceptionSink *xsink);
+
+    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, ExceptionSink* xsink);
+    DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
     DLLLOCAL AbstractQoreNode *exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 #ifdef _QORE_HAS_DBI_EXECRAW
@@ -229,4 +229,3 @@ public:
 #endif
 
 // EOF
-

@@ -51,7 +51,7 @@ class DBModuleWrap {
     class ModuleWrap {
         ~ModuleWrap() {}
     public:
-        ModuleWrap() : m(new Module()), params(0) {}
+        ModuleWrap() : m(new Module), params(0) {}
 
         Module *m;
         std::auto_ptr<QoreString> query;
@@ -109,7 +109,7 @@ class DBModuleWrap {
         ModuleWrap * mv = (ModuleWrap *)stmt->getPrivateData();
         if (!mv) {
             if (!create) return 0;
-            mv = new ModuleWrap();
+            mv = new ModuleWrap;
             stmt->setPrivateData(mv);
         }
         return mv;
@@ -118,7 +118,7 @@ class DBModuleWrap {
     static Module * module(SQLStatement* stmt) {
         Module *rv = module_wrap(stmt)->m;
         if (!rv) {
-            throw Error("DBI:SYBASE", "Not initialized");
+            throw Error("TDS-SYBASE", "Not initialized");
         }
         return rv;
     }
@@ -171,7 +171,7 @@ class DBModuleWrap {
 
     static int bind_placeholders(SQLStatement* stmt,
             const QoreListNode& l,
-            ExceptionSink* xsink) 
+            ExceptionSink* xsink)
     {
         try {
             if (xsink->isException()) return 0;
