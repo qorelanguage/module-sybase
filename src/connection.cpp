@@ -607,6 +607,9 @@ void connection::do_check_exception(ExceptionSink *xsink, bool check, const char
    if (check && fnd_ignore && num == 1)
       return;
 
+   if (!count)
+      estr->terminate(estr->size() - 2);
+
    throw ss::Error(err, estr->getBuffer());
 }
 
@@ -632,11 +635,10 @@ void connection::do_exception(ExceptionSink *xsink, const char *err, const char 
       va_start(args, fmt);
       int rc = estr->vsprintf(fmt, args);
       va_end(args);
-      if (!rc) {
-         estr->concat(": ");
+      if (!rc)
          break;
-      }
    }
+   estr->concat(": ");
    do_check_exception(xsink, false, err, *estr);
 }
 

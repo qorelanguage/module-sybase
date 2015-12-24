@@ -155,7 +155,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 
       switch (ntype) {
 	 case NT_STRING: {
-	    const QoreStringNode *str = reinterpret_cast<const QoreStringNode *>(val);
+	    const QoreStringNode *str = reinterpret_cast<const QoreStringNode*>(val);
 	    // ensure we bind with the proper encoding for the connection
 	    TempEncodingHelper s(str, m_conn.getEncoding(), xsink);
 	    if (!s) throw ss::Error("TDS-EXEC-ERROR", "encoding");
@@ -181,7 +181,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	 }
 
 	 case NT_DATE: {
-	    const DateTimeNode *date = reinterpret_cast<const DateTimeNode *>(val);
+	    const DateTimeNode *date = reinterpret_cast<const DateTimeNode*>(val);
 	    CS_DATETIME dt;
 	    ss::Conversions conv;
 	    if (conv.DateTime_to_DATETIME(date, dt, xsink))
@@ -195,9 +195,9 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	 case NT_INT: {
 #ifdef CS_BIGINT_TYPE
 	    datafmt.datatype = CS_BIGINT_TYPE;
-	    err = ct_param(m_cmd, &datafmt, &(const_cast<QoreBigIntNode *>(reinterpret_cast<const QoreBigIntNode *>(val))->val), sizeof(int64), 0);
+	    err = ct_param(m_cmd, &datafmt, &(const_cast<QoreBigIntNode*>(reinterpret_cast<const QoreBigIntNode*>(val))->val), sizeof(int64), 0);
 #else
-	    int64 ival = reinterpret_cast<const QoreBigIntNode *>(val)->val;
+	    int64 ival = reinterpret_cast<const QoreBigIntNode*>(val)->val;
 	    // if it's a 32-bit integer, bind as integer
 	    if (ival <= 2147483647 && ival >= -2147483647) {
 	       datafmt.datatype = CS_INT_TYPE;
@@ -222,7 +222,7 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	    // err = ct_param(m_cmd, &datafmt, &bval, sizeof(bval), 0);
 	    // ... but it doesn't work
 
-	    CS_BIT bval = reinterpret_cast<const QoreBoolNode *>(val)->getValue();
+	    CS_BIT bval = reinterpret_cast<const QoreBoolNode*>(val)->getValue();
 	    datafmt.datatype = CS_INT_TYPE;
 	    int64 ival = bval ? 1 : 0;
 	    err = ct_param(m_cmd, &datafmt, &ival, sizeof(ival), 0);
@@ -230,14 +230,14 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	 }
 
 	 case NT_FLOAT: {
-	    CS_FLOAT fval = reinterpret_cast<const QoreFloatNode *>(val)->f;
+	    CS_FLOAT fval = reinterpret_cast<const QoreFloatNode*>(val)->f;
 	    datafmt.datatype = CS_FLOAT_TYPE;
 	    err = ct_param(m_cmd, &datafmt, &fval, sizeof(CS_FLOAT), 0);
 	    break;
 	 }
 
 	 case NT_BINARY: {
-	    const BinaryNode *b = reinterpret_cast<const BinaryNode *>(val);
+	    const BinaryNode *b = reinterpret_cast<const BinaryNode*>(val);
 	    datafmt.datatype = CS_BINARY_TYPE;
 	    datafmt.maxlength = b->size();
 	    datafmt.count = 1;
@@ -652,7 +652,7 @@ int command::append_buffers_to_list(row_result_t &column_info, row_output_buffer
 	 return -1;
       }
 
-      QoreListNode *l = reinterpret_cast<QoreListNode *>(hi.getValue());
+      QoreListNode *l = reinterpret_cast<QoreListNode*>(hi.getValue());
       l->push(value);
    } // for
 
