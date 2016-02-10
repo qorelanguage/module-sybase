@@ -720,6 +720,12 @@ static bool use_numbers(const connection &con) {
    return false;
 }
 
+QoreNumberNode* get_number(const char* str) {
+   QoreString num(str);
+   num.trim_trailing(' ');
+   return new QoreNumberNode(num.c_str());
+}
+
 AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink) {
    if (buffer.indicator == -1) { // SQL NULL
       return null();
@@ -734,7 +740,7 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
 	 CS_CHAR* value = (CS_CHAR*)(buffer.value);
 
 	 if (use_numbers(m_conn) && is_number(datafmt))
-	    return new QoreNumberNode(value);
+	    return get_number(value);
 
 	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value, buffer.value_len - 1, encoding), xsink);
 
@@ -745,8 +751,9 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
 
       case CS_CHAR_TYPE: {
 	 CS_CHAR* value = (CS_CHAR*)(buffer.value);
+
 	 if (use_numbers(m_conn) && is_number(datafmt))
-	    return new QoreNumberNode(value);
+	    return get_number(value);
 
 	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value, buffer.value_len, encoding), xsink);
 

@@ -207,6 +207,7 @@ exec get_values :string output, :int output");
       - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone; see @ref sybase_timezone.
     - fixed auto-reconnect functionality (<a href="https://github.com/qorelanguage/qore/issues/131">bug 131</a>)
     - removed trailing colon from error messages (<a href="https://github.com/qorelanguage/qore/issues/312">bug 312</a>)
+    - fixed returning decimal values; they were returned with too-high precision numbers which caused comparisons with the original number to fail (<a href="https://github.com/qorelanguage/qore/issues/512">bug 512</a>))
 
     @subsection sybase_103 sybase Driver Version 1.0.3
 
