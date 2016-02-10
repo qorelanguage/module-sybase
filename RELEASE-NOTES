@@ -11,6 +11,7 @@ implemented:
 - support for server-side time zones (DBI_CAP_SERVER_TIME_ZONE)
 - fixed auto-reconnect functionality (https://github.com/qorelanguage/qore/issues/131)
 - removed trailing colon from error msgs (https://github.com/qorelanguage/qore/issues/312)
+- fixed returning decimal values; they were returned with too-high precision numbers which caused comparisons with the original number to fail
 
 
 -------------
