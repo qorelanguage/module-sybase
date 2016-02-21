@@ -117,7 +117,7 @@ private:
        return ct_cancel(0, m_cmd, CS_CANCEL_ALL) == CS_FAIL ? -1 : 0;
     }
 
-   DLLLOCAL AbstractQoreNode* getNumber(const CS_DATAFMT_EX& datafmt, const char* str, size_t len);
+   DLLLOCAL AbstractQoreNode* getNumber(const char* str, size_t len);
 
 public:
     DLLLOCAL ResType read_next_result(bool& disconnect, ExceptionSink* xsink) {
