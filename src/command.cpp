@@ -1,3 +1,4 @@
+/* -*- indent-tabs-mode: nil -*- */
 /*
   command.cpp
 
@@ -6,7 +7,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2015 Qore Technologies s.r.o.
+  Copyright (C) 2007 - 2016 Qore Technologies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -711,19 +712,47 @@ static inline bool need_trim(const CS_DATAFMT_EX& datafmt) {
    return false;
 }
 
-static bool use_numbers(const connection &con) {
-   switch (con.getNumeric()) {
-      case connection::OPT_NUM_OPTIMAL:
-      case connection::OPT_NUM_NUMERIC:
-	 return true;
-   }
-   return false;
-}
+AbstractQoreNode* command::getNumber(const CS_DATAFMT_EX& datafmt, const char* str, size_t len) {
+   assert(!str[len]);
+   int nf = m_conn.getNumeric();
 
-QoreNumberNode* get_number(const char* str) {
-   QoreString num(str);
-   num.trim_trailing(' ');
-   return new QoreNumberNode(num.c_str());
+   if (nf == connection::OPT_NUM_STRING) {
+      SimpleRefHolder<QoreStringNode> s(new QoreStringNode(str, len - 1, m_conn.getEncoding()));
+      if (need_trim(datafmt))
+	 s->trim_trailing(' ');
+      return s.release();
+   }
+
+   // trim off trailing zeros after the decimal in any case
+   bool has_decimal = (bool)strchr(str, '.');
+   if (has_decimal) {
+      char* c = (char*)str;
+      // trim off trailing zeros
+      while (len && c[len - 1] == '0') {
+	 --len;
+	 c[len] = '\0';
+      }
+      if (c[len - 1] == '.') {
+	 --len;
+	 c[len] = '\0';
+	 has_decimal = false;
+      }
+   }
+   //printf("num: '%s' has_dec: %d\n", str, has_decimal);
+
+   if (nf == connection::OPT_NUM_OPTIMAL && !has_decimal) {
+      bool sign = str[0] == '-';
+      if (sign)
+	 --len;
+      if (!strchr(str, '.')
+	  && (len < 19
+	      || (len == 19 &&
+		  ((!sign && strcmp(str, "9223372036854775807") <= 0)
+		   ||(sign && strcmp(str, "-9223372036854775808") >= 0)))))
+	 return new QoreBigIntNode(strtoll(str, 0, 10));
+   }
+
+   return new QoreNumberNode(str);
 }
 
 AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink) {
@@ -739,27 +768,33 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
       case CS_TEXT_TYPE: {
 	 CS_CHAR* value = (CS_CHAR*)(buffer.value);
 
-	 if (use_numbers(m_conn) && is_number(datafmt))
-	    return get_number(value);
-
-	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value, buffer.value_len - 1, encoding), xsink);
-
+	 // copy the value to a null-terminated string for processing
+	 QoreString tmp((const char*)value, buffer.value_len - 1);
 	 if (need_trim(datafmt))
-	    s->trim_trailing(' ');
-	 return s.release();
+	    tmp.trim_trailing(' ');
+
+	 if (is_number(datafmt))
+	    return getNumber(datafmt, tmp.c_str(), tmp.size());
+
+	 size_t len = tmp.size();
+	 size_t all = tmp.capacity();
+	 return new QoreStringNode(tmp.giveBuffer(), len, all, encoding);
       }
 
       case CS_CHAR_TYPE: {
 	 CS_CHAR* value = (CS_CHAR*)(buffer.value);
 
-	 if (use_numbers(m_conn) && is_number(datafmt))
-	    return get_number(value);
-
-	 ReferenceHolder<QoreStringNode> s(new QoreStringNode(value, buffer.value_len, encoding), xsink);
-
+	 // copy the value to a null-terminated string for processing
+	 QoreString tmp((const char*)value, buffer.value_len);
 	 if (need_trim(datafmt))
-	    s->trim_trailing(' ');
-	 return s.release();
+	    tmp.trim_trailing(' ');
+
+	 if (is_number(datafmt))
+	    return getNumber(datafmt, tmp.c_str(), tmp.size());
+
+	 size_t len = tmp.size();
+	 size_t all = tmp.capacity();
+	 return new QoreStringNode(tmp.giveBuffer(), len, all, encoding);
       }
 
       case CS_VARBINARY_TYPE:

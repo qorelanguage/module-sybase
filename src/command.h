@@ -1,3 +1,4 @@
+/* -*- mode: c++; indent-tabs-mode: nil -*- */
 /*
   command.h
 
@@ -6,7 +7,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2015 Qore Technologies s.r.o.
+  Copyright (C) 2007 - 2016 Qore Technologies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -115,6 +116,8 @@ private:
        assert(m_cmd);
        return ct_cancel(0, m_cmd, CS_CANCEL_ALL) == CS_FAIL ? -1 : 0;
     }
+
+   DLLLOCAL AbstractQoreNode* getNumber(const CS_DATAFMT_EX& datafmt, const char* str, size_t len);
 
 public:
     DLLLOCAL ResType read_next_result(bool& disconnect, ExceptionSink* xsink) {
