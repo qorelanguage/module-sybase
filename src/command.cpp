@@ -712,16 +712,11 @@ static inline bool need_trim(const CS_DATAFMT_EX& datafmt) {
    return false;
 }
 
-AbstractQoreNode* command::getNumber(const CS_DATAFMT_EX& datafmt, const char* str, size_t len) {
+AbstractQoreNode* command::getNumber(const char* str, size_t len) {
    assert(!str[len]);
    int nf = m_conn.getNumeric();
 
-   if (nf == connection::OPT_NUM_STRING) {
-      SimpleRefHolder<QoreStringNode> s(new QoreStringNode(str, len - 1, m_conn.getEncoding()));
-      if (need_trim(datafmt))
-	 s->trim_trailing(' ');
-      return s.release();
-   }
+   assert(nf != connection::OPT_NUM_STRING);
 
    // trim off trailing zeros after the decimal in any case
    bool has_decimal = (bool)strchr(str, '.');
@@ -773,8 +768,8 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
 	 if (need_trim(datafmt))
 	    tmp.trim_trailing(' ');
 
-	 if (is_number(datafmt))
-	    return getNumber(datafmt, tmp.c_str(), tmp.size());
+	 if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
+	    return getNumber(tmp.c_str(), tmp.size());
 
 	 size_t len = tmp.size();
 	 size_t all = tmp.capacity();
@@ -789,8 +784,8 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
 	 if (need_trim(datafmt))
 	    tmp.trim_trailing(' ');
 
-	 if (is_number(datafmt))
-	    return getNumber(datafmt, tmp.c_str(), tmp.size());
+	 if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
+	    return getNumber(tmp.c_str(), tmp.size());
 
 	 size_t len = tmp.size();
 	 size_t all = tmp.capacity();
