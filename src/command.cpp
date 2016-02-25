@@ -162,11 +162,13 @@ void command::set_params(sybase_query &query, const QoreListNode *args, Exceptio
 	    if (!s) throw ss::Error("TDS-EXEC-ERROR", "encoding");
 
 	    int slen = s->strlen();
+            // note that freetds requires maxlength to be set to the byte length of the string
+            // even if CS_FMT_NULLTERM is used, therefore we set CS_FMT_UNUSED
 	    datafmt.datatype = CS_CHAR_TYPE;
-	    datafmt.format = CS_FMT_NULLTERM;
+	    datafmt.format = CS_FMT_UNUSED;
 	    // NOTE: setting large sizes here like 2GB works for sybase ctlib,
 	    // not for freetds
-	    datafmt.maxlength = slen + 1;
+	    datafmt.maxlength = slen;
 	    err = ct_param(m_cmd, &datafmt, (CS_VOID*)s->getBuffer(), slen, 0);
 	    break;
 	 }
@@ -765,8 +767,11 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
 
 	 // copy the value to a null-terminated string for processing
 	 QoreString tmp((const char*)value, buffer.value_len - 1);
+
+#ifdef SYBASE
 	 if (need_trim(datafmt))
 	    tmp.trim_trailing(' ');
+#endif
 
 	 if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
 	    return getNumber(tmp.c_str(), tmp.size());

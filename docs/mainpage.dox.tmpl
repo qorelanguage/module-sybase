@@ -155,8 +155,10 @@ DataourcePool dsp("freetds:user/pass@db%host.internal:1433{optimal-numbers}");
     |\c SMALLMONEY|@ref Qore::Type::Float|both|direct conversion
     |\c DATETIME|@ref Qore::Type::Date|both|1/300 second values are converted and rounded to the nearest microsecond
     |\c SMALLDATETIME|@ref Qore::Type::Date|both|direct conversion
-    |\c DATE|@ref Qore::Type::Date|both|direct conversion
-    |\c TIME|@ref Qore::Type::Date|both|Date portion is set to '1970-01-01'; 1/300 second values are converted and rounded to the nearest microsecond
+    |\c DATE|@ref Qore::Type::Date|sybase|direct conversion
+    |\c DATE|@ref Qore::Type::Date|freetds|currently returned as a string with MS SQL Server DBs
+    |\c TIME|@ref Qore::Type::Date|sybase|Date portion is set to '1970-01-01'; 1/300 second values are converted and rounded to the nearest microsecond
+    |\c TIME|@ref Qore::Type::Date|freetds|currently returned as a string with MS SQL Server DBs
     |\c CHAR|@ref Qore::Type::String|both|trailing blanks are removed
     |\c VARCHAR|@ref Qore::Type::String|both|direct conversion
     |\c UNICHAR|@ref Qore::Type::String|sybase|trailing blanks are removed
@@ -214,6 +216,7 @@ exec get_values :string output, :int output");
       - \c "numeric-numbers": return numeric types as arbitrary-precision number values
       - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone
     - the default for the number options is now \c  "optimal-numbers", meaning that \c NUMERIC or \c DECIMAL values are retrieved as integers if possible, otherwise an arbitrary-precision number type is returned
+    - fixed \c varchar handling with freetds; freetds processes bind arguments differently than Sybase's ctlib and strings were sent with an extra space on the end that was stripped from the string when the value was returned from the DB (<a href="https://github.com/qorelanguage/qore/issues/563">bug 563</a>)
 
     @subsection sybase_103 sybase Driver Version 1.0.3
 
