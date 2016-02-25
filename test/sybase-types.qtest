@@ -1,15 +1,17 @@
 #!/usr/bin/env qore
 
-%requires sybase
 %new-style
+%require-types
+%strict-args
 
 %requires QUnit
 
-
 our Datasource ds;
 
-string tdata = "create table ssmrt_table_%s (%s)";
-string tdrop = "drop table ssmrt_table_%s";
+
+
+string tdata = "create table ssyb_table_%s (%s)";
+string tdrop = "drop table ssyb_table_%s";
 
 hash cols = (
 "varchar_f": "varchar_f varchar(40) not null",
@@ -35,7 +37,7 @@ hash cols = (
 "image_f": "image_f image not null",
 );
 
-hash args = (
+const Args = (
     "varchar_f"       : "varchar",
     "char_f"          : "char",
     "unichar_f"       : "unichar",
@@ -61,7 +63,14 @@ hash args = (
     "image_f"         : <cafebead>,
     );
 
-sub create_smrt_tables() {
+const Expect = (
+    "decimal_f": 500.1231n,
+    "real_f": False,
+    "date_f": "2007-05-01",
+    "time_f": "10:30:01.0000000",
+    );
+
+sub create_syb_tables() {
     foreach string k in (cols.keys()) {
         try {
             string command = sprintf(tdata, k, cols{k});
@@ -71,7 +80,7 @@ sub create_smrt_tables() {
     ds.commit();
 }
 
-sub drop_smrt_tables() {
+sub drop_syb_tables() {
     foreach string k in (cols.keys()) {
         string command = sprintf(tdrop, k);
         try {
@@ -81,36 +90,44 @@ sub drop_smrt_tables() {
     ds.commit();
 }
 
-sub test_insert(string col) {
+any sub test_insert(string col, any val) {
     string itempl = "insert into %s values (%v)";
-    string ttempl = "ssmrt_table_%s";
+    string ttempl = "ssyb_table_%s";
 
     string t = sprintf(ttempl, col);
     string query = sprintf(itempl, t);
 
-    ds.vexec(query, args{col});
-    ds.commit();
-    return True;
+    on_exit ds.commit();
+    ds.vexec(query, Args{col});
+    any v = ds.selectRow("select %s from %s", col, t){col};
+    return val != False ? v : val;
 }
 
-
 public class QUnitTest inherits QUnit::Test {
-    constructor() {
-        string addr = getEnv("DB_SYBASE", "sybase:test/test@sybase");
+    public {
+	const Blacklist = (
+	    "freetds": ("unitext_f",),
+	    );
+    }
+
+    constructor() : Test("sybase", "1.0") {
+        string addr = getEnv("DB_SYBASE", "freetds:test/test@mssql");
         ds = new Datasource(addr);
-        create_smrt_tables();
- 
-        testFunctions = ();
-    
-        foreach string k in (cols.keys()) {
-            testFunctions += ("func" : \testInsert(),
-                "name": sprintf("type insert %s", k), "args": list(k));
-        }
+        create_syb_tables();
+
+	addTestCase("simple", \test());
+    }
+
+    test() {
+	hash h = cols;
+	h -= Blacklist{ds.getDriverName()};
+	map testInsert($1), h.keyIterator();
     }
 
     testInsert(string k) {
         string detail = sprintf("type: %s", k);
-        testAssertion(\test_insert(), (k));
+	any val = Expect{k} ?? Args{k};
+	assertEq(val, test_insert(k, val), detail);
     }
 
     basicTest() {
@@ -120,7 +137,7 @@ public class QUnitTest inherits QUnit::Test {
     }
 
     destructor() {
-        drop_smrt_tables();
+        drop_syb_tables();
     }
 }
 
