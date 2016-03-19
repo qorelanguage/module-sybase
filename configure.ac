@@ -100,7 +100,7 @@ case "${host_os}" in
                 windows=yes
                 mingw=yes
                 #CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
-		LIBS="$LIBS -lgnutls -lpcreposix -lpcre -lpthread -liconv -lws2_32 -lcrypt32 -lhogweed -lgmp -lz -lnettle"
+		LIBS="$LIBS -lgnutls -lidn -lintl -lpcreposix -lpcre -lpthread -liconv -lws2_32 -lcrypt32 -lhogweed -lz -lnettle -lgmp"
                 #make_dll=yes
                 CPPFLAGS="$CPPFLAGS -DBUILDING_DLL=1"
                 MODULE_LDFLAGS="-no-undefined"
@@ -347,6 +347,12 @@ find_qore() {
         fi
     else
         if test -f "$lib/libqore.${SHLIB_SUFFIX}"; then
+            if test "$lib" != "/lib" -a "$lib" != "/usr/lib"; then
+                QORE_LDFLAGS="-L$lib"
+            fi
+            QORE_LDFLAGS="$QORE_LDFLAGS -lqore"
+            AC_MSG_RESULT([$lib (shared)])
+        elif test "$mingw" = yes -a -f "$lib/libqore.${SHLIB_SUFFIX}.a"; then
             if test "$lib" != "/lib" -a "$lib" != "/usr/lib"; then
                 QORE_LDFLAGS="-L$lib"
             fi
@@ -602,7 +608,7 @@ if test "${with_freetds}" != "no"; then
       fi
    fi
 
-   for dir in $FREETDS "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
+   for dir in $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
       check_freetds "$dir"
       if test -n "$with_freetds_includes"; then
 	 break;
