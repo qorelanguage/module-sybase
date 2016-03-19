@@ -1,7 +1,7 @@
 sybase and freetds modules for Qore
-version 1.0.3 by David Nichols
+version 1.0.4 by David Nichols
 
-Requires qore 0.7.0+ and either or both of:
+Requires qore 0.7.1+ and either or both of:
 1) Sybase headers and libraries to build the "sybase" module
 2) freetds headers and libraries to build the "freetds" module (formerly called "mssql")
 
@@ -12,12 +12,11 @@ The "sybase" and "freetds" DBI drivers are built from the same source code.  The
 *) stored procedure support with direct binding and retrieving values
 *) these drivers also support executing multiple queries within a single command and returning all results in a special format, see the documentation for more information
 
-"sybase" module: Sybase DBI module requires Sybase OCS 15+ client libraries and headers (not tested with earlier versions, however it should work)
+"sybase" module: Sybase DBI module requires SAP (Sybase) OCS 15+ client libraries and headers (not tested with earlier versions, however it should work)
 Use --with-sybase or set the SYBASE and SYBASE_OCS environment variables to build the "sybase" module.
 
 "freetds" module: FreeTDS-based Sybase and Microsoft SQL Server driver, requires FreeTDS headers and libraries
 User --with-freetds or set the FREETDS environment variable to your FreeTDS installation to build.  Note that the "freetds" driver is built from the same source as the "sybase" driver and can be used to connect to sybase and MS SQL Server databases
-only tested so far with freetds 0.64 through 0.82, sybase ASE 15.0.1 and MS SQL Server 2005 SP2 (express edition)
 FreeTDS website: http://www.freetds.org
 
 Documentation in docs/sybase-module-doc.html
