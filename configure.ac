@@ -536,7 +536,7 @@ if test "${with_sybase}" != "no"; then
       fi
    fi
 
-   for dir in "${with_lib_prefix}" $SYBASE $SYBASE/$SYBASE_OCS /usr/sybase /usr/local/sybase /opt/sybase /usr/local; do
+   for dir in "${with_sybase}" "${with_lib_prefix}" $SYBASE $SYBASE/$SYBASE_OCS /usr/sybase /usr/local/sybase /opt/sybase /usr/local; do
       check_sybase "$dir"
       if test -n "$with_sybase_includes"; then
 	 break;
@@ -608,7 +608,7 @@ if test "${with_freetds}" != "no"; then
       fi
    fi
 
-   for dir in $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
+   for dir in "${with_freetds}" $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
       check_freetds "$dir"
       if test -n "$with_freetds_includes"; then
 	 break;
