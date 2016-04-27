@@ -489,6 +489,16 @@ check_freetds() {
     elif test -f "$dir/lib${LIBSUFFIX}/freetds/libct.a"; then
        with_freetds_libs=$dir/lib${LIBSUFFIX}/freetds
        freetds_static=yes
+    elif test -f "$dir/lib/libct.${SHLIB_SUFFIX}"; then
+       with_freetds_libs=$dir/lib
+    elif test -f "$dir/lib/libct.a"; then
+       with_freetds_libs=$dir/lib
+       freetds_static=yes
+    elif test -f "$dir/lib/freetds/libct.${SHLIB_SUFFIX}"; then
+       with_freetds_libs=$dir/lib/freetds
+    elif test -f "$dir/lib/freetds/libct.a"; then
+       with_freetds_libs=$dir/lib/freetds
+       freetds_static=yes
     else
        unset with_freetds_includes
     fi
