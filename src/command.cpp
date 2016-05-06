@@ -480,7 +480,7 @@ QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, ExceptionSink*
    row_result_t &descriptions = colinfo.datafmt;
 
    // setup hash of lists if necessary
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode(), xsink);
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
    for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
       std::string col_name;
 
@@ -491,7 +491,21 @@ QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, ExceptionSink*
 	 col_name = get_placeholder_at(ph, i);
       }
 
-      h->setKeyValue(col_name, new QoreListNode, 0);
+      HashAssignmentHelper hah(**h, col_name);
+      if (*hah) {
+         // find a unique column name
+         unsigned num = 1;
+         while (true) {
+            QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
+            hah.reassign(tmp.c_str());
+            if (*hah) {
+               ++num;
+               continue;
+            }
+            break;
+         }
+      }
+      hah.assign(new QoreListNode, xsink);
    }
 
    while (fetch_row_into_buffers(xsink)) {
@@ -520,7 +534,7 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
       if (*xsink) return 0;
       if (rv) {
 	 if (!l) {
-	    ReferenceHolder<QoreListNode> lholder(new QoreListNode(), xsink);
+	    ReferenceHolder<QoreListNode> lholder(new QoreListNode, xsink);
 	    l = *lholder;
 	    l->push(rv.release());
 	    rv = lholder.release();
@@ -664,7 +678,7 @@ int command::append_buffers_to_list(row_result_t &column_info, row_output_buffer
 
 QoreHashNode *command::output_buffers_to_hash(const Placeholders *ph, ExceptionSink* xsink) {
    row_result_t &column_info = colinfo.datafmt;
-   ReferenceHolder<QoreHashNode> result(new QoreHashNode(), xsink);
+   ReferenceHolder<QoreHashNode> result(new QoreHashNode, xsink);
 
    for (unsigned i = 0, n = column_info.size(); i != n; ++i) {
       const output_value_buffer& buff = *out_buffers[i];
@@ -682,7 +696,23 @@ QoreHashNode *command::output_buffers_to_hash(const Placeholders *ph, ExceptionS
 	 column_name = get_placeholder_at(ph, i);
       }
 
-      result->setKeyValue(column_name, value.release(), xsink);
+      HashAssignmentHelper hah(**result, column_name);
+      if (*hah) {
+         // find a unique column name
+         unsigned num = 1;
+         while (true) {
+            QoreStringMaker tmp("%s_%d", column_name.c_str(), num);
+            hah.reassign(tmp.c_str());
+            if (*hah) {
+               ++num;
+               continue;
+            }
+            break;
+         }
+      }
+
+      hah.assign(value.release(), xsink);
+      //result->setKeyValue(column_name, value.release(), xsink);
    }
 
    return result.release();
