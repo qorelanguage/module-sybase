@@ -4,7 +4,7 @@
 AC_INIT([qore-sybase-modules], [1.0.4],
         [David Nichols <david@qore.org>],
         [qore-sybase-modules])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
 AC_CONFIG_HEADER([config.h])
 
 AC_LANG(C++)
