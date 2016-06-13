@@ -15,13 +15,13 @@
     Both modules are tagged as such in the modules' headers (meaning they can be loaded unconditionally regardless of how the %Qore library was initialized).
 
     Example of creating a connection with the \c sybase driver:
-    @code
-$db = new Datasource("sybase:user/pass@dbname(utf8):host:4100");
+    @code{.py}
+Datasource db("sybase:user/pass@dbname(utf8):host:4100");
     @endcode
 
     Example of creating a connection with the \c freetds driver:
-    @code
-$db = new Datasource("freetds:user/pass@dbname(utf8):host:1433");
+    @code{.py}
+Datasource db("freetds:user/pass@dbname(utf8):host:1433");
     @endcode
 
     This driver supports the following DBI capabilities:
@@ -48,7 +48,7 @@ Adaptive Server Enterprise/15.0.1/EBF 13827/P/x86_64/Enterprise Linux/ase1501/23
 
     The @ref Qore::SQL::Datasource::getClientVersion() returns a string giving version information.  For example, for freetds:
     @verbatim
-freetds v0.82 (threadsafe, default tds version=4.2)
+freetds v1.0 (threadsafe, default tds version=auto)
     @endverbatim
 
 Or for Sybase:
@@ -74,7 +74,7 @@ Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.2
     - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone; see @ref timezone.
 
     Options can be set in the @ref Qore::SQL::Datasource or @ref Qore::SQL::DatasourcePool constructors as in the following examples:
-    @code
+    @code{.py}
 Dataource ds("sybase:user/pass@db{numeric-numbers,timezone=Europe/Vienna}");
 DataourcePool dsp("freetds:user/pass@db%host.internal:1433{optimal-numbers}");
     @endcode
@@ -181,15 +181,15 @@ commit -- to maintain transaction count
     @endverbatim
 
     Qore code to call this procedure:
-    @verbatim
+    @code{.py}
 # note that if the output parameters are declared as @string and @int, the driver cannot
 # return the parameter result hash with key names corresponding to the param names.
 # ":string" and ":int" is qore placeholder syntax, consistent with other Qore DBI
 # driver placeholder syntax
 
-hash $result = $db.exec("declare @string varchar(40), @int int
+hash result = db.exec("declare @string varchar(40), @int int
 exec get_values :string output, :int output");
-    @endverbatim
+    @endcode
 
     @note FreeTDS Limitations\n
     The \c freetds driver is not able to retrieve output parameter values when executing queries on MS SQL Server 2000 or above (tds version 5.0 or above), due to the fact that newer MS SQL Server dataservers no longer return output parameter information through the TDS protocol as with Sybase and previous versions of SQL Server.  A future version of this driver should offer an alternative Datasource method allowing explicit stored procedure execution through ct-lib RPC functions, which will allow output parameters to be returned.\n\n
