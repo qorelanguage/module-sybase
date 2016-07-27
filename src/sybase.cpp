@@ -157,7 +157,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     }
 
     // create the connection object
-    std::auto_ptr<connection> sc(new connection(ds, xsink));
+    std::unique_ptr<connection> sc(new connection(ds, xsink));
     if (*xsink)
         return -1;
 

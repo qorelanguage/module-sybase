@@ -24,8 +24,6 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
 #include "minitest.hpp"
 
 #include <assert.h>
@@ -36,6 +34,7 @@
 #include <algorithm>
 #include <string>
 
+#include "sybase.h"
 #include "command.h"
 #include "connection.h"
 #include "utils.h"
@@ -901,7 +900,7 @@ AbstractQoreNode *command::get_node(const CS_DATAFMT_EX& datafmt, const output_v
    } // switch
 }
 
-int command::bind_query(std::auto_ptr<sybase_query> &q, const QoreListNode *args, ExceptionSink *xsink) {
+int command::bind_query(std::unique_ptr<sybase_query> &q, const QoreListNode *args, ExceptionSink *xsink) {
    query.reset(q.release());
 
    initiate_language_command(query->buff(), xsink);

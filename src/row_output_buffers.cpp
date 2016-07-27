@@ -54,7 +54,7 @@ void row_output_buffers::reset() {
 }
 
 output_value_buffer * row_output_buffers::insert(size_t size) {
-    std::auto_ptr<output_value_buffer> out(new output_value_buffer(size));
+    std::unique_ptr<output_value_buffer> out(new output_value_buffer(size));
     m_buffers.push_back(out.get());
     return out.release();
 }

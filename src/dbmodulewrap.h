@@ -54,7 +54,7 @@ class DBModuleWrap {
         ModuleWrap() : m(new Module), params(0) {}
 
         Module *m;
-        std::auto_ptr<QoreString> query;
+        std::unique_ptr<QoreString> query;
         bool raw;
 
         void set_params(const QoreListNode *p, ExceptionSink* xsink) {
