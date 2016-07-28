@@ -1,9 +1,10 @@
 #ifndef SYBASE_SRC_EMPTY_STATEMENT_H
 #define SYBASE_SRC_EMPTY_STATEMENT_H
 
-#include <qore/SQLStatement.h>
-#include <qore/QoreListNode.h>
 #include <iostream>
+
+#include "qore/SQLStatement.h"
+#include "qore/QoreListNode.h"
 
 namespace ss {
 

@@ -24,8 +24,6 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "minitest.hpp"
-
 #include <assert.h>
 #include <cstypes.h>
 
@@ -33,6 +31,8 @@
 #include <iostream>
 #include <algorithm>
 #include <string>
+
+#include "minitest.hpp"
 
 #include "sybase.h"
 #include "command.h"

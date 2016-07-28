@@ -23,13 +23,12 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <assert.h>
 #include <ctype.h>
 
+#include "minitest.hpp"
+
+#include "sybase.h"
 #include "sybase_query.h"
 
 // returns 0=OK, -1=error (exception raised)

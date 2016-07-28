@@ -23,11 +23,10 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
 #include <assert.h>
-
 #include <memory>
+
+#include "sybase.h"
 #include "row_output_buffers.h"
 #include "utils.h"
 

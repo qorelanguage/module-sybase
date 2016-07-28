@@ -1,9 +1,10 @@
 #ifdef DEBUG
 
-#include "common.h"
-#include <qore/AbstractQoreNode.h>
-#include <math.h>
+#include <cmath>
 #include <memory>
+
+#include "common.h"
+#include "qore/AbstractQoreNode.h"
 
 namespace sybase_tests_7527024186 {
 

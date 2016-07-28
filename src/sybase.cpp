@@ -23,10 +23,6 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <ctpublic.h>
 #include <assert.h>
 #include <ctype.h>
@@ -34,6 +30,9 @@
 #include <string>
 #include <vector>
 
+#include "minitest.hpp"
+
+#include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
 

@@ -6,7 +6,6 @@
 #include <memory>
 #include <vector>
 
-
 #include "error.h"
 
 namespace ss {

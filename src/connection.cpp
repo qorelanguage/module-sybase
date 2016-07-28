@@ -23,15 +23,14 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <assert.h>
 #include <memory>
 
 #include <ctpublic.h>
 
+#include "minitest.hpp"
+
+#include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
 #include "sybase_query.h"
