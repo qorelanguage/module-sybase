@@ -185,7 +185,7 @@ public:
         query->placeholders = ph;
     }
 
-    DLLLOCAL int bind_query(std::auto_ptr<sybase_query> &query,
+    DLLLOCAL int bind_query(std::unique_ptr<sybase_query> &query,
                             const QoreListNode *args,
                             ExceptionSink*);
 };

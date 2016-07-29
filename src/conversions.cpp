@@ -23,21 +23,20 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <cstypes.h>
 #include <ctpublic.h>
 #include <assert.h>
 
 #include <string>
 
-#include <math.h>
+#include <cmath>
 #include <stdint.h>
 
+#include "sybase.h"
 #include "connection.h"
 #include "conversions.h"
+
+#include "minitest.hpp"
 
 namespace ss {
 

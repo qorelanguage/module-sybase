@@ -273,6 +273,12 @@ else
    bits=32
 fi
 
+# test for C++11
+AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
+if test "$HAVE_CXX11" = "1"; then
+    AM_CXXFLAGS=-std=gnu++11
+fi
+
 # checks for how to build threads
 ACX_PTHREAD
 if test "$acx_pthread_ok" = "no"; then
@@ -703,7 +709,7 @@ AC_ARG_ENABLE([debug],
        yes|no) ;;
        *)      AC_MSG_ERROR(bad value ${enable_debug} for --enable-debug) ;;
       esac],
-     [enable_debug=yes])
+     [enable_debug=no])
 
 if test "${enable_debug}" = yes; then
    AC_DEFINE(DEBUG, 1, Define if debugging support should be included)

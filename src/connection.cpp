@@ -23,19 +23,18 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <assert.h>
 #include <memory>
 
 #include <ctpublic.h>
 
+#include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
 #include "sybase_query.h"
 #include "command.h"
+
+#include "minitest.hpp"
 
 static QoreString ver_str("begin tran select @@version commit tran");
 
@@ -120,7 +119,7 @@ static inline bool wasInTransaction(Datasource *ds) {
 
 command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode* args, bool raw, ExceptionSink* xsink) {
    while (true) {
-      std::auto_ptr<sybase_query> query(new sybase_query);
+      std::unique_ptr<sybase_query> query(new sybase_query);
       if (!raw) {
          if (query->init(cmd_text, args, xsink))
             return 0;
@@ -130,7 +129,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
          query->init(cmd_text);
       }
 
-      std::auto_ptr<command> cmd(new command(*this, xsink));
+      std::unique_ptr<command> cmd(new command(*this, xsink));
       cmd->bind_query(query, args, xsink);
 
       try {
@@ -146,7 +145,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
 }
 
 AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, ExceptionSink* xsink) {
-   std::auto_ptr<command> cmd(setupCommand(cmd_text, qore_args, !doBinding, xsink));
+   std::unique_ptr<command> cmd(setupCommand(cmd_text, qore_args, !doBinding, xsink));
 
    bool connection_reset = false;
 
@@ -236,7 +235,7 @@ command::ResType connection::readNextResult(command& cmd, bool& connection_reset
 
 /*
 AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, ExceptionSink* xsink, bool doBinding) {
-   std::auto_ptr<command> cmd;
+   std::unique_ptr<command> cmd;
    if (doBinding)
       cmd.reset(create_command(cmd_text, qore_args, xsink));
    else
@@ -312,7 +311,7 @@ AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode* ar
    if (!query)
       return 0;
 
-   std::auto_ptr<QoreString> tmp(query);
+   std::unique_ptr<QoreString> tmp(query);
    ReferenceHolder<> rv(execReadOutput(query, args, false, true, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
@@ -325,7 +324,7 @@ AbstractQoreNode *connection::execRaw(const QoreString *cmd, ExceptionSink *xsin
    if (!query)
       return 0;
 
-   std::auto_ptr<QoreString> tmp(query);
+   std::unique_ptr<QoreString> tmp(query);
    ReferenceHolder<> rv(execReadOutput(query, 0, false, false, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
@@ -338,7 +337,7 @@ AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNod
    if (!query)
       return 0;
 
-   std::auto_ptr<QoreString> tmp(query);
+   std::unique_ptr<QoreString> tmp(query);
    ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
