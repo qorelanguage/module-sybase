@@ -30,11 +30,11 @@
 #include <string>
 #include <vector>
 
-#include "minitest.hpp"
-
 #include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
+
+#include "minitest.hpp"
 
 #ifdef SYBASE
 DLLEXPORT char qore_module_name[] = "sybase";

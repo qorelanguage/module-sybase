@@ -32,13 +32,13 @@
 #include <algorithm>
 #include <string>
 
-#include "minitest.hpp"
-
 #include "sybase.h"
 #include "command.h"
 #include "connection.h"
 #include "utils.h"
 #include "resultfactory.h"
+
+#include "minitest.hpp"
 
 static std::string get_placeholder_at(const Placeholders *ph, size_t i) {
    if (!ph || ph->size() <= i) return ss::string_cast(i);

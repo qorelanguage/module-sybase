@@ -32,11 +32,11 @@
 #include <cmath>
 #include <stdint.h>
 
-#include "minitest.hpp"
-
 #include "sybase.h"
 #include "connection.h"
 #include "conversions.h"
+
+#include "minitest.hpp"
 
 namespace ss {
 
