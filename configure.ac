@@ -709,7 +709,7 @@ AC_ARG_ENABLE([debug],
        yes|no) ;;
        *)      AC_MSG_ERROR(bad value ${enable_debug} for --enable-debug) ;;
       esac],
-     [enable_debug=no])
+     [enable_debug=yes])
 
 if test "${enable_debug}" = yes; then
    AC_DEFINE(DEBUG, 1, Define if debugging support should be included)
