@@ -1,17 +1,16 @@
-#include <qore/common.h>
-#include <qore/QoreValue.h>
-#include <qore/DBI.h>
-#include <qore/QoreEncoding.h>
-#include <qore/QoreString.h>
-#include <qore/SQLStatement.h>
-#include <qore/QoreStringNode.h>
-#include <qore/AbstractPrivateData.h>
-#include <qore/QoreQueue.h>
-#include <qore/Datasource.h>
-#include <qore/QoreListNode.h>
-#include <qore/QoreHashNode.h>
-#include <qore/QoreValue.h>
-
+#include "qore/common.h"
+#include "qore/QoreValue.h"
+#include "qore/DBI.h"
+#include "qore/QoreEncoding.h"
+#include "qore/QoreString.h"
+#include "qore/SQLStatement.h"
+#include "qore/QoreStringNode.h"
+#include "qore/AbstractPrivateData.h"
+#include "qore/QoreQueue.h"
+#include "qore/Datasource.h"
+#include "qore/QoreListNode.h"
+#include "qore/QoreHashNode.h"
+#include "qore/QoreValue.h"
 
 #include "connection.h"
 #include "emptystatement.h"

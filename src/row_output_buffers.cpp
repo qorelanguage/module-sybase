@@ -23,11 +23,10 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
 #include <assert.h>
-
 #include <memory>
+
+#include "sybase.h"
 #include "row_output_buffers.h"
 #include "utils.h"
 
@@ -54,7 +53,7 @@ void row_output_buffers::reset() {
 }
 
 output_value_buffer * row_output_buffers::insert(size_t size) {
-    std::auto_ptr<output_value_buffer> out(new output_value_buffer(size));
+    std::unique_ptr<output_value_buffer> out(new output_value_buffer(size));
     m_buffers.push_back(out.get());
     return out.release();
 }
