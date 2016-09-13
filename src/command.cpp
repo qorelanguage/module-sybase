@@ -480,34 +480,37 @@ QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, ExceptionSink*
 
    // setup hash of lists if necessary
    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
-   for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
-      std::string col_name;
 
-      if (!ss::is_empty(descriptions[i].name)) {
-	 col_name = descriptions[i].name;
-	 std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
-      } else {
-	 col_name = get_placeholder_at(ph, i);
-      }
+   bool done = false;
+   while (fetch_row_into_buffers(xsink)) {
+      if (!done) {
+         for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
+            std::string col_name;
 
-      HashAssignmentHelper hah(**h, col_name);
-      if (*hah) {
-         // find a unique column name
-         unsigned num = 1;
-         while (true) {
-            QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
-            hah.reassign(tmp.c_str());
-            if (*hah) {
-               ++num;
-               continue;
+            if (!ss::is_empty(descriptions[i].name)) {
+               col_name = descriptions[i].name;
+               std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
+            } else {
+               col_name = get_placeholder_at(ph, i);
             }
-            break;
+
+            HashAssignmentHelper hah(**h, col_name);
+            if (*hah) {
+               // find a unique column name
+               unsigned num = 1;
+               while (true) {
+                  QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
+                  hah.reassign(tmp.c_str());
+                  if (*hah) {
+                     ++num;
+                     continue;
+                  }
+                  break;
+               }
+            }
+            hah.assign(new QoreListNode, xsink);
          }
       }
-      hah.assign(new QoreListNode, xsink);
-   }
-
-   while (fetch_row_into_buffers(xsink)) {
       if (append_buffers_to_list(descriptions, out_buffers, *h, xsink))
 	 return 0;
       if (--cnt == 0) break;
