@@ -145,7 +145,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
    }
 }
 
-AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, ExceptionSink* xsink) {
+AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink) {
    std::auto_ptr<command> cmd(setupCommand(cmd_text, qore_args, !doBinding, xsink));
 
    bool connection_reset = false;
@@ -153,7 +153,7 @@ AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreLis
    ReferenceHolder<AbstractQoreNode> result(xsink);
 
    while (true) {
-      result = cmd->readOutput(*this, *cmd.get(), need_list, connection_reset, xsink);
+      result = cmd->readOutput(*this, *cmd.get(), need_list, connection_reset, cols, xsink);
       if (*xsink)
          return 0;
 
@@ -306,6 +306,18 @@ AbstractQoreNode *connection::exec_intern(QoreString *cmd_text, const QoreListNo
 }
 */
 
+AbstractQoreNode *connection::select(const QoreString *cmd, const QoreListNode* args, ExceptionSink *xsink) {
+   // copy the string here for intrusive editing, convert encoding too if necessary
+   QoreString *query = cmd->convertEncoding(enc, xsink);
+   if (!query)
+      return 0;
+
+   std::auto_ptr<QoreString> tmp(query);
+   ReferenceHolder<> rv(execReadOutput(query, args, false, true, true, xsink), xsink);
+   purge_messages(xsink);
+   return rv.release();
+}
+
 AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode* args, ExceptionSink *xsink) {
    // copy the string here for intrusive editing, convert encoding too if necessary
    QoreString *query = cmd->convertEncoding(enc, xsink);
@@ -313,7 +325,7 @@ AbstractQoreNode *connection::exec(const QoreString *cmd, const QoreListNode* ar
       return 0;
 
    std::auto_ptr<QoreString> tmp(query);
-   ReferenceHolder<> rv(execReadOutput(query, args, false, true, xsink), xsink);
+   ReferenceHolder<> rv(execReadOutput(query, args, false, true, false, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
 }
@@ -326,7 +338,7 @@ AbstractQoreNode *connection::execRaw(const QoreString *cmd, ExceptionSink *xsin
       return 0;
 
    std::auto_ptr<QoreString> tmp(query);
-   ReferenceHolder<> rv(execReadOutput(query, 0, false, false, xsink), xsink);
+   ReferenceHolder<> rv(execReadOutput(query, 0, false, false, false, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
 }
@@ -339,7 +351,7 @@ AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNod
       return 0;
 
    std::auto_ptr<QoreString> tmp(query);
-   ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, xsink), xsink);
+   ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, false, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
 }
@@ -698,7 +710,7 @@ QoreStringNode *connection::get_client_version(ExceptionSink *xsink) {
 }
 
 AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink) {
-   AbstractQoreNode *res = execReadOutput(&ver_str, 0, true, true, xsink);
+   AbstractQoreNode *res = execReadOutput(&ver_str, 0, true, true, false, xsink);
    if (!res)
       return 0;
    assert(res->getType() == NT_HASH);

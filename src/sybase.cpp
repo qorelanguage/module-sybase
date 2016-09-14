@@ -203,7 +203,7 @@ static int sybase_close(Datasource *ds) {
 static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->exec(qstr, args, xsink);
+   return conn->select(qstr, args, xsink);
    END_CALLBACK(0);
 }
 
