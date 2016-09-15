@@ -354,7 +354,7 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
    return RES_ERROR;
 }
 
-AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, ExceptionSink* xsink) {
+AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink) {
    ReferenceHolder<AbstractQoreNode> qresult(xsink);
 
    ss::ResultFactory rf(xsink);
@@ -378,7 +378,7 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
 	    break;
 
          case RES_ROW:
-	    qresult = read_rows(0, list, xsink);
+	    qresult = read_rows(0, list, cols, xsink);
 	    rf.add(qresult, list);
 	    break;
 
@@ -393,7 +393,7 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
             if (retr_colinfo(xsink))
                return 0;
 
-	    qresult = read_rows(0, list, xsink);
+	    qresult = read_rows(0, list, false, xsink);
 	    // TODO: check status?
 	    colinfo.set_dirty();
 	    continue;
@@ -471,7 +471,38 @@ int command::retr_colinfo(ExceptionSink* xsink) {
    return 0;
 }
 
-QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, ExceptionSink* xsink) {
+void command::setupColumns(QoreHashNode& h, const Placeholders *ph) {
+   row_result_t &descriptions = colinfo.datafmt;
+
+   for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
+      std::string col_name;
+
+      if (!ss::is_empty(descriptions[i].name)) {
+         col_name = descriptions[i].name;
+         std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
+      } else {
+         col_name = get_placeholder_at(ph, i);
+      }
+
+      HashAssignmentHelper hah(h, col_name);
+      if (*hah) {
+         // find a unique column name
+         unsigned num = 1;
+         while (true) {
+            QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
+            hah.reassign(tmp.c_str());
+            if (*hah) {
+               ++num;
+               continue;
+            }
+            break;
+         }
+      }
+      hah.assign(new QoreListNode, 0);
+   }
+}
+
+QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, bool cols, ExceptionSink* xsink) {
    if (ensure_colinfo(xsink)) return 0;
 
    if (xsink->isException()) return 0;
@@ -481,36 +512,12 @@ QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, ExceptionSink*
    // setup hash of lists if necessary
    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
-   bool done = false;
+   if (cols)
+      setupColumns(**h, ph);
+
    while (fetch_row_into_buffers(xsink)) {
-      if (!done) {
-         for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
-            std::string col_name;
-
-            if (!ss::is_empty(descriptions[i].name)) {
-               col_name = descriptions[i].name;
-               std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
-            } else {
-               col_name = get_placeholder_at(ph, i);
-            }
-
-            HashAssignmentHelper hah(**h, col_name);
-            if (*hah) {
-               // find a unique column name
-               unsigned num = 1;
-               while (true) {
-                  QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
-                  hah.reassign(tmp.c_str());
-                  if (*hah) {
-                     ++num;
-                     continue;
-                  }
-                  break;
-               }
-            }
-            hah.assign(new QoreListNode, xsink);
-         }
-      }
+      if (h->empty())
+         setupColumns(**h, ph);
       if (append_buffers_to_list(descriptions, out_buffers, *h, xsink))
 	 return 0;
       if (--cnt == 0) break;
@@ -549,15 +556,15 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
    return rv.release();
 }
 
-AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink) {
+AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink) {
    if (ensure_colinfo(xsink)) return 0;
 
    // setup hash of lists if necessary
    if (!list) {
       if (!placeholder_list) {
-	 return read_cols(0, xsink);
+	 return read_cols(0, cols, xsink);
       }
-      return read_cols(placeholder_list, xsink);
+      return read_cols(placeholder_list, cols, xsink);
    } else {
       if (!placeholder_list) {
 	 return read_rows(0, xsink);
@@ -714,7 +721,6 @@ QoreHashNode *command::output_buffers_to_hash(const Placeholders *ph, ExceptionS
       }
 
       hah.assign(value.release(), xsink);
-      //result->setKeyValue(column_name, value.release(), xsink);
    }
 
    return result.release();

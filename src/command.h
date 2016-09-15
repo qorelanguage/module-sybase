@@ -119,6 +119,8 @@ private:
 
    DLLLOCAL AbstractQoreNode* getNumber(const char* str, size_t len);
 
+   DLLLOCAL void setupColumns(QoreHashNode& h, const Placeholders *ph);
+
 public:
     DLLLOCAL ResType read_next_result(bool& disconnect, ExceptionSink* xsink) {
         /**
@@ -165,20 +167,22 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL void set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode* readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, ExceptionSink* xsink);
+    DLLLOCAL AbstractQoreNode* readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink);
 
     //DLLLOCAL AbstractQoreNode *read_output(bool list, bool &disconnect, ExceptionSink* xsink);
 
     DLLLOCAL QoreHashNode *read_cols(const Placeholders *placeholder_list,
                                      int cnt,
+                                     bool cols,
                                      ExceptionSink* xsink);
 
     DLLLOCAL QoreHashNode *read_cols(const Placeholders *placeholder_list,
+                                     bool cols,
                                      ExceptionSink* xsink) {
-       return read_cols(placeholder_list, -1, xsink);
+       return read_cols(placeholder_list, -1, cols, xsink);
     }
 
-    DLLLOCAL AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, ExceptionSink* xsink);
+    DLLLOCAL AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink);
     DLLLOCAL AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
 
     DLLLOCAL void set_placeholders(const Placeholders &ph) {

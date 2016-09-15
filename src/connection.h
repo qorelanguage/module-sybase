@@ -202,8 +202,10 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int rollback(ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, ExceptionSink* xsink);
+    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink);
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
+
+    DLLLOCAL AbstractQoreNode *select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
     DLLLOCAL AbstractQoreNode *exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 #ifdef _QORE_HAS_DBI_EXECRAW

@@ -133,7 +133,7 @@ public:
     }
 
     QoreHashNode* get_output(SQLStatement* stmt, ExceptionSink* xsink) {
-        return context->read_cols(&placeholders, xsink);
+        return context->read_cols(&placeholders, false, xsink);
     }
 
     int affected_rows(SQLStatement* stmt, ExceptionSink* xsink) {
@@ -141,7 +141,7 @@ public:
     }
 
     QoreHashNode* fetch_columns(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
-        return context->read_cols(0,  rows, xsink);
+        return context->read_cols(0, rows, false, xsink);
     }
 
     int bind_placeholders(SQLStatement* stmt, const QoreListNode& l, ExceptionSink* xsink) {
