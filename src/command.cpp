@@ -91,6 +91,7 @@ void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsi
 bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    CS_INT rows_read;
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
+   //printd(5, "command::fetch_row_into_buffers() err: %d (CS_END_DATA: %d)\n", err, CS_END_DATA);
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
 	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);

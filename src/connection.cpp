@@ -137,16 +137,19 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
          cmd->send(xsink);
       }
       catch (const ss::Error& e) {
-	 //throw;
-         if (closeAndReconnect(xsink, *cmd.get(), true))
-            throw;
-	 continue;
+	 throw;
+         //if (closeAndReconnect(xsink, *cmd.get(), true))
+         //   throw;
+	 //continue;
       }
       return cmd.release();
    }
 }
 
 AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink) {
+   // cancel any active statement(s)
+   invalidateStatements();
+
    std::auto_ptr<command> cmd(setupCommand(cmd_text, qore_args, !doBinding, xsink));
 
    bool connection_reset = false;
@@ -172,6 +175,9 @@ AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreLis
 int connection::closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect) {
    // first cancel the current command
    cmd.cancelDisconnect();
+
+   // cancel all current statements
+   invalidateStatements();
 
    // see if we need to reconnect and try again
    ct_close(m_connection, CS_FORCE_CLOSE);

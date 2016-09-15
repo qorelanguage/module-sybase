@@ -71,6 +71,11 @@ public:
             return params;
         }
 
+        DLLLOCAL void invalidateStatement() {
+           assert(m);
+           m->invalidateStatement();
+        }
+
         static void Delete(ModuleWrap *mv, ExceptionSink* xsink) {
             if (!mv) return;
             mv->set_params(0, xsink);
@@ -132,7 +137,6 @@ public:
     {
         StatementHelper sh(stmt);
         ModuleWrap *mv = module_wrap(stmt);
-
         mv->query.reset(sh.encodeSQL(str, xsink));
         mv->set_params(args, xsink);
         return 0;
@@ -157,6 +161,8 @@ public:
 
     static int close(SQLStatement* stmt, ExceptionSink* xsink) {
         ModuleWrap *m = module_wrap(stmt, false);
+        StatementHelper sh(stmt);
+        sh.conn()->deregisterStatement(m);
         stmt->setPrivateData(0);
         ModuleWrap::Delete(m, xsink);
         return 0;

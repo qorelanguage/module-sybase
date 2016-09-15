@@ -135,6 +135,7 @@ public:
 
     DLLLOCAL void cancelDisconnect() {
        assert(m_cmd);
+       //printd(5, "command::cancelIntern() %d this: %p m_cmd: %p\n", cancelIntern(), this, m_cmd);
        cancelIntern();
        ct_cmd_drop(m_cmd);
        m_cmd = 0;

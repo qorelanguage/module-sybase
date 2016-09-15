@@ -77,9 +77,10 @@ public:
         delete self;
     }
 
-    DLLLOCAL void connectionLost() {
+    DLLLOCAL void invalidateStatement() {
         assert(valid);
-        context->clear();
+        //printd(5, "Statement::invalidateStatement() context: %p\n", &*context);
+        context->cancelDisconnect();
         valid = false;
     }
 

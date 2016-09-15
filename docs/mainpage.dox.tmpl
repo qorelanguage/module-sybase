@@ -200,6 +200,7 @@ exec get_values :string output, :int output");
     @subsection sybase_1041 sybase Driver Version 1.0.4.1
     <b>New Features and Bug Fixes</b>
     - updated SQLStatement::fetchColumns() to return an empty hash when no data is available (<a href="https://github.com/qorelanguage/qore/issues/1241">issue 1241</a>)
+    - fixed bugs handling SQLStatements used with this driver; the TDS protocol only allows one active query at a time, so any active statements have to be canceled before executing new SQL on the connection (<a href="https://github.com/qorelanguage/qore/issues/1248">issue 1248</a>)
 
     @subsection sybase_104 sybase Driver Version 1.0.4
 

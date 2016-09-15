@@ -56,6 +56,8 @@ extern QoreThreadLock cs_lock;
 
 class AbstractQoreZoneInfo;
 
+typedef ss::DBModuleWrap<ss::Statement>::ModuleWrap stmt_t;
+
 class context {
    private:
       CS_CONTEXT *m_context;
@@ -162,13 +164,8 @@ private:
     int numeric_support;
     const AbstractQoreZoneInfo* server_tz;
 
-    //typedef std::set<> _t;
-
-    /*
-    AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
-            bool need_list, ExceptionSink* xsink,
-            bool doBinding=true);
-    */
+    typedef std::set<stmt_t*> stmt_set_t;
+    stmt_set_t stmt_set;
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
@@ -219,11 +216,25 @@ public:
 #endif
     DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
+    // invalidate / close any open statements
+    DLLLOCAL void invalidateStatements() {
+        for (stmt_set_t::iterator i = stmt_set.begin(), e = stmt_set.end(); i != e; ++i)
+	   (*i)->invalidateStatement();
+    }
+
     DLLLOCAL bool wasConnectionAborted() const {
        return ds->wasConnectionAborted();
     }
 
-    DLLLOCAL void registerStatement(ss::DBModuleWrap<ss::Statement>::ModuleWrap* stmt) {
+    DLLLOCAL void registerStatement(stmt_t* stmt) {
+       assert(stmt_set.find(stmt) == stmt_set.end());
+       stmt_set.insert(stmt);
+    }
+
+   DLLLOCAL void deregisterStatement(stmt_t* stmt) {
+      stmt_set_t::iterator i = stmt_set.find(stmt);
+      assert(i != stmt_set.end());
+      stmt_set.erase(i);
     }
 
     DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
