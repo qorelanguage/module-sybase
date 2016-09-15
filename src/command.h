@@ -155,6 +155,8 @@ public:
     DLLLOCAL command(connection& conn, ExceptionSink* xsink);
     DLLLOCAL ~command();
 
+    DLLLOCAL void clear();
+
     DLLLOCAL CS_COMMAND* operator()() const { return m_cmd; }
     DLLLOCAL connection& getConnection() const { return m_conn; }
 

@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2015 Qore Technologies, s.r.o.
+  Copyright (C) 2007 - 2016 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -33,7 +33,11 @@
 #include <stdarg.h>
 #include <qore/ExceptionSink.h>
 
+#include <set>
+
 #include "command.h"
+#include "dbmodulewrap.h"
+#include "statement.h"
 
 #if defined(SYBASE) || defined(FREETDS_LOCALE)
 #define SYB_HAVE_LOCALE 1
@@ -158,6 +162,8 @@ private:
     int numeric_support;
     const AbstractQoreZoneInfo* server_tz;
 
+    //typedef std::set<> _t;
+
     /*
     AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
             bool need_list, ExceptionSink* xsink,
@@ -169,7 +175,7 @@ private:
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
 
-    // returns 0 if reconneced without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
+    // returns 0 if reconnected without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
     DLLLOCAL int closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect = true);
 
 public:
@@ -212,6 +218,13 @@ public:
     DLLLOCAL AbstractQoreNode *execRaw(const QoreString *cmd, ExceptionSink *xsink);
 #endif
     DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+
+    DLLLOCAL bool wasConnectionAborted() const {
+       return ds->wasConnectionAborted();
+    }
+
+    DLLLOCAL void registerStatement(ss::DBModuleWrap<ss::Statement>::ModuleWrap* stmt) {
+    }
 
     DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
     DLLLOCAL CS_CONTEXT* getContext() { return m_context.get_context(); }

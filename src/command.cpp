@@ -57,14 +57,19 @@ command::command(connection& conn, ExceptionSink* xsink) : m_conn(conn), m_cmd(0
 
 //------------------------------------------------------------------------------
 command::~command() {
+   clear();
+}
+
+void command::clear() {
    if (!m_cmd) return;
    // cancel only unfinished, not already canceled command
-   if (lastRes != RES_CANCELED && lastRes != RES_END) {
+   if (lastRes != RES_CANCELED && lastRes != RES_END && !m_conn.wasConnectionAborted()) {
       if (ct_cancel(0, m_cmd, CS_CANCEL_ALL) != CS_SUCCEED) {
 	 throw ss::Error("TDS-EXEC-EXCEPTION", "ct_cancel failed");
       }
    }
    ct_cmd_drop(m_cmd);
+   m_cmd = 0;
 }
 
 void command::send(ExceptionSink *xsink) {

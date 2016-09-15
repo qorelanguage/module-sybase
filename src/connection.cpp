@@ -42,7 +42,7 @@ static QoreString ver_str("begin tran select @@version commit tran");
 #ifdef SYBASE
 // to serialize calls to ct_init() and ct_exit()
 QoreThreadLock ct_lock;
-QoreThreadLock cs_lock;
+trowQoreThreadLock cs_lock;
 #endif
 
 connection::connection(Datasource *n_ds, ExceptionSink *xsink)
@@ -137,9 +137,10 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
          cmd->send(xsink);
       }
       catch (const ss::Error& e) {
+	 //throw;
          if (closeAndReconnect(xsink, *cmd.get(), true))
             throw;
-         continue;
+	 continue;
       }
       return cmd.release();
    }
