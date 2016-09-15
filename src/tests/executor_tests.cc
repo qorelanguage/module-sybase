@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "connection.h"
-#include <qore/QoreType.h>
+#include "qore/QoreType.h"
 
 namespace sybase_tests_51256220022 {
 
