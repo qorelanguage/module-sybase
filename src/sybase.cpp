@@ -23,10 +23,6 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <ctpublic.h>
 #include <assert.h>
 #include <ctype.h>
@@ -34,8 +30,11 @@
 #include <string>
 #include <vector>
 
+#include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
+
+#include "minitest.hpp"
 
 #ifdef SYBASE
 DLLEXPORT char qore_module_name[] = "sybase";
@@ -157,7 +156,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     }
 
     // create the connection object
-    std::auto_ptr<connection> sc(new connection(ds, xsink));
+    std::unique_ptr<connection> sc(new connection(ds, xsink));
     if (*xsink)
         return -1;
 

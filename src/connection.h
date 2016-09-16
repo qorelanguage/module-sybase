@@ -28,10 +28,10 @@
 
 #include <cstypes.h>
 #include <ctpublic.h>
-#include <qore/common.h>
-
 #include <stdarg.h>
-#include <qore/ExceptionSink.h>
+
+#include "qore/common.h"
+#include "qore/ExceptionSink.h"
 
 #include "command.h"
 #include "dbmodulewrap.h"

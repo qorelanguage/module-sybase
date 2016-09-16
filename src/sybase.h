@@ -25,7 +25,7 @@
 #define _QORE_SYBASE_MODULE_H
 
 #include "../config.h"
-#include <qore/Qore.h>
+#include "qore/Qore.h"
 
 extern QoreStringNode *sybase_module_init();
 extern void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);

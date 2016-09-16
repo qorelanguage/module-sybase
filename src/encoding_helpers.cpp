@@ -23,17 +23,16 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "sybase.h"
-
-#include "minitest.hpp"
-
 #include <assert.h>
 #include <map>
 
 #include <ctpublic.h>
 
+#include "sybase.h"
 #include "encoding_helpers.h"
 #include "connection.h"
+
+#include "minitest.hpp"
 
 //------------------------------------------------------------------------------
 typedef std::map<const QoreEncoding*, const char*> rev_encoding_map_t;
