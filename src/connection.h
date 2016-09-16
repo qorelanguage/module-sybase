@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2015 Qore Technologies, s.r.o.
+  Copyright (C) 2007 - 2016 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -34,6 +34,8 @@
 #include <qore/ExceptionSink.h>
 
 #include "command.h"
+#include "dbmodulewrap.h"
+#include "statement.h"
 
 #if defined(SYBASE) || defined(FREETDS_LOCALE)
 #define SYB_HAVE_LOCALE 1
@@ -51,6 +53,8 @@ extern QoreThreadLock cs_lock;
 #endif
 
 class AbstractQoreZoneInfo;
+
+typedef ss::DBModuleWrap<ss::Statement>::ModuleWrap stmt_t;
 
 class context {
    private:
@@ -158,18 +162,14 @@ private:
     int numeric_support;
     const AbstractQoreZoneInfo* server_tz;
 
-    /*
-    AbstractQoreNode *exec_intern(QoreString *cmd_text, const QoreListNode *qore_args,
-            bool need_list, ExceptionSink* xsink,
-            bool doBinding=true);
-    */
+    stmt_t* stmt;
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
 
-    // returns 0 if reconneced without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
+    // returns 0 if reconnected without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
     DLLLOCAL int closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect = true);
 
 public:
@@ -212,6 +212,38 @@ public:
     DLLLOCAL AbstractQoreNode *execRaw(const QoreString *cmd, ExceptionSink *xsink);
 #endif
     DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+
+    // returns true if the server is still reachable on the connection, false if not
+    DLLLOCAL bool ping() const;
+
+    // invalidate / close any open statement
+    DLLLOCAL void invalidateStatement() {
+       if (stmt) {
+	  stmt->invalidate();
+	  stmt = 0;
+       }
+    }
+
+    DLLLOCAL bool wasConnectionAborted() const {
+       return ds->wasConnectionAborted();
+    }
+
+    DLLLOCAL void registerStatement(stmt_t* n_stmt) {
+       // invalidate any existing statement
+       if (stmt)
+	  stmt->invalidate();
+       stmt = n_stmt;
+    }
+
+#ifdef DEBUG
+   DLLLOCAL void deregisterStatement(stmt_t* n_stmt) {
+      assert(n_stmt == stmt);
+#else
+   DLLLOCAL void deregisterStatement() {
+#endif
+      assert(stmt);
+      stmt = 0;
+    }
 
     DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
     DLLLOCAL CS_CONTEXT* getContext() { return m_context.get_context(); }

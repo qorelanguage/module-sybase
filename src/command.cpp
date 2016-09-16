@@ -57,14 +57,19 @@ command::command(connection& conn, ExceptionSink* xsink) : m_conn(conn), m_cmd(0
 
 //------------------------------------------------------------------------------
 command::~command() {
+   clear();
+}
+
+void command::clear() {
    if (!m_cmd) return;
    // cancel only unfinished, not already canceled command
-   if (lastRes != RES_CANCELED && lastRes != RES_END) {
+   if (lastRes != RES_CANCELED && lastRes != RES_END && !m_conn.wasConnectionAborted()) {
       if (ct_cancel(0, m_cmd, CS_CANCEL_ALL) != CS_SUCCEED) {
 	 throw ss::Error("TDS-EXEC-EXCEPTION", "ct_cancel failed");
       }
    }
    ct_cmd_drop(m_cmd);
+   m_cmd = 0;
 }
 
 void command::send(ExceptionSink *xsink) {
@@ -86,6 +91,7 @@ void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsi
 bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
    CS_INT rows_read;
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
+   //printd(5, "command::fetch_row_into_buffers() err: %d (CS_END_DATA: %d)\n", err, CS_END_DATA);
    if (err == CS_SUCCEED) {
       if (rows_read != 1) {
 	 m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
