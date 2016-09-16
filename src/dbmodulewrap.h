@@ -1,3 +1,5 @@
+/* -*- mode: c++; indent-tabs-mode: nil -*- */
+
 #ifndef SYBASE_SRC_DBMODULEWRAP_H
 #define SYBASE_SRC_DBMODULEWRAP_H
 
@@ -33,7 +35,6 @@ class DBModuleWrap {
         Datasource * ds() { return stmt->getDatasource(); }
         const QoreEncoding * enc() { return ds()->getQoreEncoding(); }
 
-
         QoreString * encodeSQL(const QoreString &s, ExceptionSink* xsink) {
             return s.convertEncoding(enc(), xsink);
         }
@@ -46,8 +47,8 @@ class DBModuleWrap {
         SQLStatement* stmt;
     };
 
-
-    class ModuleWrap {
+public:
+   class ModuleWrap {
         ~ModuleWrap() {}
     public:
         ModuleWrap() : m(new Module), params(0) {}
@@ -67,6 +68,16 @@ class DBModuleWrap {
 
         const QoreListNode *get_params() {
             return params;
+        }
+
+        DLLLOCAL void invalidate() {
+           assert(m);
+           m->invalidate();
+        }
+
+        DLLLOCAL bool isValid() const {
+            assert(m);
+            return m->isValid();
         }
 
         static void Delete(ModuleWrap *mv, ExceptionSink* xsink) {
@@ -101,7 +112,6 @@ class DBModuleWrap {
         }
     }
 
-
     static ModuleWrap * module_wrap(SQLStatement* stmt,
             bool create = true)
     {
@@ -110,6 +120,8 @@ class DBModuleWrap {
             if (!create) return 0;
             mv = new ModuleWrap;
             stmt->setPrivateData(mv);
+            StatementHelper sh(stmt);
+            sh.conn()->registerStatement(mv);
         }
         return mv;
     }
@@ -129,7 +141,6 @@ class DBModuleWrap {
     {
         StatementHelper sh(stmt);
         ModuleWrap *mv = module_wrap(stmt);
-
         mv->query.reset(sh.encodeSQL(str, xsink));
         mv->set_params(args, xsink);
         return 0;
@@ -154,11 +165,18 @@ class DBModuleWrap {
 
     static int close(SQLStatement* stmt, ExceptionSink* xsink) {
         ModuleWrap *m = module_wrap(stmt, false);
+        if (m->isValid()) {
+           StatementHelper sh(stmt);
+#ifdef DEBUG
+           sh.conn()->deregisterStatement(m);
+#else
+           sh.conn()->deregisterStatement();
+#endif
+        }
         stmt->setPrivateData(0);
         ModuleWrap::Delete(m, xsink);
         return 0;
     }
-
 
     static int bind(SQLStatement* stmt, const QoreListNode &l,
             ExceptionSink* xsink)
@@ -253,12 +271,11 @@ class DBModuleWrap {
         return run<QoreHashNode *>(&Module::get_output_rows, stmt, xsink);
     }
 
-
     qore_dbi_method_list &methods;
 
   public:
-    DBModuleWrap(qore_dbi_method_list &methods) :
-        methods(methods)
+    DBModuleWrap(qore_dbi_method_list &n_methods) :
+        methods(n_methods)
     {}
 
     void reg() {

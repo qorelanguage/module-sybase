@@ -6,7 +6,7 @@
 
   Qore Programming Language
 
-  Copyright (C) 2007 - 2015 Qore Technolgoies sro
+  Copyright (C) 2007 - 2016 Qore Technolgoies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -41,7 +41,7 @@ static QoreString ver_str("begin tran select @@version commit tran");
 #ifdef SYBASE
 // to serialize calls to ct_init() and ct_exit()
 QoreThreadLock ct_lock;
-QoreThreadLock cs_lock;
+trowQoreThreadLock cs_lock;
 #endif
 
 connection::connection(Datasource *n_ds, ExceptionSink *xsink)
@@ -50,10 +50,12 @@ connection::connection(Datasource *n_ds, ExceptionSink *xsink)
      connected(false),
      ds(n_ds),
      numeric_support(OPT_NUM_OPTIMAL),
-     server_tz(0)
+     server_tz(0),
+     stmt(0)
 {}
 
 connection::~connection() {
+   invalidateStatement();
    CS_RETCODE ret = CS_SUCCEED;
 
    if (m_connection) {
@@ -117,6 +119,15 @@ static inline bool wasInTransaction(Datasource *ds) {
 #endif
 }
 
+bool connection::ping() const {
+   // check if the connection is up
+   CS_INT up;
+   CS_INT outlen;
+   CS_RETCODE rc = ct_con_props(m_connection, CS_GET, CS_CON_STATUS, &up, sizeof(up), &outlen);
+   printd(0, "ping() rc: %d raw: %d up: %d\n", rc, up, up == CS_CONSTAT_CONNECTED);
+   return (rc == CS_SUCCEED) && (up == CS_CONSTAT_CONNECTED);
+}
+
 command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode* args, bool raw, ExceptionSink* xsink) {
    while (true) {
       std::unique_ptr<sybase_query> query(new sybase_query);
@@ -136,15 +147,19 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
          cmd->send(xsink);
       }
       catch (const ss::Error& e) {
-         if (closeAndReconnect(xsink, *cmd.get(), true))
-            throw;
-         continue;
+	 // if the connection is down and we can reconnect transparently, then we do so
+	 if (!ping() && !closeAndReconnect(xsink, *cmd.get(), true))
+	    continue;
+	 throw;
       }
       return cmd.release();
    }
 }
 
 AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink) {
+   // cancel any active statement
+   invalidateStatement();
+
    std::unique_ptr<command> cmd(setupCommand(cmd_text, qore_args, !doBinding, xsink));
 
    bool connection_reset = false;
@@ -168,8 +183,11 @@ AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreLis
 }
 
 int connection::closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect) {
-   // first cancel the current command
+   // cancel the current command
    cmd.cancelDisconnect();
+
+   // cancel any current statement
+   invalidateStatement();
 
    // see if we need to reconnect and try again
    ct_close(m_connection, CS_FORCE_CLOSE);
@@ -410,6 +428,14 @@ return -1;
       return -1;
    }
 
+   // set login timeout to 60 seconds
+   CS_INT timeout = 60;
+   ret = ct_con_props(m_connection, CS_SET, CS_LOGIN_TIMEOUT, &timeout, CS_UNUSED, 0);
+   if (ret != CS_SUCCEED) {
+      xsink->raiseException("TDS-CTLIB-SET-LOGIN-TIMEOUT", "ct_con_props(CS_LOGIN_TIMEOUT) failed with error %d", ret);
+      return -1;
+   }
+
    ret = ct_con_props(m_connection, CS_SET, CS_USERNAME, (CS_VOID*)username, CS_NULLTERM, 0);
    if (ret != CS_SUCCEED) {
       xsink->raiseException("TDS-CTLIB-SET-USERNAME", "ct_con_props(CS_USERNAME) failed with error %d", ret);
@@ -464,7 +490,7 @@ return -1;
    assert(ret == CS_SUCCEED);
 #endif
 
-   ret = ct_connect(m_connection, (CS_CHAR*)dbname,  strlen(dbname));
+   ret = ct_connect(m_connection, (CS_CHAR*)dbname, strlen(dbname));
    if (ret != CS_SUCCEED) {
       do_exception(xsink, "TDS-CTLIB-CONNECT-ERROR", "ct_connect() failed with error %d", ret);
       return -1;
