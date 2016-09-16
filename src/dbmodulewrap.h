@@ -71,9 +71,14 @@ public:
             return params;
         }
 
-        DLLLOCAL void invalidateStatement() {
+        DLLLOCAL void invalidate() {
            assert(m);
-           m->invalidateStatement();
+           m->invalidate();
+        }
+
+        DLLLOCAL bool isValid() const {
+            assert(m);
+            return m->isValid();
         }
 
         static void Delete(ModuleWrap *mv, ExceptionSink* xsink) {
@@ -161,8 +166,14 @@ public:
 
     static int close(SQLStatement* stmt, ExceptionSink* xsink) {
         ModuleWrap *m = module_wrap(stmt, false);
-        StatementHelper sh(stmt);
-        sh.conn()->deregisterStatement(m);
+        if (m->isValid()) {
+           StatementHelper sh(stmt);
+#ifdef DEBUG
+           sh.conn()->deregisterStatement(m);
+#else
+           sh.conn()->deregisterStatement();
+#endif
+        }
         stmt->setPrivateData(0);
         ModuleWrap::Delete(m, xsink);
         return 0;

@@ -77,9 +77,9 @@ public:
         delete self;
     }
 
-    DLLLOCAL void invalidateStatement() {
+    DLLLOCAL void invalidate() {
         assert(valid);
-        //printd(5, "Statement::invalidateStatement() context: %p\n", &*context);
+        //printd(5, "Statement::invalidate() context: %p\n", &*context);
         context->cancelDisconnect();
         valid = false;
     }
@@ -87,6 +87,10 @@ public:
     DLLLOCAL int exec(connection *conn, const QoreString *query, const QoreListNode *args, bool raw, ExceptionSink* xsink);
 
     DLLLOCAL bool next(SQLStatement* stmt, ExceptionSink* xsink);
+
+    DLLLOCAL bool isValid() const {
+        return valid;
+    }
 
     QoreHashNode * fetch_row(SQLStatement* stmt, ExceptionSink* xsink) {
         return release_res();

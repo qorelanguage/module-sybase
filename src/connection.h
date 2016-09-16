@@ -33,8 +33,6 @@
 #include <stdarg.h>
 #include <qore/ExceptionSink.h>
 
-#include <set>
-
 #include "command.h"
 #include "dbmodulewrap.h"
 #include "statement.h"
@@ -164,8 +162,7 @@ private:
     int numeric_support;
     const AbstractQoreZoneInfo* server_tz;
 
-    typedef std::set<stmt_t*> stmt_set_t;
-    stmt_set_t stmt_set;
+    stmt_t* stmt;
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
@@ -216,25 +213,36 @@ public:
 #endif
     DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
-    // invalidate / close any open statements
-    DLLLOCAL void invalidateStatements() {
-        for (stmt_set_t::iterator i = stmt_set.begin(), e = stmt_set.end(); i != e; ++i)
-	   (*i)->invalidateStatement();
+    // returns true if the server is still reachable on the connection, false if not
+    DLLLOCAL bool ping() const;
+
+    // invalidate / close any open statement
+    DLLLOCAL void invalidateStatement() {
+       if (stmt) {
+	  stmt->invalidate();
+	  stmt = 0;
+       }
     }
 
     DLLLOCAL bool wasConnectionAborted() const {
        return ds->wasConnectionAborted();
     }
 
-    DLLLOCAL void registerStatement(stmt_t* stmt) {
-       assert(stmt_set.find(stmt) == stmt_set.end());
-       stmt_set.insert(stmt);
+    DLLLOCAL void registerStatement(stmt_t* n_stmt) {
+       // invalidate any existing statement
+       if (stmt)
+	  stmt->invalidate();
+       stmt = n_stmt;
     }
 
-   DLLLOCAL void deregisterStatement(stmt_t* stmt) {
-      stmt_set_t::iterator i = stmt_set.find(stmt);
-      assert(i != stmt_set.end());
-      stmt_set.erase(i);
+#ifdef DEBUG
+   DLLLOCAL void deregisterStatement(stmt_t* n_stmt) {
+      assert(n_stmt == stmt);
+#else
+   DLLLOCAL void deregisterStatement() {
+#endif
+      assert(stmt);
+      stmt = 0;
     }
 
     DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }

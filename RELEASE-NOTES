@@ -2,7 +2,9 @@
 Version 1.0.4.1
 ---------------
 
-updated SQLStatement::fetchColumns() to return an empty hash when no data is available (issue 1241)
+- updated SQLStatement::fetchColumns() to return an empty hash when no data is available (issue 1241)
+- fixed bugs handling SQLStatements used with this driver; the TDS protocol only allows one active query at a time, so any active statements have to be canceled before executing new SQL on the connection (issue 1248)
+- fixed a bug where reconnections did not actually check for a working connection (issue 1251)
 
 
 -------------

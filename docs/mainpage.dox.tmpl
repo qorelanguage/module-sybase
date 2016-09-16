@@ -41,12 +41,20 @@ Datasource db("freetds:user/pass@dbname(utf8):host:1433");
 
     The driver employs efficient binary bindings for all non-text data types.
 
-    The @ref Qore::SQL::Datasource::getServerVersion() and @ref Qore::SQL::Datasource::getClientVersion() methods are implemented for both drivers. @ref Qore::SQL::Datasource::getServerVersion() returns a string giving server information similar to the following:
+    The @ref Qore::SQL::Datasource::getServerVersion() "Datasource::getServerVersion()" and @ref Qore::SQL::Datasource::getClientVersion() "Datasource::getClientVersion()" methods are implemented for both drivers. @ref Qore::SQL::Datasource::getServerVersion() "Datasource::getServerVersion()" returns a string giving server information similar to the following:
     @verbatim
 Adaptive Server Enterprise/15.0.1/EBF 13827/P/x86_64/Enterprise Linux/ase1501/2379/64-bit/OPT/Mon Aug 14 22:15:25 2006
     @endverbatim
 
-    The @ref Qore::SQL::Datasource::getClientVersion() returns a string giving version information.  For example, for freetds:
+    Or for freetds with MS SQL Server:
+    @verbatim
+Microsoft SQL Server 2014 (RTM-CU14) (KB3158271) - 12.0.2569.0 (X64)
+	May 27 2016 15:06:08
+	Copyright (c) Microsoft Corporation
+	Express Edition (64-bit) on Windows NT 6.3 <X64> (Build 10586: )
+    @endverbatim
+
+    The @ref Qore::SQL::Datasource::getClientVersion() "Datasource::getClientVersion()" returns a string giving version information.  For example, for freetds:
     @verbatim
 freetds v1.0 (threadsafe, default tds version=auto)
     @endverbatim
@@ -56,7 +64,11 @@ Or for Sybase:
 Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.21-27.ELsmp x86_64/BUILD1500-073/OPT/Mon May 15 03:18:58 2006
     @endverbatim
 
-    This driver allows all types of statements to be executed through @ref Qore::SQL::Datasource::select(), @ref Qore::SQL::Datasource::selectRows(), and @ref Qore::SQL::{Datasource::exec() (and related methods), however rules about @ref Qore::SQL::Datasource locking or @ref Qore::SQL::DatasourcePool allocations still apply as usual. If a stored procedure is executed with @ref Qore::SQL::Datasource::selectRows(), then any query results returned will be returned in either a hash format (if only one row was returned), or as a list of hashes (for multiple rows).
+    @subsection sybase_statements SQL Statement Execution
+
+    This driver allows all types of statements to be executed through @ref Qore::SQL::Datasource::select() "Datasource::select()", @ref Qore::SQL::Datasource::selectRows() "Datasource::selectRows()", and @ref Qore::SQL::Datasource::exec() "Datasource::exec()" (and related methods), however rules about @ref Qore::SQL::Datasource "Datasource" locking or @ref Qore::SQL::DatasourcePool "DatasourcePool" allocations still apply as usual. If a stored procedure is executed with @ref Qore::SQL::Datasource::selectRows() "Datasource::selectRows()", then any query results returned will be returned in either a hash format (if only one row was returned), or as a list of hashes (for multiple rows).
+
+    The TDS protocol only supports a single active query on a connection at one time, therefore there can be only one @ref Qore::SQL::SQLStatement "SQLStatement" object active at any one time on a single server connection; if additional SQL commands or a new @ref Qore::SQL::SQLStatement "SQLStatement" is executed while another @ref Qore::SQL::SQLStatement "SQLStatement" is active, the existing statement will be canceled before starting the new statement.
 
     Unlike many other Qore DBI drivers, this driver allows and can return results from multiple select statements issued with a single call. Additionally, it's possible for a stored procedure to return output paramters as well as one or more result sets from select statements. The output format for commands like this differs from standard Qore DBI formats as follows:
 
@@ -201,6 +213,7 @@ exec get_values :string output, :int output");
     <b>New Features and Bug Fixes</b>
     - updated SQLStatement::fetchColumns() to return an empty hash when no data is available (<a href="https://github.com/qorelanguage/qore/issues/1241">issue 1241</a>)
     - fixed bugs handling SQLStatements used with this driver; the TDS protocol only allows one active query at a time, so any active statements have to be canceled before executing new SQL on the connection (<a href="https://github.com/qorelanguage/qore/issues/1248">issue 1248</a>)
+    - fixed a bug where reconnections did not actually check for a working connection (<a href="https://github.com/qorelanguage/qore/issues/1251">issue 1251</a>)
 
     @subsection sybase_104 sybase Driver Version 1.0.4
 
