@@ -41,7 +41,7 @@ static QoreString ver_str("begin tran select @@version commit tran");
 #ifdef SYBASE
 // to serialize calls to ct_init() and ct_exit()
 QoreThreadLock ct_lock;
-trowQoreThreadLock cs_lock;
+QoreThreadLock cs_lock;
 #endif
 
 connection::connection(Datasource *n_ds, ExceptionSink *xsink)
