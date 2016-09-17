@@ -2,7 +2,8 @@
 #define SYBASE_SRC_ERROR_H
 
 #include <string>
-#include <qore/ExceptionSink.h>
+
+#include "qore/ExceptionSink.h"
 
 namespace ss {
 

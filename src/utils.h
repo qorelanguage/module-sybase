@@ -6,7 +6,6 @@
 #include <memory>
 #include <vector>
 
-
 #include "error.h"
 
 namespace ss {
@@ -73,7 +72,7 @@ class SafePtr {
     }
 
   private:
-    std::auto_ptr<T> p;
+    std::unique_ptr<T> p;
 };
 
 

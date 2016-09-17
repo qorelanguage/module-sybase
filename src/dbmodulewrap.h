@@ -4,23 +4,22 @@
 #define SYBASE_SRC_DBMODULEWRAP_H
 
 #include <assert.h>
-
-#include <qore/common.h>
-#include <qore/DBI.h>
-#include <qore/QoreEncoding.h>
-#include <qore/QoreString.h>
-#include <qore/SQLStatement.h>
-#include <qore/QoreStringNode.h>
-#include <qore/AbstractPrivateData.h>
-#include <qore/QoreQueue.h>
-#include <qore/Datasource.h>
-#include <qore/QoreListNode.h>
-#include <qore/QoreHashNode.h>
-
 #include <iostream>
 #include <memory>
 #include <map>
 #include <string>
+
+#include "qore/common.h"
+#include "qore/DBI.h"
+#include "qore/QoreEncoding.h"
+#include "qore/QoreString.h"
+#include "qore/SQLStatement.h"
+#include "qore/QoreStringNode.h"
+#include "qore/AbstractPrivateData.h"
+#include "qore/QoreQueue.h"
+#include "qore/Datasource.h"
+#include "qore/QoreListNode.h"
+#include "qore/QoreHashNode.h"
 
 #include "error.h"
 
@@ -55,7 +54,7 @@ public:
         ModuleWrap() : m(new Module), params(0) {}
 
         Module *m;
-        std::auto_ptr<QoreString> query;
+        std::unique_ptr<QoreString> query;
         bool raw;
 
         void set_params(const QoreListNode *p, ExceptionSink* xsink) {
