@@ -98,7 +98,13 @@ case "${host_os}" in
                 windows=yes
                 mingw=yes
                 #CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
-		LIBS="$LIBS -lgnutls -lidn -lintl -lpcreposix -lpcre -lpthread -liconv -lws2_32 -lcrypt32 -lhogweed -lz -lnettle -lgmp"
+		if test -n "$MINGW32_FREETDS_LIBS"; then
+		    LIBS="$LIBS $MINGW32_FREETDS_LIBS"
+		elif test -n "FREETDS_OPENSSL"; then
+		    LIBS="$LIBS -lidn -lintl -lpcreposix -lpcre -lpthread -liconv -lcrypt32 -lssl -lcrypto -lz -ladvapi32 -luser32 -lgdi32 -lws2_32"
+                else
+		    LIBS="$LIBS -lgnutls -lidn -lintl -lpcreposix -lpcre -lpthread -liconv -lws2_32 -lcrypt32 -lhogweed -lz -lnettle -lgmp"
+		fi
                 #make_dll=yes
                 CPPFLAGS="$CPPFLAGS -DBUILDING_DLL=1"
                 MODULE_LDFLAGS="-no-undefined"
