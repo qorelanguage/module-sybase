@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "connection.h"
-#include <qore/ScopeGuard.h>
+#include "qore/ScopeGuard.h"
 
 namespace sybase_tests_420792 {
 
