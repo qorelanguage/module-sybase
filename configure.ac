@@ -100,7 +100,7 @@ case "${host_os}" in
                 #CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
                 if test -n "$MINGW32_FREETDS_LIBS"; then
                     LIBS="$LIBS $MINGW32_FREETDS_LIBS"
-                elif test -n "FREETDS_OPENSSL"; then
+                elif test -n "$FREETDS_OPENSSL"; then
                     LIBS="$LIBS -lidn -lintl -lpcreposix -lpcre -lpthread -liconv -lcrypt32 -lssl -lcrypto -lz -ladvapi32 -luser32 -lgdi32 -lws2_32"
                 else
                     LIBS="$LIBS -lgnutls -lidn -lintl -lpcreposix -lpcre -lpthread -liconv -lws2_32 -lcrypt32 -lhogweed -lz -lnettle -lgmp"
