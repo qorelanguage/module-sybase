@@ -30,8 +30,9 @@
 
 #include <ctpublic.h>
 
-#include <qore/DateTime.h>
-#include <qore/DateTimeNode.h>
+#include "qore/DateTime.h"
+#include "qore/DateTimeNode.h"
+
 namespace ss {
 
 class Conversions {

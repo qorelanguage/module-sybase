@@ -1,8 +1,9 @@
 #ifdef DEBUG
 
-#include "common.h"
-#include <qore/ScopeGuard.h>
 #include <cstypes.h>
+
+#include "common.h"
+#include "qore/ScopeGuard.h"
 
 namespace sybase_tests_6820236 {
 
