@@ -624,7 +624,7 @@ if test "${with_freetds}" != "no"; then
    	 AC_MSG_ERROR([not found in $with_freetds])
       fi
    else
-     for dir in "${with_freetds}" $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
+     for dir in "${with_freetds}" $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /opt/gnu; do
         check_freetds "$dir"
         if test -n "$with_freetds_includes"; then
    	   break;
