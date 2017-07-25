@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-sybase-modules], [1.0.4.1],
+AC_INIT([qore-sybase-modules], [1.0.4.2],
         [David Nichols <david@qore.org>],
         [qore-sybase-modules])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
@@ -607,7 +607,8 @@ fi
 AC_ARG_WITH([freetds],
     [AS_HELP_STRING([--with-freetds@<:@=DIR@:>@],
                     [FreeTDS base directory])],
-    [if test "${with_freetds}" != "no" -a ! -d "${with_freetds}"; then AC_MSG_ERROR(directory ${with_freetds} does not exist for --with-freetds); unset with_freetds; fi])
+    [if test "${with_freetds}" != "no" -a ! -d "${with_freetds}"; then AC_MSG_ERROR(directory ${with_freetds} does not exist for --with-freetds); unset with_freetds; fi],
+    [with_freetds="$FREETDS"])
 
 # see if we can figure out where the freetds include files and libraries are
 if test "${with_freetds}" != "no"; then
@@ -617,19 +618,19 @@ if test "${with_freetds}" != "no"; then
 
    AC_MSG_CHECKING([for freetds includes and libraries])
 
-   if test -n "$with_freetds"; then
+   if test -n "$with_freetds" -a "$with_freetds" != "yes"; then
       check_freetds "$with_freetds"
       if test -z "$with_freetds_includes"; then
-	 AC_MSG_ERROR([not found in $with_freetds])
+   	 AC_MSG_ERROR([not found in $with_freetds])
       fi
+   else
+     for dir in "${with_freetds}" $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
+        check_freetds "$dir"
+        if test -n "$with_freetds_includes"; then
+   	   break;
+        fi
+     done
    fi
-
-   for dir in "${with_freetds}" $FREETDS "${with_lib_prefix}" "${find_prefix}" /usr /opt /usr/local /sw /opt/local /usr/local /opt/gnu; do
-      check_freetds "$dir"
-      if test -n "$with_freetds_includes"; then
-	 break;
-      fi
-   done
 
    if test -n "$with_freetds_includes"; then
       AC_MSG_RESULT([includes=$with_freetds_includes, libs=$with_freetds_libs])
