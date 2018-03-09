@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2016 Qore Technologies, s.r.o.
+  Copyright (C) 2007 - 2018 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -202,7 +202,7 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int rollback(ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink);
+    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, int max_rows = -1);
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
     DLLLOCAL AbstractQoreNode *select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
@@ -212,6 +212,7 @@ public:
     DLLLOCAL AbstractQoreNode *execRaw(const QoreString *cmd, ExceptionSink *xsink);
 #endif
     DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+    DLLLOCAL AbstractQoreNode *exec_row(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
     // returns true if the server is still reachable on the connection, false if not
     DLLLOCAL bool ping() const;

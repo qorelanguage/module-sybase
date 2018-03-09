@@ -6,7 +6,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2003 - 2015 Qore Technologies, sro
+  Copyright (C) 2003 - 2018 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -206,15 +206,12 @@ static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, c
    END_CALLBACK(0);
 }
 
-/*
 static AbstractQoreNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    return conn->exec_row(qstr, args, xsink);
-   //return conn->exec_rows(qstr, args, xsink);
    END_CALLBACK(0);
 }
-*/
 
 static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
@@ -314,11 +311,10 @@ QoreStringNode *sybase_module_init() {
    methods.add(QDBI_METHOD_OPEN, sybase_open);
    methods.add(QDBI_METHOD_CLOSE, sybase_close);
    methods.add(QDBI_METHOD_SELECT, sybase_select);
+   methods.add(QDBI_METHOD_SELECT_ROW, sybase_select_row);
    methods.add(QDBI_METHOD_SELECT_ROWS, sybase_select_rows);
    methods.add(QDBI_METHOD_EXEC, sybase_exec);
-#ifdef _QORE_HAS_DBI_EXECRAW
    methods.add(QDBI_METHOD_EXECRAW, sybase_execRaw);
-#endif
    methods.add(QDBI_METHOD_COMMIT, sybase_commit);
    methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
