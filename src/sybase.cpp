@@ -69,18 +69,9 @@ int DBI_SYBASE_CAPS =
    | DBI_CAP_BIND_BY_PLACEHOLDER
    | DBI_CAP_HAS_NUMBER_SUPPORT
    | DBI_CAP_AUTORECONNECT
-#ifdef _QORE_HAS_DBI_EXECRAW
    | DBI_CAP_HAS_EXECRAW
-#endif
-#ifdef _QORE_HAS_DBI_EXECRAW
-   |DBI_CAP_HAS_EXECRAW
-#endif
-#ifdef _QORE_HAS_TIME_ZONES
-   |DBI_CAP_TIME_ZONE_SUPPORT
-#endif
-#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
-   |DBI_CAP_SERVER_TIME_ZONE
-#endif
+   | DBI_CAP_TIME_ZONE_SUPPORT
+   | DBI_CAP_SERVER_TIME_ZONE
    ;
 
 #define BEGIN_CALLBACK \
@@ -206,10 +197,16 @@ static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, c
    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->exec_row(qstr, args, xsink);
+   ReferenceHolder<> holder(conn->exec_row(qstr, args, xsink), xsink);
+   if (get_node_type(*holder) != NT_HASH) {
+      if (!*xsink)
+         xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", get_type_name(*holder));
+      discard(holder.release(), xsink);
+   }
+   return static_cast<QoreHashNode*>(holder.release());
    END_CALLBACK(0);
 }
 
