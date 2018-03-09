@@ -99,7 +99,7 @@ public:
 
     void clear() {
         for (iterator it = begin(); it != end(); ++it) {
-            (*it)->deref(xsink);
+           discard((*it), xsink);
         }
         v.clear();
     }

@@ -7,7 +7,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2016 Qore Technologies s.r.o.
+  Copyright (C) 2007 - 2018 Qore Technologies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -170,7 +170,7 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL void set_params(sybase_query &query, const QoreListNode *args, ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode* readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink);
+    DLLLOCAL AbstractQoreNode* readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink, bool single_row = false);
 
     //DLLLOCAL AbstractQoreNode *read_output(bool list, bool &disconnect, ExceptionSink* xsink);
 
@@ -185,8 +185,8 @@ public:
        return read_cols(placeholder_list, -1, cols, xsink);
     }
 
-    DLLLOCAL AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink);
-    DLLLOCAL AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink);
+    DLLLOCAL AbstractQoreNode *read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, bool single_row = false);
+    DLLLOCAL AbstractQoreNode *read_rows(const Placeholders *placeholder_list, ExceptionSink* xsink, bool single_row = false);
 
     DLLLOCAL void set_placeholders(const Placeholders &ph) {
         query->placeholders = ph;

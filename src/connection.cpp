@@ -6,7 +6,7 @@
 
   Qore Programming Language
 
-  Copyright (C) 2007 - 2016 Qore Technolgoies s.r.o.
+  Copyright (C) 2007 - 2018 Qore Technolgoies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -156,7 +156,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
    }
 }
 
-AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink) {
+AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row) {
    // cancel any active statement
    invalidateStatement();
 
@@ -167,7 +167,7 @@ AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreLis
    ReferenceHolder<AbstractQoreNode> result(xsink);
 
    while (true) {
-      result = cmd->readOutput(*this, *cmd.get(), need_list, connection_reset, cols, xsink);
+      result = cmd->readOutput(*this, *cmd.get(), need_list, connection_reset, cols, xsink, single_row);
       if (*xsink)
          return 0;
 
@@ -329,7 +329,7 @@ AbstractQoreNode *connection::select(const QoreString *cmd, const QoreListNode* 
    if (!query)
       return 0;
 
-   std::auto_ptr<QoreString> tmp(query);
+   std::unique_ptr<QoreString> tmp(query);
    ReferenceHolder<> rv(execReadOutput(query, args, false, true, true, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
@@ -369,6 +369,18 @@ AbstractQoreNode *connection::exec_rows(const QoreString *cmd, const QoreListNod
 
    std::unique_ptr<QoreString> tmp(query);
    ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, false, xsink), xsink);
+   purge_messages(xsink);
+   return rv.release();
+}
+
+AbstractQoreNode *connection::exec_row(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink) {
+   // copy the string here for intrusive editing, convert encoding too if necessary
+   QoreString *query = cmd->convertEncoding(enc, xsink);
+   if (!query)
+      return 0;
+
+   std::unique_ptr<QoreString> tmp(query);
+   ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, false, xsink, true), xsink);
    purge_messages(xsink);
    return rv.release();
 }
