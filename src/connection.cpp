@@ -329,7 +329,7 @@ AbstractQoreNode *connection::select(const QoreString *cmd, const QoreListNode* 
    if (!query)
       return 0;
 
-   std::auto_ptr<QoreString> tmp(query);
+   std::unique_ptr<QoreString> tmp(query);
    ReferenceHolder<> rv(execReadOutput(query, args, false, true, true, xsink), xsink);
    purge_messages(xsink);
    return rv.release();
