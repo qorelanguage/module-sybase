@@ -201,7 +201,8 @@ static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, c
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
    ReferenceHolder<> holder(conn->exec_row(qstr, args, xsink), xsink);
-   if (get_node_type(*holder) != NT_HASH) {
+   qore_type_t nt = get_node_type(*holder);
+   if (nt != NT_HASH && nt != NT_NOTHING) {
       if (!*xsink)
          xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", get_type_name(*holder));
       discard(holder.release(), xsink);
