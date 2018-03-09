@@ -7,7 +7,7 @@
 
   Qore Programming language
 
-  Copyright (C) 2007 - 2016 Qore Technologies s.r.o.
+  Copyright (C) 2007 - 2018 Qore Technologies s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -360,7 +360,7 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
    return RES_ERROR;
 }
 
-AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink) {
+AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink, bool single_row) {
    ReferenceHolder<AbstractQoreNode> qresult(xsink);
 
    ss::ResultFactory rf(xsink);
@@ -370,7 +370,6 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
       if (*xsink || connection_reset)
          return 0;
 
-      //read_next_result(disconnect, xsink);
       switch (rt) {
 	 case RES_ERROR:
 	    return 0;
@@ -384,7 +383,7 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
 	    break;
 
          case RES_ROW:
-	    qresult = read_rows(0, list, cols, xsink);
+	    qresult = read_rows(0, list, cols, xsink, single_row);
 	    rf.add(qresult, list);
 	    break;
 
@@ -412,57 +411,6 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
 	 return 0;
    }
 }
-
-/*
-AbstractQoreNode *command::read_output(bool list, bool &disconnect, ExceptionSink* xsink) {
-   ReferenceHolder<AbstractQoreNode> qresult(xsink);
-
-   ss::ResultFactory rf(xsink);
-
-   for (;;) {
-      ResType rt = read_next_result(disconnect, xsink);
-      switch (rt) {
-	 case RES_ERROR:
-	    return 0;
-
-	 case RES_PARAM:
-	    if (retr_colinfo(xsink))
-               return 0;
-	    qresult = read_rows(&query->placeholders, xsink);
-	    //add_rowcount(*qresult, 1, xsink);
-	    rf.add_params(qresult);
-	    break;
-
-         case RES_ROW:
-	    qresult = read_rows(0, list, xsink);
-	    rf.add(qresult, list);
-	    break;
-
-         case RES_END:
-	    return rf.res();
-
-         case RES_DONE:
-	    rf.done(rowcount);
-	    continue;
-
-         case RES_STATUS:
-            if (retr_colinfo(xsink))
-               return 0;
-
-	    qresult = read_rows(0, list, xsink);
-	    // TODO: check status?
-	    colinfo.set_dirty();
-	    continue;
-
-         default:
-	    m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_results() returned unknown result value %d", rt);
-	    break;
-      }
-      if (*xsink)
-	 return 0;
-   }
-}
-*/
 
 int command::retr_colinfo(ExceptionSink* xsink) {
    unsigned columns = get_column_count(xsink);
@@ -539,14 +487,14 @@ QoreHashNode * command::fetch_row(ExceptionSink* xsink, const Placeholders *ph) 
    return h;
 }
 
-AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsink) {
+AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool single_row) {
    if (ensure_colinfo(xsink)) return 0;
 
    ReferenceHolder<AbstractQoreNode> rv(xsink);
-   QoreListNode *l = 0;
+   QoreListNode *l = nullptr;
    while (fetch_row_into_buffers(xsink)) {
       ReferenceHolder<QoreHashNode> h(output_buffers_to_hash(ph, xsink), xsink);
-      if (*xsink) return 0;
+      if (*xsink) return nullptr;
       if (rv) {
 	 if (!l) {
 	    ReferenceHolder<QoreListNode> lholder(new QoreListNode, xsink);
@@ -554,6 +502,10 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
 	    l->push(rv.release());
 	    rv = lholder.release();
 	 }
+         if (single_row && l->size() == 1) {
+            xsink->raiseException("DBI-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row");
+            return nullptr;
+         }
 	 l->push(h.release());
       }
       else
@@ -562,20 +514,14 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
    return rv.release();
 }
 
-AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink) {
-   if (ensure_colinfo(xsink)) return 0;
+AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, bool single_row) {
+   if (ensure_colinfo(xsink)) return nullptr;
 
    // setup hash of lists if necessary
    if (!list) {
-      if (!placeholder_list) {
-	 return read_cols(0, cols, xsink);
-      }
       return read_cols(placeholder_list, cols, xsink);
    } else {
-      if (!placeholder_list) {
-	 return read_rows(0, xsink);
-      }
-      return read_rows(placeholder_list, xsink);
+      return read_rows(placeholder_list, xsink, single_row);
    }
 }
 

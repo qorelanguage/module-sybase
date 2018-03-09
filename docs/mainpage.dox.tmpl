@@ -211,6 +211,8 @@ exec get_values :string output, :int output");
 
     @subsection sybase_1042 sybase Driver Version 1.0.4.2
     - fixed a build issue where the \c FREETDS environment variable was not respected as documented (<a href="https://github.com/qorelanguage/qore/issues/2017">issue 2017</a>)
+    - fixed a memory error that could result in a crash when a freetds connection is made with the incorrect <tt>tds version</tt> (<a href="https://github.com/qorelanguage/qore/issues/2689">issue 2689</a>)
+    - added support for the selectRow() method (<a href="https://github.com/qorelanguage/qore/issues/2690">issue 2690</a>)
 
     @subsection sybase_1041 sybase Driver Version 1.0.4.1
     <b>New Features and Bug Fixes</b>
