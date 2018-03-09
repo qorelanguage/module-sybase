@@ -360,7 +360,7 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
    return RES_ERROR;
 }
 
-AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink, int max_rows) {
+AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink, bool single_row) {
    ReferenceHolder<AbstractQoreNode> qresult(xsink);
 
    ss::ResultFactory rf(xsink);
@@ -383,7 +383,7 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
 	    break;
 
          case RES_ROW:
-	    qresult = read_rows(0, list, cols, xsink, max_rows);
+	    qresult = read_rows(0, list, cols, xsink, single_row);
 	    rf.add(qresult, list);
 	    break;
 
@@ -487,7 +487,7 @@ QoreHashNode * command::fetch_row(ExceptionSink* xsink, const Placeholders *ph) 
    return h;
 }
 
-AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsink, int max_rows) {
+AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool single_row) {
    if (ensure_colinfo(xsink)) return 0;
 
    ReferenceHolder<AbstractQoreNode> rv(xsink);
@@ -502,7 +502,7 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
 	    l->push(rv.release());
 	    rv = lholder.release();
 	 }
-         if (max_rows > 0 && l->size() == (size_t)max_rows) {
+         if (single_row && l->size() == 1) {
             xsink->raiseException("DBI-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row");
             return nullptr;
          }
@@ -514,14 +514,14 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
    return rv.release();
 }
 
-AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, int max_rows) {
+AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, bool single_row) {
    if (ensure_colinfo(xsink)) return nullptr;
 
    // setup hash of lists if necessary
    if (!list) {
       return read_cols(placeholder_list, cols, xsink);
    } else {
-      return read_rows(placeholder_list, xsink, max_rows);
+      return read_rows(placeholder_list, xsink, single_row);
    }
 }
 

@@ -156,7 +156,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
    }
 }
 
-AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, int max_rows) {
+AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row) {
    // cancel any active statement
    invalidateStatement();
 
@@ -167,7 +167,7 @@ AbstractQoreNode* connection::execReadOutput(QoreString* cmd_text, const QoreLis
    ReferenceHolder<AbstractQoreNode> result(xsink);
 
    while (true) {
-      result = cmd->readOutput(*this, *cmd.get(), need_list, connection_reset, cols, xsink, max_rows);
+      result = cmd->readOutput(*this, *cmd.get(), need_list, connection_reset, cols, xsink, single_row);
       if (*xsink)
          return 0;
 
@@ -380,7 +380,7 @@ AbstractQoreNode *connection::exec_row(const QoreString *cmd, const QoreListNode
       return 0;
 
    std::unique_ptr<QoreString> tmp(query);
-   ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, false, xsink, 1), xsink);
+   ReferenceHolder<> rv(execReadOutput(query, parameters, true, true, false, xsink, true), xsink);
    purge_messages(xsink);
    return rv.release();
 }

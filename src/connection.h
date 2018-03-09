@@ -202,7 +202,7 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int rollback(ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, int max_rows = -1);
+    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row = false);
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
     DLLLOCAL AbstractQoreNode *select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
