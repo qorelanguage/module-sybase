@@ -6,16 +6,18 @@ noinst_HEADERS = src/command.h \
 	src/common_constants.h \
 	src/connection.h \
 	src/conversions.h \
+	src/dbmodulewrap.h \
+	src/emptystatement.h \
 	src/encoding_helpers.h \
+	src/error.h \
+    src/resultfactory.h \
 	src/row_output_buffers.h \
 	src/sybase.h \
 	src/sybase_query.h \
 	src/utils.h \
-	src/dbmodulewrap.h \
-	src/emptystatement.h \
-	src/error.h \
 	src/resultfactory.h \
 	src/row_output_buffers.h \
+    src/statement.h \
 	src/minitest.hpp
 
 EXTRA_DIST = COPYING.MIT COPYING.LGPL AUTHORS README \
