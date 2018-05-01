@@ -24,8 +24,6 @@
 %endif
 %endif
 
-%define rh_compat %(if [ -f /etc/redhat-release ];then cat /etc/redhat-release|sed "s/[^0-9.]*//"|cut -f1 -d.; else echo 0; fi)
-
 # see if we can determine the distribution type
 %if 0%{!?dist:1}
 %define rh_dist %(if [ -f /etc/redhat-release ];then cat /etc/redhat-release|sed "s/[^0-9.]*//"|cut -f1 -d.;fi)
@@ -92,11 +90,6 @@ BuildRequires: libfreetds-devel
 %endif
 %else
 BuildRequires: freetds-devel
-%endif
-%if 0%{?rh_compat:1}
-BuildRequires: nettle-devel
-BuildRequires: gmp-devel
-BuildRequires: gnutls-devel
 %endif
 
 %description -n qore-freetds-module
