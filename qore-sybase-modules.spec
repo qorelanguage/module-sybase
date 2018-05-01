@@ -24,11 +24,9 @@
 %endif
 %endif
 
-# try to detect redhat-compatible distros
-%define rh_dist %(if [ -f /etc/redhat-release ];then cat /etc/redhat-release|sed "s/[^0-9.]*//"|cut -f1 -d.;fi)
-
 # see if we can determine the distribution type
 %if 0%{!?dist:1}
+%define rh_dist %(if [ -f /etc/redhat-release ];then cat /etc/redhat-release|sed "s/[^0-9.]*//"|cut -f1 -d.;fi)
 %if 0%{?rh_dist}
 %define dist .rhel%{rh_dist}
 %else
@@ -92,11 +90,6 @@ BuildRequires: libfreetds-devel
 %endif
 %else
 BuildRequires: freetds-devel
-%endif
-%if 0%{?rh_dist:1}
-BuildRequires: nettle-devel
-BuildRequires: gmp-devel
-BuildRequires: gnutls-devel
 %endif
 
 %description -n qore-freetds-module
