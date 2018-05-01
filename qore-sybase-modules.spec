@@ -93,7 +93,7 @@ BuildRequires: libfreetds-devel
 %else
 BuildRequires: freetds-devel
 %endif
-%if 0%{?rh_compat}
+%if 0%{?rh_compat:1}
 BuildRequires: nettle-devel
 BuildRequires: gmp-devel
 BuildRequires: gnutls-devel
