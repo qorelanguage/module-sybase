@@ -1,26 +1,26 @@
 /*
-  sybase.cpp
+    sybase.cpp
 
-  Sybase DB layer for QORE
-  uses Sybase OpenClient C library
+    Sybase DB layer for QORE
+    uses Sybase OpenClient C library
 
-  Qore Programming language
+    Qore Programming language
 
-  Copyright (C) 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright (C) 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include <ctpublic.h>
@@ -85,6 +85,7 @@ int DBI_SYBASE_CAPS =
            }\
       } while(0)
 
+/*
 #ifdef DEBUG
 // exported
 AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
@@ -115,6 +116,7 @@ AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink
    return 0;
 }
 #endif
+*/
 
 static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     BEGIN_CALLBACK;
@@ -212,17 +214,17 @@ static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, c
 }
 
 static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection *conn = (connection*)ds->getPrivateData();
-   AbstractQoreNode* rv = conn->exec_rows(qstr, args, xsink);
-   if (get_node_type(rv) == NT_HASH) {
-      QoreListNode* l = new QoreListNode;
-      l->push(rv);
-      rv = l;
-   }
-   return rv;
-   //return conn->exec_rows(qstr, args, xsink);
-   END_CALLBACK(0);
+    BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    AbstractQoreNode* rv = conn->exec_rows(qstr, args, xsink);
+    if (get_node_type(rv) == NT_HASH) {
+        QoreListNode* l = new QoreListNode(autoTypeInfo);
+        l->push(rv, xsink);
+        rv = l;
+    }
+    return rv;
+    //return conn->exec_rows(qstr, args, xsink);
+    END_CALLBACK(0);
 }
 
 static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
@@ -299,10 +301,12 @@ QoreStringNode *sybase_module_init() {
 
    // init_namespace();
 
+/*
 #ifdef DEBUG
    builtinFunctions.add("runSybaseTests", runSybaseTests, QDOM_DATABASE);
    builtinFunctions.add("runRecentSybaseTests", runRecentSybaseTests, QDOM_DATABASE);
 #endif
+*/
 
    // register driver with DBI subsystem
    qore_dbi_method_list methods;

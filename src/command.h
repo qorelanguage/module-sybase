@@ -1,27 +1,27 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /*
-  command.h
+    command.h
 
-  Sybase DB layer for QORE
-  uses Sybase OpenClient C library
+    Sybase DB layer for QORE
+    uses Sybase OpenClient C library
 
-  Qore Programming language
+    Qore Programming language
 
-  Copyright (C) 2007 - 2018 Qore Technologies s.r.o.
+    Copyright (C) 2007 - 2018 Qore Technologies s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #ifndef SYBASE_COMMAND_H_
@@ -105,8 +105,8 @@ private:
 
     DLLLOCAL int append_buffers_to_list(row_result_t &column_info, row_output_buffers& all_buffers, class QoreHashNode *h, ExceptionSink* xsink);
 
-    DLLLOCAL QoreHashNode *output_buffers_to_hash(const Placeholders *ph, ExceptionSink* xsink);
-    DLLLOCAL AbstractQoreNode *get_node(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
+    DLLLOCAL QoreHashNode* output_buffers_to_hash(const Placeholders* ph, ExceptionSink* xsink);
+    DLLLOCAL QoreValue get_value(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
 
     // call ct_result() once. Takes care of return value
     DLLLOCAL ResType read_next_result1(bool& disconnect, ExceptionSink* xsink);

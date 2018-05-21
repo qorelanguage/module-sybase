@@ -1,26 +1,26 @@
 /*
-  sybase_query.cpp
+    sybase_query.cpp
 
-  Sybase DB layer for QORE
-  uses Sybase OpenClient C library
+    Sybase DB layer for QORE
+    uses Sybase OpenClient C library
 
-  Qore Programming language
+    Qore Programming language
 
-  Copyright (C) 2007 - 2015 Qore Technologies
+    Copyright (C) 2007 - 2018 Qore Technologies
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include <assert.h>
@@ -87,7 +87,7 @@ int sybase_query::init(const QoreString *cmd_text,
            }
            else if (ch == 'd')
            {
-               const AbstractQoreNode *v = args ? args->retrieve_entry(param_list.size()) : 0;
+               QoreValue v = args ? args->retrieveEntry(param_list.size()) : QoreValue();
                tmp.clear();
                DBI_concat_numeric(&tmp, v);
                m_cmd.replace(offset, 2, tmp.getBuffer());
@@ -99,7 +99,7 @@ int sybase_query::init(const QoreString *cmd_text,
            }
            else if (ch == 's')
            {
-               const AbstractQoreNode *v = args ? args->retrieve_entry(param_list.size()) : 0;
+               QoreValue v = args ? args->retrieveEntry(param_list.size()) : QoreValue();
                tmp.clear();
                if (DBI_concat_string(&tmp, v, xsink))
                    return -1;

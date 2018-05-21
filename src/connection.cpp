@@ -1,26 +1,26 @@
 /*
-  sybase_connection.cpp
+    sybase_connection.cpp
 
-  Sybase DB layer for QORE
-  uses Sybase OpenClient C library or FreeTDS's ct-lib
+    Sybase DB layer for QORE
+    uses Sybase OpenClient C library or FreeTDS's ct-lib
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright (C) 2007 - 2018 Qore Technolgoies s.r.o.
+    Copyright (C) 2007 - 2018 Qore Technolgoies s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include <assert.h>
@@ -746,21 +746,23 @@ QoreStringNode *connection::get_client_version(ExceptionSink *xsink) {
    return m_context.get_client_version(xsink);
 }
 
-AbstractQoreNode *connection::get_server_version(ExceptionSink *xsink) {
-   AbstractQoreNode *res = execReadOutput(&ver_str, 0, true, true, false, xsink);
-   if (!res)
-      return 0;
-   assert(res->getType() == NT_HASH);
-   HashIterator hi(reinterpret_cast<QoreHashNode *>(res));
-   hi.next();
-   AbstractQoreNode *rv = hi.takeValueAndDelete();
-   res->deref(xsink);
+AbstractQoreNode* connection::get_server_version(ExceptionSink *xsink) {
+    QoreValue rv;
+    {
+        ReferenceHolder<> res(execReadOutput(&ver_str, 0, true, true, false, xsink), xsink);
+        if (!res)
+            return nullptr;
+        assert(res->getType() == NT_HASH);
+        HashIterator hi(reinterpret_cast<QoreHashNode*>(*res));
+        hi.next();
+        rv = hi.removeKeyValue();
+    }
 
-   QoreStringNode *str = dynamic_cast<QoreStringNode *>(rv);
-   if (str)
-      str->trim_trailing('\n');
+    QoreStringNode* str = rv.getType() == NT_STRING ? rv.get<QoreStringNode>() : nullptr;
+    if (str)
+        str->trim_trailing('\n');
 
-   return rv;
+    return rv.takeNode();
 }
 
 DLLLOCAL int connection::setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
