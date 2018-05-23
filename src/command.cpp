@@ -360,23 +360,23 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
     return RES_ERROR;
 }
 
-AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink, bool single_row) {
-    ReferenceHolder<AbstractQoreNode> qresult(xsink);
+QoreValue command::readOutput(connection& conn, command& cmd, bool list, bool& connection_reset, bool cols, ExceptionSink* xsink, bool single_row) {
+    ValueHolder qresult(xsink);
 
     ss::ResultFactory rf(xsink);
 
     while (true) {
         ResType rt = conn.readNextResult(cmd, connection_reset, xsink);
         if (*xsink || connection_reset)
-            return 0;
+            return QoreValue();
 
         switch (rt) {
             case RES_ERROR:
-                return 0;
+                return QoreValue();
 
             case RES_PARAM:
                 if (retr_colinfo(xsink))
-                    return 0;
+                    return QoreValue();
                 qresult = read_rows(&query->placeholders, xsink);
                 //add_rowcount(*qresult, 1, xsink);
                 rf.add_params(qresult);
@@ -396,7 +396,7 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
 
             case RES_STATUS:
                 if (retr_colinfo(xsink))
-                    return 0;
+                    return QoreValue();
 
                 qresult = read_rows(0, list, false, xsink);
                 // TODO: check status?
@@ -408,7 +408,7 @@ AbstractQoreNode* command::readOutput(connection& conn, command& cmd, bool list,
                 break;
         }
         if (*xsink)
-            return 0;
+            return QoreValue();
     }
 }
 
@@ -487,14 +487,14 @@ QoreHashNode* command::fetch_row(ExceptionSink* xsink, const Placeholders *ph) {
     return h;
 }
 
-AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool single_row) {
-    if (ensure_colinfo(xsink)) return 0;
+QoreValue command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool single_row) {
+    if (ensure_colinfo(xsink)) return QoreValue();
 
     ReferenceHolder<AbstractQoreNode> rv(xsink);
     QoreListNode *l = nullptr;
     while (fetch_row_into_buffers(xsink)) {
         ReferenceHolder<QoreHashNode> h(output_buffers_to_hash(ph, xsink), xsink);
-        if (*xsink) return nullptr;
+        if (*xsink) return QoreValue();
         if (rv) {
             if (!l) {
                 ReferenceHolder<QoreListNode> lholder(new QoreListNode(autoTypeInfo), xsink);
@@ -504,7 +504,7 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
             }
             if (single_row && l->size() == 1) {
                 xsink->raiseException("DBI-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row");
-                return nullptr;
+                return QoreValue();
             }
             l->push(h.release(), xsink);
         }
@@ -514,8 +514,8 @@ AbstractQoreNode *command::read_rows(const Placeholders *ph, ExceptionSink* xsin
     return rv.release();
 }
 
-AbstractQoreNode *command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, bool single_row) {
-   if (ensure_colinfo(xsink)) return nullptr;
+QoreValue command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, bool single_row) {
+   if (ensure_colinfo(xsink)) return QoreValue();
 
    // setup hash of lists if necessary
    if (!list) {
@@ -703,42 +703,42 @@ static inline bool need_trim(const CS_DATAFMT_EX& datafmt) {
    return false;
 }
 
-AbstractQoreNode* command::getNumber(const char* str, size_t len) {
-   assert(!str[len]);
-   int nf = m_conn.getNumeric();
+QoreValue command::getNumber(const char* str, size_t len) {
+    assert(!str[len]);
+    int nf = m_conn.getNumeric();
 
-   assert(nf != connection::OPT_NUM_STRING);
+    assert(nf != connection::OPT_NUM_STRING);
 
-   // trim off trailing zeros after the decimal in any case
-   bool has_decimal = (bool)strchr(str, '.');
-   if (has_decimal) {
-      char* c = (char*)str;
-      // trim off trailing zeros
-      while (len && c[len - 1] == '0') {
-         --len;
-         c[len] = '\0';
-      }
-      if (c[len - 1] == '.') {
-         --len;
-         c[len] = '\0';
-         has_decimal = false;
-      }
-   }
-   //printf("num: '%s' has_dec: %d\n", str, has_decimal);
+    // trim off trailing zeros after the decimal in any case
+    bool has_decimal = (bool)strchr(str, '.');
+    if (has_decimal) {
+        char* c = (char*)str;
+        // trim off trailing zeros
+        while (len && c[len - 1] == '0') {
+            --len;
+            c[len] = '\0';
+        }
+        if (c[len - 1] == '.') {
+            --len;
+            c[len] = '\0';
+            has_decimal = false;
+        }
+    }
+    //printf("num: '%s' has_dec: %d\n", str, has_decimal);
 
-   if (nf == connection::OPT_NUM_OPTIMAL && !has_decimal) {
-      bool sign = str[0] == '-';
-      if (sign)
-         --len;
-      if (!strchr(str, '.')
-          && (len < 19
-              || (len == 19 &&
-                  ((!sign && strcmp(str, "9223372036854775807") <= 0)
-                   ||(sign && strcmp(str, "-9223372036854775808") >= 0)))))
-         return new QoreBigIntNode(strtoll(str, 0, 10));
-   }
+    if (nf == connection::OPT_NUM_OPTIMAL && !has_decimal) {
+        bool sign = str[0] == '-';
+        if (sign)
+            --len;
+        if (!strchr(str, '.')
+            && (len < 19
+                || (len == 19 &&
+                    ((!sign && strcmp(str, "9223372036854775807") <= 0)
+                    ||(sign && strcmp(str, "-9223372036854775808") >= 0)))))
+            return strtoll(str, 0, 10);
+    }
 
-   return new QoreNumberNode(str);
+    return new QoreNumberNode(str);
 }
 
 QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink) {

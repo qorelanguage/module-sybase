@@ -8,8 +8,6 @@
 
 our Datasource ds;
 
-
-
 string tdata = "create table ssyb_table_%s (%s)";
 string tdrop = "drop table ssyb_table_%s";
 
@@ -63,25 +61,25 @@ const Args = (
     "image_f"         : <cafebead>,
     );
 
-const Expect = (
+const Expect = {
     "decimal_f": 500.1231n,
     "real_f": False,
     "date_f": "2007-05-01",
     "time_f": "10:30:01.0000000",
-    );
+};
 
 sub create_syb_tables() {
     foreach string k in (cols.keys()) {
         try {
             string command = sprintf(tdata, k, cols{k});
             ds.exec(command);
-        } catch(h) {}
+        } catch () {}
     }
     ds.commit();
 }
 
 sub drop_syb_tables() {
-    foreach string k in (cols.keys()) {
+    foreach string k in (keys cols) {
         string command = sprintf(tdrop, k);
         try {
             ds.exec(command);
@@ -90,7 +88,7 @@ sub drop_syb_tables() {
     ds.commit();
 }
 
-any sub test_insert(string col, any val) {
+auto sub test_insert(string col, auto val) {
     string itempl = "insert into %s values (%v)";
     string ttempl = "ssyb_table_%s";
 
@@ -99,39 +97,39 @@ any sub test_insert(string col, any val) {
 
     on_exit ds.commit();
     ds.vexec(query, Args{col});
-    any v = ds.selectRow("select %s from %s", col, t){col};
+    auto v = ds.selectRow("select %s from %s", col, t){col};
     return val != False ? v : val;
 }
 
 public class QUnitTest inherits QUnit::Test {
     public {
-	const Blacklist = (
-	    "freetds": ("unitext_f",),
-	    );
+        const Blacklist = {
+            "freetds": ("unitext_f",),
+        };
     }
 
     constructor() : Test("sybase", "1.0") {
-        string addr = getEnv("DB_SYBASE", "freetds:test/test@mssql");
+        string addr = ENV.QORE_DB_CONNSTR_FREETDS ?? getEnv("DB_SYBASE", "freetds:test/test@mssql");
         ds = new Datasource(addr);
         create_syb_tables();
 
-	addTestCase("simple", \test());
+    	addTestCase("simple", \test());
     }
 
     test() {
-	hash h = cols;
-	h -= Blacklist{ds.getDriverName()};
-	map testInsert($1), h.keyIterator();
+        hash h = cols;
+        h -= Blacklist{ds.getDriverName()};
+        map testInsert($1), h.keyIterator();
     }
 
     testInsert(string k) {
         string detail = sprintf("type: %s", k);
-	any val = Expect{k} ?? Args{k};
-	assertEq(val, test_insert(k, val), detail);
+        auto val = Expect{k} ?? Args{k};
+        assertEq(val, test_insert(k, val), detail);
     }
 
     basicTest() {
-        foreach string k in (cols.keys()) {
+        foreach string k in (keys cols)) {
             testInsert(k);
         }
     }

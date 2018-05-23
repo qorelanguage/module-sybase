@@ -1,26 +1,26 @@
 /*
-  sybase_connection.h
+    sybase_connection.h
 
-  Sybase DB layer for QORE
-  uses Sybase OpenClient C library
+    Sybase DB layer for QORE
+    uses Sybase OpenClient C library
 
-  Qore Programming language
+    Qore Programming language
 
-  Copyright (C) 2007 - 2018 Qore Technologies, s.r.o.
+    Copyright (C) 2007 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #ifndef SYBASE_CONNECTION_H_
@@ -202,17 +202,15 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int rollback(ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode* execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row = false);
+    DLLLOCAL QoreValue execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row = false);
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
-    DLLLOCAL AbstractQoreNode *select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+    DLLLOCAL QoreValue select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
-    DLLLOCAL AbstractQoreNode *exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
-#ifdef _QORE_HAS_DBI_EXECRAW
-    DLLLOCAL AbstractQoreNode *execRaw(const QoreString *cmd, ExceptionSink *xsink);
-#endif
-    DLLLOCAL AbstractQoreNode *exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
-    DLLLOCAL AbstractQoreNode *exec_row(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+    DLLLOCAL QoreValue exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+    DLLLOCAL QoreValue execRaw(const QoreString *cmd, ExceptionSink *xsink);
+    DLLLOCAL QoreValue exec_rows(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+    DLLLOCAL QoreValue exec_row(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
 
     // returns true if the server is still reachable on the connection, false if not
     DLLLOCAL bool ping() const;
@@ -251,10 +249,10 @@ public:
     DLLLOCAL const QoreEncoding *getEncoding() const { return enc; }
 
     DLLLOCAL QoreStringNode *get_client_version(ExceptionSink *xsink);
-    DLLLOCAL AbstractQoreNode *get_server_version(ExceptionSink *xsink);
+    DLLLOCAL QoreValue get_server_version(ExceptionSink *xsink);
 
-    DLLLOCAL int setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink);
-    DLLLOCAL AbstractQoreNode* getOption(const char* opt);
+    DLLLOCAL int setOption(const char* opt, QoreValue val, ExceptionSink* xsink);
+    DLLLOCAL QoreValue getOption(const char* opt);
 
     DLLLOCAL int getNumeric() const { return numeric_support; }
 

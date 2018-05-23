@@ -195,34 +195,34 @@ static int sybase_close(Datasource *ds) {
 static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   return conn->select(qstr, args, xsink);
+   return conn->select(qstr, args, xsink).takeNode();
    END_CALLBACK(0);
 }
 
 static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   ReferenceHolder<> holder(conn->exec_row(qstr, args, xsink), xsink);
-   qore_type_t nt = get_node_type(*holder);
+   ValueHolder holder(conn->exec_row(qstr, args, xsink), xsink);
+   qore_type_t nt = holder->getType();
    if (nt != NT_HASH && nt != NT_NOTHING) {
       if (!*xsink)
-         xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", get_type_name(*holder));
-      discard(holder.release(), xsink);
+         xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", holder->getTypeName());
+      holder.release().discard(xsink);
    }
-   return static_cast<QoreHashNode*>(holder.release());
+   return holder ? holder.release().get<QoreHashNode>() : nullptr;
    END_CALLBACK(0);
 }
 
 static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
     BEGIN_CALLBACK;
     connection *conn = (connection*)ds->getPrivateData();
-    AbstractQoreNode* rv = conn->exec_rows(qstr, args, xsink);
-    if (get_node_type(rv) == NT_HASH) {
+    QoreValue rv = conn->exec_rows(qstr, args, xsink);
+    if (rv.getType() == NT_HASH) {
         QoreListNode* l = new QoreListNode(autoTypeInfo);
         l->push(rv, xsink);
         rv = l;
     }
-    return rv;
+    return rv.takeNode();
     //return conn->exec_rows(qstr, args, xsink);
     END_CALLBACK(0);
 }
@@ -230,8 +230,11 @@ static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qs
 static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   AbstractQoreNode* rv = conn->exec(qstr, args, xsink);
-   return rv ? rv : new QoreBigIntNode(0);
+   QoreValue rv = conn->exec(qstr, args, xsink);
+   if (!rv) {
+       rv = 0;
+   }
+   return rv.takeNode();
    END_CALLBACK(0);
 }
 
@@ -239,8 +242,11 @@ static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, con
 static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   AbstractQoreNode* rv = conn->execRaw(qstr, xsink);
-   return rv ? rv : new QoreBigIntNode(0);
+   QoreValue rv = conn->execRaw(qstr, xsink);
+   if (!rv) {
+       rv = 0;
+   }
+   return rv.takeNode();
    END_CALLBACK(0);
 }
 #endif
@@ -272,7 +278,7 @@ static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, Excepti
 static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection* conn = (connection*)ds->getPrivateData();
-   return conn->get_server_version(xsink);
+   return conn->get_server_version(xsink).takeNode();
    END_CALLBACK(0);
 }
 
@@ -286,7 +292,7 @@ static int sybase_opt_set(Datasource* ds, const char* opt, const AbstractQoreNod
 static AbstractQoreNode* sybase_opt_get(const Datasource* ds, const char* opt) {
     try {
         connection *conn = (connection*)ds->getPrivateData();
-        return conn->getOption(opt);
+        return conn->getOption(opt).takeNode();
     } catch (const ss::Error &e) {
         return 0;
     }
