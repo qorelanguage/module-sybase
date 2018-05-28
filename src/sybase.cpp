@@ -282,7 +282,7 @@ static int sybase_opt_set(Datasource* ds, const char* opt, const QoreValue val, 
 static QoreValue sybase_opt_get(const Datasource* ds, const char* opt) {
     try {
         connection *conn = (connection*)ds->getPrivateData();
-        return conn->getOption(opt).takeNode();
+        return conn->getOption(opt);
     } catch (const ss::Error &e) {
         return QoreValue();
     }
