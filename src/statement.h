@@ -16,7 +16,6 @@
 #include <qore/Datasource.h>
 #include <qore/QoreListNode.h>
 #include <qore/QoreHashNode.h>
-#include <qore/QoreValue.h>
 
 #include "connection.h"
 #include "emptystatement.h"
@@ -102,10 +101,9 @@ public:
 
     QoreListNode* fetch_rows(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
         if (checkValid(xsink))
-           return 0;
+            return 0;
         int r = rows;
-        ReferenceHolder<QoreListNode> reslist(xsink);
-        reslist = new QoreListNode;
+        ReferenceHolder<QoreListNode> reslist(new QoreListNode(autoTypeInfo), xsink);
 
         // next was already called once
         do {
@@ -123,7 +121,7 @@ public:
             if (!h)
                continue;
 
-            reslist->push(h.release());
+            reslist->push(h.release(), xsink);
         } while (next(stmt, xsink));
         return reslist.release();
     }

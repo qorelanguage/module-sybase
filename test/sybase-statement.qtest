@@ -52,7 +52,7 @@ public class SybaseStatementTest inherits QUnit::Test {
     }
 
     constructor() : Test("SybaseStatementTest", "1.0") {
-        string connstr = getEnv("DB_SYBASE", "freetds:test/test@mssql");
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? getEnv("DB_SYBASE", "freetds:test/test@mssql");
         ds = new DatasourcePool(connstr);
         create_test_tables();
 

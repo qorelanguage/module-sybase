@@ -1,26 +1,26 @@
 /*
-  sybase.cpp
+    sybase.cpp
 
-  Sybase DB layer for QORE
-  uses Sybase OpenClient C library
+    Sybase DB layer for QORE
+    uses Sybase OpenClient C library
 
-  Qore Programming language
+    Qore Programming language
 
-  Copyright (C) 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright (C) 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include <ctpublic.h>
@@ -51,11 +51,7 @@ DLLEXPORT int qore_module_api_minor = QORE_MODULE_API_MINOR;
 DLLEXPORT qore_module_init_t qore_module_init = sybase_module_init;
 DLLEXPORT qore_module_ns_init_t qore_module_ns_init = sybase_module_ns_init;
 DLLEXPORT qore_module_delete_t qore_module_delete = sybase_module_delete;
-#ifdef _QORE_HAS_QL_MIT
 DLLEXPORT qore_license_t qore_module_license = QL_MIT;
-#else
-DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
-#endif
 DLLEXPORT char qore_module_license_str[] = "MIT";
 static DBIDriver* DBID_SYBASE;
 
@@ -85,6 +81,7 @@ int DBI_SYBASE_CAPS =
            }\
       } while(0)
 
+/*
 #ifdef DEBUG
 // exported
 AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
@@ -115,6 +112,7 @@ AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink
    return 0;
 }
 #endif
+*/
 
 static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     BEGIN_CALLBACK;
@@ -151,11 +149,7 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     if (*xsink)
         return -1;
 
-#ifdef QORE_HAS_DATASOURCE_PORT
     int port = ds->getPort();
-#else
-    int port = 0;
-#endif
 
     if (port && !ds->getHostName()) {
         xsink->raiseException("TDS-CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
@@ -182,66 +176,70 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
 }
 
 static int sybase_close(Datasource *ds) {
-   try {
-       connection* sc = (connection*)ds->getPrivateData();
-       ds->setPrivateData(0);
-       delete sc;
-   } catch (const ss::Error &e) {}
-   return 0;
+    try {
+        connection* sc = (connection*)ds->getPrivateData();
+        ds->setPrivateData(0);
+        delete sc;
+    } catch (const ss::Error &e) {}
+    return 0;
 }
 
-static AbstractQoreNode* sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection *conn = (connection*)ds->getPrivateData();
-   return conn->select(qstr, args, xsink);
-   END_CALLBACK(0);
+static QoreValue sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    return conn->select(qstr, args, xsink);
+    END_CALLBACK(0);
 }
 
 static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
    connection *conn = (connection*)ds->getPrivateData();
-   ReferenceHolder<> holder(conn->exec_row(qstr, args, xsink), xsink);
-   qore_type_t nt = get_node_type(*holder);
+   ValueHolder holder(conn->exec_row(qstr, args, xsink), xsink);
+   qore_type_t nt = holder->getType();
    if (nt != NT_HASH && nt != NT_NOTHING) {
       if (!*xsink)
-         xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", get_type_name(*holder));
-      discard(holder.release(), xsink);
+         xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", holder->getTypeName());
+      holder.release().discard(xsink);
    }
-   return static_cast<QoreHashNode*>(holder.release());
+   return holder ? holder.release().get<QoreHashNode>() : nullptr;
    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection *conn = (connection*)ds->getPrivateData();
-   AbstractQoreNode* rv = conn->exec_rows(qstr, args, xsink);
-   if (get_node_type(rv) == NT_HASH) {
-      QoreListNode* l = new QoreListNode;
-      l->push(rv);
-      rv = l;
-   }
-   return rv;
-   //return conn->exec_rows(qstr, args, xsink);
-   END_CALLBACK(0);
+static QoreValue sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    QoreValue rv = conn->exec_rows(qstr, args, xsink);
+    if (rv.getType() == NT_HASH) {
+        QoreListNode* l = new QoreListNode(autoTypeInfo);
+        l->push(rv, xsink);
+        rv = l;
+    }
+    return rv;
+    //return conn->exec_rows(qstr, args, xsink);
+    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection *conn = (connection*)ds->getPrivateData();
-   AbstractQoreNode* rv = conn->exec(qstr, args, xsink);
-   return rv ? rv : new QoreBigIntNode(0);
-   END_CALLBACK(0);
+static QoreValue sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    QoreValue rv = conn->exec(qstr, args, xsink);
+    if (!rv) {
+        rv = 0;
+    }
+    return rv;
+    END_CALLBACK(0);
 }
 
-#ifdef _QORE_HAS_DBI_EXECRAW
-static AbstractQoreNode* sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection *conn = (connection*)ds->getPrivateData();
-   AbstractQoreNode* rv = conn->execRaw(qstr, xsink);
-   return rv ? rv : new QoreBigIntNode(0);
-   END_CALLBACK(0);
+static QoreValue sybase_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    QoreValue rv = conn->execRaw(qstr, xsink);
+    if (!rv) {
+        rv = 0;
+    }
+    return rv;
+    END_CALLBACK(0);
 }
-#endif
 
 static int sybase_commit(Datasource *ds, ExceptionSink *xsink) {
    BEGIN_CALLBACK;
@@ -257,36 +255,36 @@ static int sybase_rollback(Datasource *ds, ExceptionSink *xsink) {
    END_CALLBACK(0);
 }
 
-static AbstractQoreNode *sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   context m_context(xsink);
-   if (!m_context)
-      return 0;
+static QoreValue sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    context m_context(xsink);
+    if (!m_context)
+        return QoreValue();
 
-   return m_context.get_client_version(xsink);
-   END_CALLBACK(0);
+    return m_context.get_client_version(xsink);
+    END_CALLBACK(0);
 }
 
-static AbstractQoreNode *sybase_get_server_version(Datasource *ds, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection* conn = (connection*)ds->getPrivateData();
-   return conn->get_server_version(xsink);
-   END_CALLBACK(0);
+static QoreValue sybase_get_server_version(Datasource *ds, ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection* conn = (connection*)ds->getPrivateData();
+    return conn->get_server_version(xsink);
+    END_CALLBACK(0);
 }
 
-static int sybase_opt_set(Datasource* ds, const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
-   BEGIN_CALLBACK;
+static int sybase_opt_set(Datasource* ds, const char* opt, const QoreValue val, ExceptionSink* xsink) {
+    BEGIN_CALLBACK;
     connection *conn = (connection*)ds->getPrivateData();
     return conn->setOption(opt, val, xsink);
-   END_CALLBACK(0);
+    END_CALLBACK(0);
 }
 
-static AbstractQoreNode* sybase_opt_get(const Datasource* ds, const char* opt) {
+static QoreValue sybase_opt_get(const Datasource* ds, const char* opt) {
     try {
         connection *conn = (connection*)ds->getPrivateData();
         return conn->getOption(opt);
     } catch (const ss::Error &e) {
-        return 0;
+        return QoreValue();
     }
 }
 
@@ -299,10 +297,12 @@ QoreStringNode *sybase_module_init() {
 
    // init_namespace();
 
+/*
 #ifdef DEBUG
    builtinFunctions.add("runSybaseTests", runSybaseTests, QDOM_DATABASE);
    builtinFunctions.add("runRecentSybaseTests", runRecentSybaseTests, QDOM_DATABASE);
 #endif
+*/
 
    // register driver with DBI subsystem
    qore_dbi_method_list methods;

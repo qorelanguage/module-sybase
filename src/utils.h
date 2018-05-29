@@ -78,12 +78,11 @@ class SafePtr {
 
 
 class RefHolderVector {
-    typedef std::vector<AbstractQoreNode *> Vector;
+    typedef std::vector<QoreValue> Vector;
 public:
     RefHolderVector(ExceptionSink *xsink) :
         xsink(xsink)
     {}
-
 
     typedef Vector::iterator iterator;
     typedef Vector::const_iterator const_iterator;
@@ -99,7 +98,7 @@ public:
 
     void clear() {
         for (iterator it = begin(); it != end(); ++it) {
-           discard((*it), xsink);
+           (*it).discard(xsink);
         }
         v.clear();
     }
@@ -107,15 +106,15 @@ public:
     size_t size() const { return v.size(); }
     bool empty() const { return v.empty(); }
 
-    void push_back(AbstractQoreNode *n) {
+    void push_back(QoreValue n) {
         v.push_back(n);
     }
 
     template<typename Fn>
-    QoreHashNode * release_to_hash(Fn keygen) {
+    QoreHashNode *release_to_hash(Fn keygen) {
         int i = 0;
         ReferenceHolder<QoreHashNode> h(xsink);
-        h = new QoreHashNode;
+        h = new QoreHashNode(autoTypeInfo);
         for (iterator it = begin(); it != end(); ++it) {
             std::string key = keygen(i++);
             h->setKeyValue(key.c_str(), *it, xsink);
@@ -125,10 +124,10 @@ public:
     }
 
     template<typename Fn>
-    AbstractQoreNode * release_smart(Fn keygen) {
-        if (empty()) return 0;
+    QoreValue release_smart(Fn keygen) {
+        if (empty()) return QoreValue();
         if (size() == 1) {
-            AbstractQoreNode *rv = v[0];
+            QoreValue rv = v[0];
             v.clear();
             return rv;
         }
