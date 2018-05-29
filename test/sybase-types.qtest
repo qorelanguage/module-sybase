@@ -129,7 +129,7 @@ public class QUnitTest inherits QUnit::Test {
     }
 
     basicTest() {
-        foreach string k in (keys cols)) {
+        foreach string k in (keys cols) {
             testInsert(k);
         }
     }
