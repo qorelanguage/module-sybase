@@ -111,6 +111,7 @@ public class QUnitTest inherits QUnit::Test {
     constructor() : Test("sybase", "1.0") {
         string addr = ENV.QORE_DB_CONNSTR_FREETDS ?? getEnv("DB_SYBASE", "freetds:test/test@mssql");
         ds = new Datasource(addr);
+        drop_syb_tables();
         create_syb_tables();
 
     	addTestCase("simple", \test());
