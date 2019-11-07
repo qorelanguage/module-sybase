@@ -33,6 +33,17 @@ cd ${MODULE_SRC_DIR}
 make -j${MAKE_JOBS}
 make install
 
+# add freetds.conf file
+echo "
+[global]
+    text size = 64512
+
+[mssql]
+    host = 192.168.20.93
+    port = 1433
+    tds version = 7.2
+" > /etc/freetds.conf
+
 # add Qore user and group
 groupadd -o -g ${QORE_GID} qore
 useradd -o -m -d /home/qore -u ${QORE_UID} -g ${QORE_GID} qore
