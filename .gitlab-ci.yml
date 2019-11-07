@@ -7,7 +7,8 @@ test:
   tags:
     - docker-exec
   variables:
-    QORE_DB_CONNSTR_FREETDS: 'freetds:test/test@mssql'
+    TDSVER: "7.2"
+    QORE_DB_CONNSTR_FREETDS: 'freetds:test/test@mssql%192.168.20.93:1433'
     REPO_NAME: module-sybase
   script:
     - |
