@@ -34,25 +34,23 @@
 #include "qore/DateTimeNode.h"
 
 namespace ss {
-
 class Conversions {
 public:
-   DLLLOCAL Conversions() {}
-   
-   DLLLOCAL int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME& out, ExceptionSink* xsink);
+    DLLLOCAL static int DateTime_to_DATETIME(const DateTime* dt, CS_DATETIME& out, ExceptionSink* xsink);
 
-   DLLLOCAL DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt,
-					   const AbstractQoreZoneInfo *tz = 0);
+    DLLLOCAL static DateTimeNode *TIME_to_DateTime(CS_DATETIME &dt, const AbstractQoreZoneInfo *tz = nullptr);
 
-   DLLLOCAL DateTimeNode* DATETIME_to_DateTime(CS_DATETIME& dt,
-					       const AbstractQoreZoneInfo *tz = 0);
+    DLLLOCAL static DateTimeNode* DATETIME_to_DateTime(CS_DATETIME& dt, const AbstractQoreZoneInfo *tz = nullptr);
 
-   DLLLOCAL DateTimeNode* DATETIME4_to_DateTime(CS_DATETIME4& dt);
+    DLLLOCAL static DateTimeNode* DATETIME4_to_DateTime(CS_DATETIME4& dt);
+
+    DLLLOCAL static DateTimeNode* BIGDATETIME_to_DateTime(uint64_t dt, const AbstractQoreZoneInfo *tz = nullptr);
+
+    DLLLOCAL static DateTimeNode* BIGTIME_to_DateTime(uint64_t dt, const AbstractQoreZoneInfo *tz = nullptr);
+
+    DLLLOCAL static DateTimeNode* DATE_to_DateTime(unsigned dt, const AbstractQoreZoneInfo *tz = nullptr);
 };
-
 } // namespace ss
-
-
 
 #endif
 
