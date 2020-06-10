@@ -7,7 +7,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2018 Qore Technologies s.r.o.
+    Copyright (C) 2007 - 2020 Qore Technologies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -742,122 +742,147 @@ QoreValue command::getNumber(const char* str, size_t len) {
 }
 
 QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink) {
-   if (buffer.indicator == -1) { // SQL NULL
-      return null();
-   }
+    if (buffer.indicator == -1) { // SQL NULL
+        return null();
+    }
 
-   const QoreEncoding *encoding = m_conn.getEncoding();
+    const QoreEncoding *encoding = m_conn.getEncoding();
 
-   switch (datafmt.datatype) {
-      case CS_LONGCHAR_TYPE:
-      case CS_VARCHAR_TYPE:
-      case CS_TEXT_TYPE: {
-         CS_CHAR* value = (CS_CHAR*)(buffer.value);
+    switch (datafmt.datatype) {
+        case CS_LONGCHAR_TYPE:
+        case CS_VARCHAR_TYPE:
+        case CS_TEXT_TYPE: {
+            CS_CHAR* value = (CS_CHAR*)(buffer.value);
 
-         // copy the value to a null-terminated string for processing
-         QoreString tmp((const char*)value, buffer.value_len - 1);
+            // copy the value to a null-terminated string for processing
+            QoreString tmp((const char*)value, buffer.value_len - 1);
 
 #ifdef SYBASE
-         if (need_trim(datafmt))
-            tmp.trim_trailing(' ');
+            if (need_trim(datafmt))
+                tmp.trim_trailing(' ');
 #endif
 
-         if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
-            return getNumber(tmp.c_str(), tmp.size());
+            if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
+                return getNumber(tmp.c_str(), tmp.size());
 
-         size_t len = tmp.size();
-         size_t all = tmp.capacity();
-         return new QoreStringNode(tmp.giveBuffer(), len, all, encoding);
-      }
+            size_t len = tmp.size();
+            size_t all = tmp.capacity();
+            return new QoreStringNode(tmp.giveBuffer(), len, all, encoding);
+        }
 
-      case CS_CHAR_TYPE: {
-         CS_CHAR* value = (CS_CHAR*)(buffer.value);
+        case CS_CHAR_TYPE: {
+            CS_CHAR* value = (CS_CHAR*)(buffer.value);
 
-         // copy the value to a null-terminated string for processing
-         QoreString tmp((const char*)value, buffer.value_len);
-         if (need_trim(datafmt))
-            tmp.trim_trailing(' ');
+            // copy the value to a null-terminated string for processing
+            QoreString tmp((const char*)value, buffer.value_len);
+            if (need_trim(datafmt))
+                tmp.trim_trailing(' ');
 
-         if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
-            return getNumber(tmp.c_str(), tmp.size());
+            if (is_number(datafmt) && m_conn.getNumeric() != connection::OPT_NUM_STRING)
+                return getNumber(tmp.c_str(), tmp.size());
 
-         size_t len = tmp.size();
-         size_t all = tmp.capacity();
-         return new QoreStringNode(tmp.giveBuffer(), len, all, encoding);
-      }
+            size_t len = tmp.size();
+            size_t all = tmp.capacity();
+            return new QoreStringNode(tmp.giveBuffer(), len, all, encoding);
+        }
 
-      case CS_VARBINARY_TYPE:
-      case CS_BINARY_TYPE:
-      case CS_LONGBINARY_TYPE:
-      case CS_IMAGE_TYPE: {
-         CS_BINARY* value = (CS_BINARY*)(buffer.value);
-         int size = buffer.value_len;
-         void* block = malloc(size);
-         if (!block) {
-            xsink->outOfMemory();
-            return 0;
-         }
-         memcpy(block, value, size);
-         return new BinaryNode(block, size);
-      }
+        case CS_VARBINARY_TYPE:
+        case CS_BINARY_TYPE:
+        case CS_LONGBINARY_TYPE:
+        case CS_IMAGE_TYPE: {
+            CS_BINARY* value = (CS_BINARY*)(buffer.value);
+            int size = buffer.value_len;
+            void* block = malloc(size);
+            if (!block) {
+                xsink->outOfMemory();
+                return 0;
+            }
+            memcpy(block, value, size);
+            return new BinaryNode(block, size);
+        }
 
-      case CS_TINYINT_TYPE: {
-         CS_TINYINT* value = (CS_TINYINT*)(buffer.value);
-         return (int64)*value;
-      }
+        case CS_TINYINT_TYPE: {
+            CS_TINYINT* value = (CS_TINYINT*)(buffer.value);
+            return (int64)*value;
+        }
 
-      case CS_SMALLINT_TYPE: {
-         CS_SMALLINT* value = (CS_SMALLINT*)(buffer.value);
-         return (int64)*value;
-      }
+        case CS_SMALLINT_TYPE: {
+            CS_SMALLINT* value = (CS_SMALLINT*)(buffer.value);
+            return (int64)*value;
+        }
 
-      case CS_INT_TYPE: {
-         CS_INT* value = (CS_INT*)(buffer.value);
-         return (int64)*value;
-      }
+        case CS_INT_TYPE: {
+            CS_INT* value = (CS_INT*)(buffer.value);
+            return (int64)*value;
+        }
 
 #ifdef CS_BIGINT_TYPE
-      case CS_BIGINT_TYPE: {
-         int64 *value = (int64 *)(buffer.value);
-         return (int64)*value;
-      }
+        case CS_BIGINT_TYPE: {
+            int64 *value = (int64 *)(buffer.value);
+            return (int64)*value;
+        }
 #endif
 
-      case CS_REAL_TYPE: {
-         CS_REAL* value = (CS_REAL*)(buffer.value);
-         return (double)*value;
-      }
+        case CS_REAL_TYPE: {
+            CS_REAL* value = (CS_REAL*)(buffer.value);
+            return (double)*value;
+        }
 
-      case CS_FLOAT_TYPE: {
-         CS_FLOAT* value = (CS_FLOAT*)(buffer.value);
-         return (double)*value;
-      }
+        case CS_FLOAT_TYPE: {
+            CS_FLOAT* value = (CS_FLOAT*)(buffer.value);
+            return (double)*value;
+        }
 
-      case CS_BIT_TYPE: {
-         CS_BIT* value = (CS_BIT*)(buffer.value);
-         return (*value != 0);
-      }
+        case CS_BIT_TYPE: {
+            CS_BIT* value = (CS_BIT*)(buffer.value);
+            return (*value != 0);
+        }
 
-      case CS_DATETIME_TYPE: {
-         CS_DATETIME* value = (CS_DATETIME*)(buffer.value);
+        case CS_DATETIME_TYPE: {
+            CS_DATETIME* value = (CS_DATETIME*)(buffer.value);
 
-         ss::Conversions conv;
-         // NOTE: can't find a USER_* define for 38!
-         if (datafmt.usertype == 38)
-            return conv.TIME_to_DateTime(*value, m_conn.getTZ());
+            ss::Conversions conv;
+            // NOTE: can't find a USER_* define for 38!
+            if (datafmt.usertype == 38)
+                return conv.TIME_to_DateTime(*value, m_conn.getTZ());
 
-         return conv.DATETIME_to_DateTime(*value, m_conn.getTZ());
-      }
-      case CS_DATETIME4_TYPE: {
-         ss::Conversions conv;
-         CS_DATETIME4* value = (CS_DATETIME4*)(buffer.value);
-         return conv.DATETIME4_to_DateTime(*value);
-      }
+            return conv.DATETIME_to_DateTime(*value, m_conn.getTZ());
+        }
+        case CS_DATETIME4_TYPE: {
+            ss::Conversions conv;
+            CS_DATETIME4* value = (CS_DATETIME4*)(buffer.value);
+            return conv.DATETIME4_to_DateTime(*value);
+        }
 
-      default:
-         xsink->raiseException("TDS-EXEC-EXCEPTION", "Unknown data type %d", (int)datafmt.datatype);
-         return QoreValue();
-   } // switch
+#ifdef CS_BIGDATETIME_TYPE
+        case CS_BIGDATETIME_TYPE: {
+            // number of microseconds after 0000-01-01
+            uint64_t* value = (uint64_t*)(buffer.value);
+            return ss::Conversions::BIGDATETIME_to_DateTime(*value, m_conn.getTZ());
+        }
+#endif
+
+#ifdef CS_BIGTIME_TYPE
+        case CS_BIGTIME_TYPE: {
+            // number of microseconds after the beginning of the day
+            uint64_t* value = (uint64_t*)(buffer.value);
+            return ss::Conversions::BIGTIME_to_DateTime(*value, m_conn.getTZ());
+        }
+#endif
+
+#ifdef CS_DATE_TYPE
+        case CS_DATE_TYPE: {
+            // number of days since 1900-01-01
+            unsigned* value = (unsigned*)(buffer.value);
+            return ss::Conversions::DATE_to_DateTime(*value, m_conn.getTZ());
+
+        }
+#endif
+
+        default:
+            xsink->raiseException("TDS-EXEC-EXCEPTION", "Unknown data type %d", (int)datafmt.datatype);
+            return QoreValue();
+    } // switch
 }
 
 int command::bind_query(std::unique_ptr<sybase_query> &q, const QoreListNode *args, ExceptionSink *xsink) {

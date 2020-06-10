@@ -35,7 +35,7 @@ hash cols = (
 "image_f": "image_f image not null",
 );
 
-const Args = (
+const Args = {
     "varchar_f"       : "varchar",
     "char_f"          : "char",
     "unichar_f"       : "unichar",
@@ -59,13 +59,11 @@ const Args = (
     "binary_f"        : <0badbeef>,
     "varbinary_f"     : <feedface>,
     "image_f"         : <cafebead>,
-    );
+};
 
 const Expect = {
     "decimal_f": 500.1231n,
     "real_f": False,
-    "date_f": "2007-05-01",
-    "time_f": "10:30:01.0000000",
 };
 
 sub create_syb_tables() {

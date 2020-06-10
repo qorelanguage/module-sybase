@@ -45,28 +45,55 @@ namespace ss {
 static const uint32_t SYB_DAYS_TO_EPOCH = 25567;
 static const uint32_t SYB_SECS_TO_EPOCH = (SYB_DAYS_TO_EPOCH * 86400LL);
 
+// number of seconds before the UNIX epoch of 0000-01-01 for CS_BIGDATETIME
+/** this value was determined empirically (rather than calculated) from retrieving date 1970-01-01 00:00:00 +00:00
+    from MS SQL Server
+*/
+static const int64_t YEAR_ZERO_SECS = -62167219200;
 
-DateTimeNode * Conversions::TIME_to_DateTime(CS_DATETIME &dt, const AbstractQoreZoneInfo *tz) {
-   int64 secs = dt.dttime / 300;
+DateTimeNode* Conversions::TIME_to_DateTime(CS_DATETIME& dt, const AbstractQoreZoneInfo* tz) {
+    int64 secs = dt.dttime / 300;
 
-   // use floating point to get more accurate 1/3 s
-   double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
-   DateTimeNode *rv = new DateTimeNode(secs, (int)ts);
-   try { if (tz) rv->setZone(tz); } catch(...) {}
-   return rv;
+    // use floating point to get more accurate 1/3 s
+    double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
+    DateTimeNode* rv = new DateTimeNode(secs, (int)ts);
+    try { if (tz) rv->setZone(tz); } catch(...) {}
+    return rv;
 }
 
-DateTimeNode * Conversions::DATETIME_to_DateTime(CS_DATETIME& dt,
-        const AbstractQoreZoneInfo *tz)
-{
-   int64 secs = dt.dttime / 300;
-   // use floating point to get more accurate 1/3 s
-   double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
-   DateTimeNode *rv = new DateTimeNode(secs + dt.dtdays * 86400ll - SYB_SECS_TO_EPOCH, (int)ts);
-   try { if (tz) rv->setZone(tz); } catch(...) {}
-   return rv;
+DateTimeNode* Conversions::DATETIME_to_DateTime(CS_DATETIME& dt, const AbstractQoreZoneInfo* tz) {
+    int64 secs = dt.dttime / 300;
+    // use floating point to get more accurate 1/3 s
+    double ts = round((double)(dt.dttime - (secs * 300)) * 3.3333333);
+    DateTimeNode* rv = new DateTimeNode(secs + dt.dtdays * 86400ll - SYB_SECS_TO_EPOCH, (int)ts);
+    try { if (tz) rv->setZone(tz); } catch(...) {}
+    return rv;
 }
 
+DateTimeNode* Conversions::BIGDATETIME_to_DateTime(uint64_t dt, const AbstractQoreZoneInfo* tz) {
+    // get seconds
+    uint64_t secs = dt / 1000000;
+    // get microseconds
+    int us = dt - (secs * 1000000);
+    // get seconds from the UNIX epoch
+    secs += YEAR_ZERO_SECS;
+    // we return a date at midnight in the local time zone; not in UTC
+    return DateTimeNode::makeAbsolute(tz, secs, us);
+}
+
+DateTimeNode* Conversions::BIGTIME_to_DateTime(uint64_t dt, const AbstractQoreZoneInfo* tz) {
+    // get seconds
+    uint64_t secs = dt / 1000000;
+    // get microseconds
+    int us = dt - (secs * 1000000);
+    // we return a time in the local time zone; not in UTC
+    return DateTimeNode::makeAbsoluteLocal(tz, secs, us);
+}
+
+DateTimeNode* Conversions::DATE_to_DateTime(unsigned dt, const AbstractQoreZoneInfo* tz) {
+    int64 secs = dt * 60 * 60 * 24 - SYB_SECS_TO_EPOCH;
+    return DateTimeNode::makeAbsoluteLocal(tz, secs, 0);
+}
 
 static int check_epoch(int64 secs, const DateTime &dt, ExceptionSink *xsink) {
    // 9999-12-31 23:59:59 has an epoch offset of: 253402300799 seconds
