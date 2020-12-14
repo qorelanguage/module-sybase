@@ -209,6 +209,8 @@ exec get_values :string output, :int output");
     @section sybasereleasenotes Release Notes
 
     @subsection sybase_1042 sybase Driver Version 1.0.4.2
+    - fixed support for newer freetds versions that return a 2GB size for text columns with MS SQL Server
+      (<a href="https://github.com/qorelanguage/qore/issues/4129">issue 4129</a>)
     - added support for \c BIGDATETIME, \c BIGDATE, and \c BIGTIME columns
       (<a href="https://github.com/qorelanguage/qore/issues/3951">issue 3951</a>)
     - fixed a build issue where the \c FREETDS environment variable was not respected as documented

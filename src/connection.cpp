@@ -6,7 +6,7 @@
 
     Qore Programming Language
 
-    Copyright (C) 2007 - 2018 Qore Technolgoies s.r.o.
+    Copyright (C) 2007 - 2020 Qore Technolgoies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -134,8 +134,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
       if (!raw) {
          if (query->init(cmd_text, args, xsink))
             return 0;
-      }
-      else {
+      } else {
          assert(!args);
          query->init(cmd_text);
       }
@@ -145,12 +144,11 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
 
       try {
          cmd->send(xsink);
-      }
-      catch (const ss::Error& e) {
-	 // if the connection is down and we can reconnect transparently, then we do so
-	 if (!ping() && !closeAndReconnect(xsink, *cmd.get(), true))
-	    continue;
-	 throw;
+      } catch (const ss::Error& e) {
+         // if the connection is down and we can reconnect transparently, then we do so
+         if (!ping() && !closeAndReconnect(xsink, *cmd.get(), true))
+            continue;
+         throw;
       }
       return cmd.release();
    }
@@ -515,6 +513,12 @@ return -1;
     ret = ct_options(m_connection, CS_SET, CS_OPT_CHAINXACTS, &cs_bool, CS_UNUSED, 0);
     if (ret != CS_SUCCEED)
         do_exception(xsink, "TDS-INIT-ERROR", "ct_options(CS_OPT_CHAINXACTS) failed");
+
+    // returns up to 1MB images or text values
+    CS_INT cs_size = 1024 * 1024;
+    ret = ct_options(m_connection, CS_SET, CS_OPT_TEXTSIZE, &cs_size, CS_UNUSED, 0);
+    if (ret != CS_SUCCEED)
+        do_exception(xsink, "TDS-INIT-ERROR", "ct_options(CS_OPT_TEXTSIZE) failed");
 
     // Set default type of string representation of DATETIME to long (like Jan 1 1990 12:32:55:0000 PM)
     // Without this some routines in conversions.cpp would fail.
