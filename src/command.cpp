@@ -79,7 +79,7 @@ void command::send(ExceptionSink *xsink) {
    }
 }
 
-void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsink) {
+void command::initiate_language_command(const char* cmd_text, ExceptionSink* xsink) {
    assert(cmd_text && cmd_text[0]);
    CS_RETCODE err = ct_command(m_cmd, CS_LANG_CMD, (CS_CHAR*)cmd_text, CS_NULLTERM, CS_UNUSED);
    if (err != CS_SUCCEED) {
@@ -87,23 +87,27 @@ void command::initiate_language_command(const char *cmd_text, ExceptionSink *xsi
    }
 }
 
-bool command::fetch_row_into_buffers(ExceptionSink *xsink) {
+bool command::fetch_row_into_buffers(ExceptionSink* xsink) {
    CS_INT rows_read;
    CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
-   //printd(5, "command::fetch_row_into_buffers() err: %d (CS_END_DATA: %d)\n", err, CS_END_DATA);
-   if (err == CS_SUCCEED) {
-      if (rows_read != 1) {
-         m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
-      }
-      return true;
-   }
-   if (err == CS_END_DATA) {
-      // all data read, we can continue reading results
-      lastRes = RES_NONE;
-      return false;
-   }
-   m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION", "ct_fetch() returned errno %d", (int)err);
-   return false;
+    //printd(5, "command::fetch_row_into_buffers() err: %d (CS_END_DATA: %d)\n", err, CS_END_DATA);
+    if (err == CS_SUCCEED) {
+        if (rows_read != 1) {
+            m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_fetch() returned %d rows (expected 1)", (int)rows_read);
+        }
+        return true;
+    }
+    if (err == CS_END_DATA) {
+        // all data read, we can continue reading results
+        lastRes = RES_NONE;
+        return false;
+    }
+    if (err == CS_ROW_FAIL) {
+        m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION", "ct_fetch() returned CS_ROW_FAIL; %d rows read", (int)rows_read);
+    } else {
+        m_conn.do_exception(xsink, "TDS-EXEC-EXCEPTION", "ct_fetch() returned errno %d", (int)err);
+    }
+    return false;
 }
 
 unsigned command::get_column_count(ExceptionSink* xsink) {

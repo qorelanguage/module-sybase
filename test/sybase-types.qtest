@@ -11,29 +11,29 @@ our Datasource ds;
 string tdata = "create table ssyb_table_%s (%s)";
 string tdrop = "drop table ssyb_table_%s";
 
-hash cols = (
-"varchar_f": "varchar_f varchar(40) not null",
-"char_f": "char_f char(40) not null",
-"text_f": "text_f text not null",
-"unitext_f": "unitext_f unitext not null",
-"bit_f": "bit_f bit not null",
-"tinyint_f": "tinyint_f tinyint not null",
-"smallint_f": "smallint_f smallint not null",
-"int_f": "int_f int not null",
-"int_f2": "int_f2 int not null",
-"decimal_f": "decimal_f decimal(10,4) not null",
-"float_f": "float_f float not null",
-"real_f": "real_f real not null",
-"money_f": "money_f money not null",
-"smallmoney_f": "smallmoney_f smallmoney not null",
-"date_f": "date_f date not null",
-"time_f": "time_f time not null",
-"datetime_f": "datetime_f datetime not null",
-"smalldatetime_f": "smalldatetime_f smalldatetime not null",
-"binary_f": "binary_f binary(4) not null",
-"varbinary_f": "varbinary_f varbinary(4) not null",
-"image_f": "image_f image not null",
-);
+hash<auto> cols = {
+    "varchar_f": "varchar_f varchar(40) not null",
+    "char_f": "char_f char(40) not null",
+    "text_f": "text_f text not null",
+    "unitext_f": "unitext_f unitext not null",
+    "bit_f": "bit_f bit not null",
+    "tinyint_f": "tinyint_f tinyint not null",
+    "smallint_f": "smallint_f smallint not null",
+    "int_f": "int_f int not null",
+    "int_f2": "int_f2 int not null",
+    "decimal_f": "decimal_f decimal(10,4) not null",
+    "float_f": "float_f float not null",
+    "real_f": "real_f real not null",
+    "money_f": "money_f money not null",
+    "smallmoney_f": "smallmoney_f smallmoney not null",
+    "date_f": "date_f date not null",
+    "time_f": "time_f time not null",
+    "datetime_f": "datetime_f datetime not null",
+    "smalldatetime_f": "smalldatetime_f smalldatetime not null",
+    "binary_f": "binary_f binary(4) not null",
+    "varbinary_f": "varbinary_f varbinary(4) not null",
+    "image_f": "image_f image not null",
+};
 
 const Args = {
     "varchar_f"       : "varchar",
