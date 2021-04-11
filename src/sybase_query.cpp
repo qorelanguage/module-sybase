@@ -70,57 +70,47 @@ int sybase_query::init(const QoreString *cmd_text,
            }
        }
 
-       if (ch == '%')
-       {
+       if (ch == '%') {
            int offset = s - m_cmd.getBuffer() - 1;
            ch = *s++;
-           if (ch == 'v')
-           {
+           if (ch == 'v') {
                param_list.push_back('v');
                //param_list.resize(count + 1);
                //param_list[count++].set(PN_VALUE);
 
                tmp.clear();
                tmp.sprintf("@par%u", param_list.size());
-               m_cmd.replace(offset, 2, &tmp);
+               m_cmd.replace(offset, 2, tmp.c_str());
                s = m_cmd.getBuffer() + offset + tmp.strlen();
-           }
-           else if (ch == 'd')
-           {
+           } else if (ch == 'd') {
                QoreValue v = args ? args->retrieveEntry(param_list.size()) : QoreValue();
                tmp.clear();
                DBI_concat_numeric(&tmp, v);
-               m_cmd.replace(offset, 2, tmp.getBuffer());
+               m_cmd.replace(offset, 2, tmp.c_str());
                s = m_cmd.getBuffer() + offset + tmp.strlen();
 
                param_list.push_back('d');
                //param_list.resize(count + 1);
                //param_list[count++].set(PN_NUMERIC);
-           }
-           else if (ch == 's')
-           {
+           } else if (ch == 's') {
                QoreValue v = args ? args->retrieveEntry(param_list.size()) : QoreValue();
                tmp.clear();
                if (DBI_concat_string(&tmp, v, xsink))
                    return -1;
-               m_cmd.replace(offset, 2, tmp.getBuffer());
+               m_cmd.replace(offset, 2, tmp.c_str());
                s = m_cmd.getBuffer() + offset + tmp.strlen();
 
                // mark it with a 'd' to ensure it gets skipped
                param_list.push_back('d');
                //param_list.resize(count + 1);
                //param_list[count++].set(PN_NUMERIC);
-           }
-           else
-           {
+           } else {
                xsink->raiseException("DBI-EXEC-EXCEPTION",
                        "Only %%v or %%d expected in parameter list");
                return -1;
            }
-       }
-       // read placeholder name
-       else if (ch == ':')
-       {
+       } else if (ch == ':') {
+           // read placeholder name
            int offset = s - m_cmd.getBuffer() - 1;
 
            const char* placeholder_start = s;
