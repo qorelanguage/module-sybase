@@ -6,7 +6,7 @@
 
     Qore Programming Language
 
-    Copyright (C) 2007 - 2020 Qore Technolgoies s.r.o.
+    Copyright (C) 2007 - 2022 Qore Technolgoies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -666,32 +666,32 @@ void connection::do_check_exception(ExceptionSink *xsink, bool check, const char
 }
 
 void connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...) {
-   SimpleRefHolder<QoreStringNode> estr(new QoreStringNode);
-   va_list args;
-   while (fmt) {
-      va_start(args, fmt);
-      int rc = estr->vsprintf(fmt, args);
-      va_end(args);
-      if (!rc) {
-         estr->concat(": ");
-         break;
-      }
-   }
-   do_check_exception(xsink, check, err, *estr);
+    SimpleRefHolder<QoreStringNode> estr(new QoreStringNode);
+    va_list args;
+    while (fmt) {
+        va_start(args, fmt);
+        int rc = estr->vsprintf(fmt, args);
+        va_end(args);
+        if (!rc) {
+            estr->concat(": ");
+            break;
+        }
+    }
+    do_check_exception(xsink, check, err, *estr);
 }
 
 void connection::do_exception(ExceptionSink *xsink, const char *err, const char *fmt, ...) {
-   SimpleRefHolder<QoreStringNode> estr(new QoreStringNode);
-   va_list args;
-   while (fmt) {
-      va_start(args, fmt);
-      int rc = estr->vsprintf(fmt, args);
-      va_end(args);
-      if (!rc)
-         break;
-   }
-   estr->concat(": ");
-   do_check_exception(xsink, false, err, *estr);
+    SimpleRefHolder<QoreStringNode> estr(new QoreStringNode);
+    va_list args;
+    while (fmt) {
+        va_start(args, fmt);
+        int rc = estr->vsprintf(fmt, args);
+        va_end(args);
+        if (!rc)
+            break;
+    }
+    estr->concat(": ");
+    do_check_exception(xsink, false, err, *estr);
 }
 
 /*
@@ -794,6 +794,11 @@ DLLLOCAL int connection::setOption(const char* opt, QoreValue val, ExceptionSink
         return 0;
     }
 
+    if (!strcasecmp(opt, SYBASE_OPT_OPTIMIZED_DATE_BINDS)) {
+        optimized_date_binds = true;
+        return 0;
+    }
+
     assert(false);
     return 0;
 }
@@ -815,11 +820,14 @@ DLLLOCAL QoreValue connection::getOption(const char* opt) {
         return new QoreStringNode(tz_get_region_name(getTZ()));
     }
 
+    if (!strcasecmp(opt, SYBASE_OPT_OPTIMIZED_DATE_BINDS)) {
+        return optimized_date_binds;
+    }
+
     assert(false);
     return QoreValue();
 }
 
 DLLLOCAL const AbstractQoreZoneInfo* connection::getTZ() const {
-    if (server_tz) return server_tz;
-    return currentTZ();
+    return server_tz ? server_tz : currentTZ();
 }

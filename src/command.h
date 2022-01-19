@@ -7,7 +7,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2018 Qore Technologies s.r.o.
+    Copyright (C) 2007 - 2022 Qore Technologies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -80,48 +80,6 @@ public:
         RES_CANCELED,
     };
 
-private:
-    ss::SafePtr<sybase_query> query;
-
-    connection& m_conn;
-    CS_COMMAND* m_cmd;
-    CS_INT rowcount;
-    ResType lastRes;
-
-    Columns colinfo;
-    row_output_buffers out_buffers;
-
-    DLLLOCAL int retr_colinfo(ExceptionSink* xsink);
-
-    DLLLOCAL int ensure_colinfo(ExceptionSink* xsink) {
-        if (!colinfo.need_refresh())
-        return 0;
-        return retr_colinfo(xsink);
-    }
-
-    // returns 0=OK, -1=error (exception raised)
-    DLLLOCAL int get_row_description(row_result_t &result, unsigned column_count, class ExceptionSink *xsink);
-    DLLLOCAL int setup_output_buffers(const row_result_t &input_row_descriptions, class ExceptionSink *xsink);
-
-    DLLLOCAL int append_buffers_to_list(row_result_t &column_info, row_output_buffers& all_buffers, class QoreHashNode *h, ExceptionSink* xsink);
-
-    DLLLOCAL QoreHashNode* output_buffers_to_hash(const Placeholders* ph, ExceptionSink* xsink);
-    DLLLOCAL QoreValue get_value(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
-
-    // call ct_result() once. Takes care of return value
-    DLLLOCAL ResType read_next_result1(bool& disconnect, ExceptionSink* xsink);
-
-    // returns -1 if the cancel failed and the connection should be disconnected, 0 = OK
-    DLLLOCAL int cancelIntern() {
-        assert(m_cmd);
-        return ct_cancel(0, m_cmd, CS_CANCEL_ALL) == CS_FAIL ? -1 : 0;
-    }
-
-    DLLLOCAL QoreValue getNumber(const char* str, size_t len);
-
-    DLLLOCAL void setupColumns(QoreHashNode& h, const Placeholders *ph);
-
-public:
     DLLLOCAL ResType read_next_result(bool& disconnect, ExceptionSink* xsink) {
         /**
         Can't ask for result if rastRes==:
@@ -193,6 +151,47 @@ public:
     DLLLOCAL int bind_query(std::unique_ptr<sybase_query> &query,
                             const QoreListNode *args,
                             ExceptionSink*);
+
+private:
+    ss::SafePtr<sybase_query> query;
+
+    connection& m_conn;
+    CS_COMMAND* m_cmd;
+    CS_INT rowcount;
+    ResType lastRes;
+
+    Columns colinfo;
+    row_output_buffers out_buffers;
+
+    DLLLOCAL int retr_colinfo(ExceptionSink* xsink);
+
+    DLLLOCAL int ensure_colinfo(ExceptionSink* xsink) {
+        if (!colinfo.need_refresh())
+        return 0;
+        return retr_colinfo(xsink);
+    }
+
+    // returns 0=OK, -1=error (exception raised)
+    DLLLOCAL int get_row_description(row_result_t &result, unsigned column_count, class ExceptionSink *xsink);
+    DLLLOCAL int setup_output_buffers(const row_result_t &input_row_descriptions, class ExceptionSink *xsink);
+
+    DLLLOCAL int append_buffers_to_list(row_result_t &column_info, row_output_buffers& all_buffers, class QoreHashNode *h, ExceptionSink* xsink);
+
+    DLLLOCAL QoreHashNode* output_buffers_to_hash(const Placeholders* ph, ExceptionSink* xsink);
+    DLLLOCAL QoreValue get_value(const CS_DATAFMT_EX& datafmt, const output_value_buffer& buffer, ExceptionSink* xsink);
+
+    // call ct_result() once. Takes care of return value
+    DLLLOCAL ResType read_next_result1(bool& disconnect, ExceptionSink* xsink);
+
+    // returns -1 if the cancel failed and the connection should be disconnected, 0 = OK
+    DLLLOCAL int cancelIntern() {
+        assert(m_cmd);
+        return ct_cancel(0, m_cmd, CS_CANCEL_ALL) == CS_FAIL ? -1 : 0;
+    }
+
+    DLLLOCAL QoreValue getNumber(const char* str, size_t len);
+
+    DLLLOCAL void setupColumns(QoreHashNode& h, const Placeholders *ph);
 };
 
 

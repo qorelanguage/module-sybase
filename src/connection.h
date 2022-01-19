@@ -6,7 +6,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2018 Qore Technologies, s.r.o.
+    Copyright (C) 2007 - 2022 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -57,121 +57,102 @@ class AbstractQoreZoneInfo;
 typedef ss::DBModuleWrap<ss::Statement>::ModuleWrap stmt_t;
 
 class context {
-   private:
-      CS_CONTEXT *m_context;
+private:
+    CS_CONTEXT *m_context;
 
-      DLLLOCAL void del() {
-         //printd(5, "context::del() this=%p deleting %p\n", this, m_context);
+    DLLLOCAL void del() {
+        //printd(5, "context::del() this=%p deleting %p\n", this, m_context);
 
-         CS_RETCODE ret;
+        CS_RETCODE ret;
 #ifdef SYBASE
-         {
+        {
             AutoLocker al(ct_lock);
 #endif
             ret = ct_exit(m_context, CS_UNUSED);
 #ifdef SYBASE
-         }
+        }
 #endif
-         if (ret != CS_SUCCEED) {
+        if (ret != CS_SUCCEED) {
 #ifdef SYBASE
             {
-               AutoLocker al(ct_lock);
+                AutoLocker al(ct_lock);
 #endif
-               ret = ct_exit(m_context, CS_FORCE_EXIT);
+                ret = ct_exit(m_context, CS_FORCE_EXIT);
 #ifdef SYBASE
             }
 #endif
             assert(ret == CS_SUCCEED);
-         }
+        }
 #ifdef SYBASE
-         AutoLocker al(cs_lock);
+        AutoLocker al(cs_lock);
 #endif
-         ret = cs_ctx_drop(m_context);
-         assert(ret == CS_SUCCEED);
-      }
+        ret = cs_ctx_drop(m_context);
+        assert(ret == CS_SUCCEED);
+    }
 
-   public:
-      DLLLOCAL context(ExceptionSink *xsink) {
-         CS_RETCODE ret;
+public:
+    DLLLOCAL context(ExceptionSink *xsink) {
+        CS_RETCODE ret;
 
 #ifdef SYBASE
-         {
+        {
             AutoLocker al(cs_lock);
 #endif
             ret = cs_ctx_alloc(CS_VERSION_100, &m_context);
 #ifdef SYBASE
-         }
+        }
 #endif
          if (ret != CS_SUCCEED) {
             xsink->raiseException("TDS-CT-LIB-CANNOT-ALLOCATE-ERROR", "cs_ctx_alloc() failed with error %d", ret);
             return;
-         }
+        }
 
 #ifdef SYBASE
-         {
+        {
             AutoLocker al(ct_lock);
 #endif
             ret = ct_init(m_context, CS_VERSION_100);
 #ifdef SYBASE
-         }
+        }
 #endif
-         if (ret != CS_SUCCEED) {
+        if (ret != CS_SUCCEED) {
             del();
             xsink->raiseException("TDS-CT-LIB-INIT-FAILED", "ct_init() failed with error %d", ret);
             return;
-         }
-         //printd(5, "context::context() this=%p m_context=%p\n", this, m_context);
-      }
+        }
+        //printd(5, "context::context() this=%p m_context=%p\n", this, m_context);
+    }
 
-      DLLLOCAL ~context() {
-         if (m_context)
+    DLLLOCAL ~context() {
+        if (m_context)
             del();
-      }
+    }
 
-      DLLLOCAL operator bool() const {
-         return (bool)m_context;
-      }
+    DLLLOCAL operator bool() const {
+        return (bool)m_context;
+    }
 
-      DLLLOCAL CS_CONTEXT *get_context() { return m_context; }
+    DLLLOCAL CS_CONTEXT* get_context() { return m_context; }
 
-      DLLLOCAL QoreStringNode *get_client_version(ExceptionSink *xsink) {
-         char *buf = (char *)malloc(sizeof(char) * CLIENT_VER_LEN);
-         CS_INT olen = 0;
-         CS_RETCODE ret = ct_config(m_context, CS_GET, CS_VER_STRING, buf, CLIENT_VER_LEN, &olen);
-         //printd(5, "olen=%d, ret=%d\n", olen, ret);
-         if (ret != CS_SUCCEED) {
+    DLLLOCAL QoreStringNode* get_client_version(ExceptionSink *xsink) {
+        char *buf = (char *)malloc(sizeof(char) * CLIENT_VER_LEN);
+        CS_INT olen = 0;
+        CS_RETCODE ret = ct_config(m_context, CS_GET, CS_VER_STRING, buf, CLIENT_VER_LEN, &olen);
+        //printd(5, "olen=%d, ret=%d\n", olen, ret);
+        if (ret != CS_SUCCEED) {
             free(buf);
             xsink->raiseException("TDS-GET-CLIENT-VERSION-ERROR", "ct_config(CS_VER_STRING) failed with error %d", (int)ret);
-            return 0;
-         }
-         //printd(5, "client version=%s (olen=%d, strlen=%d)\n", buf, olen, strlen(buf));
-         return new QoreStringNode(buf, olen - 1, CLIENT_VER_LEN, QCS_DEFAULT);
-      }
+            return nullptr;
+        }
+        //printd(5, "client version=%s (olen=%d, strlen=%d)\n", buf, olen, strlen(buf));
+        return new QoreStringNode(buf, olen - 1, CLIENT_VER_LEN, QCS_DEFAULT);
+    }
 };
 
 // Instantiated class is kept as private data of the Datasource
 // for the time the Datasource exists. All other Sybase
 // resources are shortlived (including CS_COMMAND* and its wrapper).
 class connection {
-private:
-    context m_context;
-    CS_CONNECTION* m_connection;
-    bool connected;
-    const QoreEncoding *enc;
-    Datasource *ds;
-    int numeric_support;
-    const AbstractQoreZoneInfo* server_tz;
-
-    stmt_t* stmt;
-
-    // returns -1 if an exception was thrown, 0 if all errors were ignored
-    DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
-    // returns -1 if an exception was thrown, 0 if all errors were ignored
-    DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
-
-    // returns 0 if reconnected without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
-    DLLLOCAL int closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect = true);
-
 public:
     static const int OPT_NUM_OPTIMAL = 0;
     static const int OPT_NUM_STRING = 1;
@@ -217,31 +198,31 @@ public:
 
     // invalidate / close any open statement
     DLLLOCAL void invalidateStatement() {
-       if (stmt) {
-	  stmt->invalidate();
-	  stmt = 0;
-       }
+        if (stmt) {
+            stmt->invalidate();
+            stmt = nullptr;
+        }
     }
 
     DLLLOCAL bool wasConnectionAborted() const {
-       return ds->wasConnectionAborted();
+        return ds->wasConnectionAborted();
     }
 
     DLLLOCAL void registerStatement(stmt_t* n_stmt) {
-       // invalidate any existing statement
-       if (stmt)
-	  stmt->invalidate();
-       stmt = n_stmt;
+        // invalidate any existing statement
+        if (stmt)
+            stmt->invalidate();
+        stmt = n_stmt;
     }
 
 #ifdef DEBUG
-   DLLLOCAL void deregisterStatement(stmt_t* n_stmt) {
-      assert(n_stmt == stmt);
+    DLLLOCAL void deregisterStatement(stmt_t* n_stmt) {
+        assert(n_stmt == stmt);
 #else
-   DLLLOCAL void deregisterStatement() {
+       DLLLOCAL void deregisterStatement() {
 #endif
-      assert(stmt);
-      stmt = 0;
+        assert(stmt);
+        stmt = 0;
     }
 
     DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
@@ -257,7 +238,33 @@ public:
     DLLLOCAL int getNumeric() const { return numeric_support; }
 
     DLLLOCAL const AbstractQoreZoneInfo* getTZ() const;
+
+    DLLLOCAL bool optimizedDateBinds() const {
+        return optimized_date_binds;
+    }
+
+private:
+    context m_context;
+    CS_CONNECTION* m_connection;
+    bool connected;
+    const QoreEncoding *enc;
+    Datasource *ds;
+    int numeric_support;
+    const AbstractQoreZoneInfo* server_tz;
+    bool optimized_date_binds = false;
+
+    stmt_t* stmt;
+
+    // returns -1 if an exception was thrown, 0 if all errors were ignored
+    DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);
+    // returns -1 if an exception was thrown, 0 if all errors were ignored
+    DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, QoreStringNode* estr);
+
+    // returns 0 if reconnected without any errors, -1 if there were errors (transaction in progress, reconnect failed, etc)
+    DLLLOCAL int closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect = true);
 };
+
+constexpr const char* SYBASE_OPT_OPTIMIZED_DATE_BINDS = "optimized-date-binds";
 
 #endif
 

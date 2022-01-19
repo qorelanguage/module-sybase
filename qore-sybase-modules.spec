@@ -36,7 +36,7 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.0.4.2
+Version: 1.1
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -123,6 +123,9 @@ make install DESTDIR=$RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Wed Jan 19 2022 David Nichols <david@qore.org> 1.1
+- updated version to 1.1
+
 * Tue Jul 25 2017 David Nichols <david@qore.org> 1.0.4.2
 - updated version to 1.0.4.2
 
