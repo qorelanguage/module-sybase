@@ -4,15 +4,21 @@
 
     @section sybaseintro Introduction to the sybase and freetds Modules
 
-    Both the \c sybase and \c freetds modules are built from the same sources; this documentation will describe both modules.  They share most of their functionality, but there are differences, both depending on the client libraries used, and according to the database server connected.
+    Both the \c sybase and \c freetds modules are built from the same sources; this documentation will describe both
+    modules.  They share most of their functionality, but there are differences, both depending on the client
+    libraries used, and according to the database server connected.
 
-    The \c sybase and \c freetds modules provide drivers to Qore's DBI system, allowing Qore programs to access Sybase (both modules) databases and Microsoft SQL Server (the \c freetds module) through the @ref Qore::SQL::Datasource "Datasource", @ref Qore::SQL::DatasourcePool "DatasourcePool", and @ref Qore::SQL::SQLStatement "SQLStatement" classes.
+    The \c sybase and \c freetds modules provide drivers to Qore's DBI system, allowing Qore programs to access Sybase
+    (both modules) databases and Microsoft SQL Server (the \c freetds module) through the
+    @ref Qore::SQL::Datasource "Datasource", @ref Qore::SQL::DatasourcePool "DatasourcePool", and
+    @ref Qore::SQL::SQLStatement "SQLStatement" classes.
 
     Both modules are released under a choice of two licenses:
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
     - MIT (see COPYING.MIT in the source distribution for more information)
     .
-    Both modules are tagged as such in the modules' headers (meaning they can be loaded unconditionally regardless of how the %Qore library was initialized).
+    Both modules are tagged as such in the modules' headers (meaning they can be loaded unconditionally regardless of
+    how the %Qore library was initialized).
 
     Example of creating a connection with the \c sybase driver:
     @code{.py}
@@ -41,7 +47,10 @@ Datasource db("freetds:user/pass@dbname(utf8):host:1433");
 
     The driver employs efficient binary bindings for all non-text data types.
 
-    The @ref Qore::SQL::Datasource::getServerVersion() "Datasource::getServerVersion()" and @ref Qore::SQL::Datasource::getClientVersion() "Datasource::getClientVersion()" methods are implemented for both drivers. @ref Qore::SQL::Datasource::getServerVersion() "Datasource::getServerVersion()" returns a string giving server information similar to the following:
+    The @ref Qore::SQL::Datasource::getServerVersion() "Datasource::getServerVersion()" and
+    @ref Qore::SQL::Datasource::getClientVersion() "Datasource::getClientVersion()" methods are implemented for both drivers.
+    @ref Qore::SQL::Datasource::getServerVersion() "Datasource::getServerVersion()" returns a string giving server
+    information similar to the following:
     @verbatim
 Adaptive Server Enterprise/15.0.1/EBF 13827/P/x86_64/Enterprise Linux/ase1501/2379/64-bit/OPT/Mon Aug 14 22:15:25 2006
     @endverbatim
@@ -54,7 +63,8 @@ Microsoft SQL Server 2014 (RTM-CU14) (KB3158271) - 12.0.2569.0 (X64)
 	Express Edition (64-bit) on Windows NT 6.3 <X64> (Build 10586: )
     @endverbatim
 
-    The @ref Qore::SQL::Datasource::getClientVersion() "Datasource::getClientVersion()" returns a string giving version information.  For example, for freetds:
+    The @ref Qore::SQL::Datasource::getClientVersion() "Datasource::getClientVersion()" returns a string giving
+    version information.  For example, for freetds:
     @verbatim
 freetds v1.0 (threadsafe, default tds version=auto)
     @endverbatim
@@ -66,16 +76,36 @@ Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.2
 
     @subsection sybase_statements SQL Statement Execution
 
-    This driver allows all types of statements to be executed through @ref Qore::SQL::Datasource::select() "Datasource::select()", @ref Qore::SQL::Datasource::selectRows() "Datasource::selectRows()", and @ref Qore::SQL::Datasource::exec() "Datasource::exec()" (and related methods), however rules about @ref Qore::SQL::Datasource "Datasource" locking or @ref Qore::SQL::DatasourcePool "DatasourcePool" allocations still apply as usual. If a stored procedure is executed with @ref Qore::SQL::Datasource::selectRows() "Datasource::selectRows()", then any query results returned will be returned in either a hash format (if only one row was returned), or as a list of hashes (for multiple rows).
+    This driver allows all types of statements to be executed through
+    @ref Qore::SQL::Datasource::select() "Datasource::select()",
+    @ref Qore::SQL::Datasource::selectRows() "Datasource::selectRows()", and
+    @ref Qore::SQL::Datasource::exec() "Datasource::exec()" (and related methods), however rules about
+    @ref Qore::SQL::Datasource "Datasource" locking or @ref Qore::SQL::DatasourcePool "DatasourcePool" allocations
+    still apply as usual. If a stored procedure is executed with
+    @ref Qore::SQL::Datasource::selectRows() "Datasource::selectRows()", then any query results returned will be
+    returned in either a hash format (if only one row was returned), or as a list of hashes (for multiple rows).
 
-    The TDS protocol only supports a single active query on a connection at one time, therefore there can be only one @ref Qore::SQL::SQLStatement "SQLStatement" object active at any one time on a single server connection; if additional SQL commands or a new @ref Qore::SQL::SQLStatement "SQLStatement" is executed while another @ref Qore::SQL::SQLStatement "SQLStatement" is active, the existing statement will be canceled before starting the new statement.
+    The TDS protocol only supports a single active query on a connection at one time, therefore there can be only one
+    @ref Qore::SQL::SQLStatement "SQLStatement" object active at any one time on a single server connection; if
+    additional SQL commands or a new @ref Qore::SQL::SQLStatement "SQLStatement" is executed while another
+    @ref Qore::SQL::SQLStatement "SQLStatement" is active, the existing statement will be canceled before starting the
+    new statement.
 
-    Unlike many other Qore DBI drivers, this driver allows and can return results from multiple select statements issued with a single call. Additionally, it's possible for a stored procedure to return output paramters as well as one or more result sets from select statements. The output format for commands like this differs from standard Qore DBI formats as follows:
+    Unlike many other Qore DBI drivers, this driver allows and can return results from multiple select statements
+    issued with a single call. Additionally, it's possible for a stored procedure to return output paramters as well
+    as one or more result sets from select statements. The output format for commands like this differs from standard
+    Qore DBI formats as follows:
 
     |!Query Type|!Result Format
-    |Multiple Selects|A hash is returned with a key giving the results from each select statement. The key names have the format <tt>query</tt><i>#</i>, where \a # is an increasing integer starting with 0.
-    |Return Parameters Only|A hash is returned with keys giving the output parameter values, as long as the placeholder format (ex: \c :name) was used for the output parameters, otherwise the key names in the output will be an increasing integer starting with 0 (i.e. 0, 1, etc). If a count of affected rows is available, it's returned in the \c rowcount key.
-    |Return Parameters and Result Set(s)|As above, but with an addition key: \c query, giving the result set. If multiple result sets are returned, then the \c query key will be a hash with \c query# keys giving the results for each query in order.
+    |Multiple Selects|A hash is returned with a key giving the results from each select statement. The key names \
+        have the format <tt>query</tt><i>#</i>, where \a # is an increasing integer starting with 0.
+    |Return Parameters Only|A hash is returned with keys giving the output parameter values, as long as the \
+        placeholder format (ex: \c :name) was used for the output parameters, otherwise the key names in the output \
+        will be an increasing integer starting with 0 (i.e. 0, 1, etc). If a count of affected rows is available, \
+        it's returned in the \c rowcount key.
+    |Return Parameters and Result Set(s)|As above, but with an addition key: \c query, giving the result set. If \
+        multiple result sets are returned, then the \c query key will be a hash with \c query# keys giving the \
+        results for each query in order.
 
     @section sybaseoptions sybase and freetds Driver Options
 
@@ -83,9 +113,17 @@ Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.2
     - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
     - \c "string-numbers": return numeric types as strings (for backwards-compatibility)
     - \c "numeric-numbers": return numeric types as arbitrary-precision number values
-    - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone; see @ref timezone.
+    - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC
+      offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server
+      in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as
+      the client's time zone; see @ref timezone.
+    - \c "optimized-date-binds": when set, date/time values are bound with full resolution including microseconds,
+      however this will cause any operations with date/time values with microseconds bound for \c DATETIME columns to
+      fail; if this is not set, then date/time values are bound with an approach that works for all columns but gives
+      a maximum of 1/300 second resolution
 
-    Options can be set in the @ref Qore::SQL::Datasource or @ref Qore::SQL::DatasourcePool constructors as in the following examples:
+    Options can be set in the @ref Qore::SQL::Datasource or @ref Qore::SQL::DatasourcePool constructors as in the
+    following examples:
     @code{.py}
 Dataource ds("sybase:user/pass@db{numeric-numbers,timezone=Europe/Vienna}");
 DataourcePool dsp("freetds:user/pass@db%host.internal:1433{optimal-numbers}");
@@ -95,9 +133,14 @@ DataourcePool dsp("freetds:user/pass@db%host.internal:1433{optimal-numbers}");
 
     @subsection sybase_number_options Number Options
 
-    The number options (\c "optimal-numbers", \c "string-numbers", and \c "numeric-numbers") are all mutually-exclusive; setting one automatically disables the others.   These options also ignore their arguments; the last one set takes effect (also note that setting it with any value sets the option, even @ref False).
+    The number options (\c "optimal-numbers", \c "string-numbers", and \c "numeric-numbers") are all
+    mutually-exclusive; setting one automatically disables the others.   These options also ignore their arguments;
+    the last one set takes effect (also note that setting it with any value sets the option, even @ref False).
 
-    The default if no other option is explicitly set is \c "optimal-numbers".  Note that this represents a change from previous versions where \c NUMERIC or \c DECIMAL values were returned as strings in order to avoid the loss of information.  To set the old behavior, set the \c "string-numbers" option when creating the \c Datasource or \c DatasourcePool object.
+    The default if no other option is explicitly set is \c "optimal-numbers".  Note that this represents a change
+    from previous versions where \c NUMERIC or \c DECIMAL values were returned as strings in order to avoid the loss
+    of information.  To set the old behavior, set the \c "string-numbers" option when creating the \c Datasource or
+    \c DatasourcePool object.
 
     \c NUMERIC or \c DECIMAL output values:
     - \c "optimal-numbers": return numeric values as an integer if possible, if not as an arbitrary-precision number
@@ -203,10 +246,20 @@ exec get_values :string output, :int output");
     @endcode
 
     @note FreeTDS Limitations\n
-    The \c freetds driver is not able to retrieve output parameter values when executing queries on MS SQL Server 2000 or above (tds version 5.0 or above), due to the fact that newer MS SQL Server dataservers no longer return output parameter information through the TDS protocol as with Sybase and previous versions of SQL Server.  A future version of this driver should offer an alternative Datasource method allowing explicit stored procedure execution through ct-lib RPC functions, which will allow output parameters to be returned.\n\n
-    There are other issues with data types, character encoding, and more when using this driver; please see http://www.freetds.org for more information.
+    The \c freetds driver is not able to retrieve output parameter values when executing queries on MS SQL Server 2000
+    or above (tds version 5.0 or above), due to the fact that newer MS SQL Server dataservers no longer return output
+    parameter information through the TDS protocol as with Sybase and previous versions of SQL Server.  A future
+    version of this driver should offer an alternative Datasource method allowing explicit stored procedure execution
+    through ct-lib RPC functions, which will allow output parameters to be returned.\n\n
+    There are other issues with data types, character encoding, and more when using this driver; please see
+    http://www.freetds.org for more information.
 
     @section sybasereleasenotes Release Notes
+
+    @subsection sybase_1_1 sybase Driver Version 1.1
+    - fixed a bug handliing \c DATETIME2 column data
+      (<a href="https://github.com/qorelanguage/qore/issues/4401">issue 4401</a>)
+    - implemented the \c "optimized-date-binds" option
 
     @subsection sybase_1042 sybase Driver Version 1.0.4.2
     - fixed support for newer freetds versions that return a 2GB size for text columns with MS SQL Server
@@ -223,9 +276,13 @@ exec get_values :string output, :int output");
 
     @subsection sybase_1041 sybase Driver Version 1.0.4.1
     <b>New Features and Bug Fixes</b>
-    - updated SQLStatement::fetchColumns() to return an empty hash when no data is available (<a href="https://github.com/qorelanguage/qore/issues/1241">issue 1241</a>)
-    - fixed bugs handling SQLStatements used with this driver; the TDS protocol only allows one active query at a time, so any active statements have to be canceled before executing new SQL on the connection (<a href="https://github.com/qorelanguage/qore/issues/1248">issue 1248</a>)
-    - fixed a bug where reconnections did not actually check for a working connection (<a href="https://github.com/qorelanguage/qore/issues/1251">issue 1251</a>)
+    - updated SQLStatement::fetchColumns() to return an empty hash when no data is available
+      (<a href="https://github.com/qorelanguage/qore/issues/1241">issue 1241</a>)
+    - fixed bugs handling SQLStatements used with this driver; the TDS protocol only allows one active query at a
+      time, so any active statements have to be canceled before executing new SQL on the connection
+      (<a href="https://github.com/qorelanguage/qore/issues/1248">issue 1248</a>)
+    - fixed a bug where reconnections did not actually check for a working connection
+      (<a href="https://github.com/qorelanguage/qore/issues/1251">issue 1251</a>)
 
     @subsection sybase_104 sybase Driver Version 1.0.4
 

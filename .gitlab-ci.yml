@@ -13,7 +13,7 @@ default:
 
 variables:
   TDSVER: "7.4"
-  QORE_DB_CONNSTR_FREETDS: 'freetds:test/test@mssql-rippy%192.168.20.23:1433'
+  QORE_DB_CONNSTR_FREETDS: 'freetds:test/test@rippy%192.168.16.2:1433'
   REPO_NAME: module-sybase
 
 test-ubuntu:

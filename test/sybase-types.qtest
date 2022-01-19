@@ -54,7 +54,7 @@ const Args = {
     "smallmoney_f"    : 211100.1012,
     "date_f"          : 2007-05-01,
     "time_f"          : 10:30:01,
-    "datetime_f"      : 3459-01-01T11:15:02.250,
+    "datetime_f"      : 2031-01-01T11:15:02.250,
     "smalldatetime_f" : 2007-12-01T12:01:00,
     "binary_f"        : <0badbeef>,
     "varbinary_f"     : <feedface>,
@@ -94,6 +94,7 @@ auto sub test_insert(string col, auto val) {
     string query = sprintf(itempl, t);
 
     on_exit ds.commit();
+    on_error printf("error col: %y = %y\n", col, Args{col});
     ds.vexec(query, Args{col});
     auto v = ds.selectRow("select %s from %s", col, t){col};
     return val != False ? v : val;

@@ -7,7 +7,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2020 Qore Technologies s.r.o.
+    Copyright (C) 2007 - 2022 Qore Technologies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -154,8 +154,7 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
             err = ct_param(m_cmd, &datafmt, 0, CS_UNUSED, -1);
             if (err != CS_SUCCEED) {
                 m_conn.do_exception(xsink, "TDS-EXEC-ERROR",
-                                    "ct_param() for 'null' failed for parameter %u with error %d",
-                                    i, (int)err);
+                    "ct_param() for 'null' failed for parameter %u with error %d", i, (int)err);
                 return;
             }
             continue;
@@ -193,14 +192,32 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
             }
 
             case NT_DATE: {
-                const DateTimeNode *date = val.get<const DateTimeNode>();
-                CS_DATETIME dt;
-                ss::Conversions conv;
-                if (conv.DateTime_to_DATETIME(date, dt, xsink))
-                    throw ss::Error("TDS-EXEC-ERROR", "can't convert date");
+                const DateTimeNode* date = val.get<const DateTimeNode>();
+                if (m_conn.optimizedDateBinds()) {
+                    // must bind the date in the server's time zone
+                    qore_tm info;
+                    date->getInfo(m_conn.getTZ(), info);
+                    QoreStringMaker str("%04d-%02d-%02dT%02d:%02d:%02d", info.year, info.month, info.day, info.hour,
+                        info.minute, info.second);
+                    if (info.us) {
+                        str.sprintf(".%06d", info.us);
+                    }
+                    datafmt.datatype = CS_CHAR_TYPE;
+                    datafmt.format = CS_FMT_UNUSED;
+                    int slen = str.strlen();
+                    datafmt.maxlength = slen;
+                    err = ct_param(m_cmd, &datafmt, (CS_VOID*)str.c_str(), slen, 0);
+                } else {
+                    // this is the only reliable way to bind values with sub-second resolution
+                    CS_DATETIME dt;
+                    ss::Conversions conv;
+                    if (conv.DateTime_to_DATETIME(date, dt, xsink)) {
+                        throw ss::Error("TDS-EXEC-ERROR", "can't convert date");
+                    }
 
-                datafmt.datatype = CS_DATETIME_TYPE;
-                err = ct_param(m_cmd, &datafmt, &dt, sizeof(dt), 0);
+                    datafmt.datatype = CS_DATETIME_TYPE;
+                    err = ct_param(m_cmd, &datafmt, &dt, sizeof(dt), 0);
+                }
                 break;
             }
 
@@ -215,8 +232,7 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
                     datafmt.datatype = CS_INT_TYPE;
                     CS_INT vint = ival;
                     err = ct_param(m_cmd, &datafmt, &vint, sizeof(CS_INT), 0);
-                }
-                else { // bind as float
+                } else { // bind as float
                     CS_FLOAT fval = ival;
                     datafmt.datatype = CS_FLOAT_TYPE;
                     err = ct_param(m_cmd, &datafmt, &fval, sizeof(CS_FLOAT), 0);
@@ -255,6 +271,41 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
                 datafmt.count = 1;
                 err = ct_param(m_cmd, &datafmt, (void *)b->getPtr(), b->size(), 0);
                 break;
+            }
+
+            case NT_HASH: {
+                const QoreHashNode* h = val.get<const QoreHashNode>();
+                QoreValue t = h->getKeyValue("type");
+                QoreValue v = h->getKeyValue("value");
+                if (t && t.getType() == NT_STRING) {
+                    const QoreStringNode& str = *t.get<const QoreStringNode>();
+                    if (str == "date") {
+                        if (v.getType() != NT_DATE) {
+                            m_conn.do_exception(xsink, "TDS-BIND-ERROR", "expecting type 'date' for bind type '%s'; "
+                                "got type '%s' instead", str.c_str(), v.getFullTypeName());
+                            return;
+                        }
+                        // NOTE: cannot bind by CS_BIGDATETIME_TYPE
+                        // binding by CS_CHAR_TYPE works for BIGDATETIME / DATETIME2 columns, but will fail with a
+                        // DATETIME column
+                        const DateTimeNode* date = v.get<const DateTimeNode>();
+                        qore_tm info;
+                        date->getInfo(m_conn.getTZ(), info);
+                        QoreStringMaker str("%04d-%02d-%02dT%02d:%02d:%02d", info.year, info.month, info.day,
+                            info.hour, info.minute, info.second);
+                        if (info.us) {
+                            str.sprintf(".%06d", info.us);
+                        }
+                        datafmt.datatype = CS_CHAR_TYPE;
+                        datafmt.format = CS_FMT_UNUSED;
+                        int slen = str.strlen();
+                        datafmt.maxlength = slen;
+                        err = ct_param(m_cmd, &datafmt, (CS_VOID*)str.c_str(), slen, 0);
+                        return;
+                    }
+                    m_conn.do_exception(xsink, "TDS-BIND-ERROR", "unknown explicit bind type '%s'", str.c_str());
+                    return;
+                }
             }
 
             default:
@@ -430,57 +481,66 @@ int command::retr_colinfo(ExceptionSink* xsink) {
 }
 
 void command::setupColumns(QoreHashNode& h, const Placeholders *ph) {
-   row_result_t &descriptions = colinfo.datafmt;
+    row_result_t &descriptions = colinfo.datafmt;
 
-   for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
-      std::string col_name;
+    for (unsigned i = 0, n = descriptions.size(); i != n; ++i) {
+        std::string col_name;
 
-      if (!ss::is_empty(descriptions[i].name)) {
-         col_name = descriptions[i].name;
-         std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
-      } else {
-         col_name = get_placeholder_at(ph, i);
-      }
+        if (!ss::is_empty(descriptions[i].name)) {
+            col_name = descriptions[i].name;
+            std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
+        } else {
+            col_name = get_placeholder_at(ph, i);
+        }
 
-      HashAssignmentHelper hah(h, col_name);
-      if (*hah) {
-         // find a unique column name
-         unsigned num = 1;
-         while (true) {
-            QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
-            hah.reassign(tmp.c_str());
-            if (*hah) {
-               ++num;
-               continue;
+        HashAssignmentHelper hah(h, col_name);
+        if (*hah) {
+            // find a unique column name
+            unsigned num = 1;
+            while (true) {
+                QoreStringMaker tmp("%s_%d", col_name.c_str(), num);
+                hah.reassign(tmp.c_str());
+                if (*hah) {
+                ++num;
+                continue;
+                }
+                break;
             }
-            break;
-         }
-      }
-      hah.assign(new QoreListNode, 0);
-   }
+        }
+        hah.assign(new QoreListNode, 0);
+    }
 }
 
-QoreHashNode *command::read_cols(const Placeholders *ph, int cnt, bool cols, ExceptionSink* xsink) {
-   if (ensure_colinfo(xsink)) return 0;
+QoreHashNode* command::read_cols(const Placeholders* ph, int cnt, bool cols, ExceptionSink* xsink) {
+    if (ensure_colinfo(xsink)) {
+        return nullptr;
+    }
 
-   if (xsink->isException()) return 0;
+    if (xsink->isException()) {
+        return nullptr;
+    }
 
-   row_result_t &descriptions = colinfo.datafmt;
+    row_result_t &descriptions = colinfo.datafmt;
 
-   // setup hash of lists if necessary
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+    // setup hash of lists if necessary
+    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
-   if (cols)
-      setupColumns(**h, ph);
+    if (cols) {
+        setupColumns(**h, ph);
+    }
 
-   while (fetch_row_into_buffers(xsink)) {
-      if (h->empty())
-         setupColumns(**h, ph);
-      if (append_buffers_to_list(descriptions, out_buffers, *h, xsink))
-         return 0;
-      if (--cnt == 0) break;
-   }
-   return h.release();
+    while (fetch_row_into_buffers(xsink)) {
+        if (h->empty()) {
+            setupColumns(**h, ph);
+        }
+        if (append_buffers_to_list(descriptions, out_buffers, *h, xsink)) {
+            return nullptr;
+        }
+        if (--cnt == 0) {
+            break;
+        }
+    }
+    return h.release();
 }
 
 QoreHashNode* command::fetch_row(ExceptionSink* xsink, const Placeholders *ph) {
@@ -518,108 +578,110 @@ QoreValue command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool 
     return rv.release();
 }
 
-QoreValue command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink, bool single_row) {
-   if (ensure_colinfo(xsink)) return QoreValue();
+QoreValue command::read_rows(Placeholders *placeholder_list, bool list, bool cols, ExceptionSink* xsink,
+        bool single_row) {
+    if (ensure_colinfo(xsink)) return QoreValue();
 
-   // setup hash of lists if necessary
-   if (!list) {
-      return read_cols(placeholder_list, cols, xsink);
-   } else {
-      return read_rows(placeholder_list, xsink, single_row);
-   }
+    // setup hash of lists if necessary
+    if (!list) {
+        return read_cols(placeholder_list, cols, xsink);
+    } else {
+        return read_rows(placeholder_list, xsink, single_row);
+    }
 }
 
 // returns 0=OK, -1=error (exception raised)
 int command::get_row_description(row_result_t &result, unsigned column_count, ExceptionSink* xsink) {
-   for (unsigned i = 0; i < column_count; ++i) {
-      CS_DATAFMT_EX datafmt;
-      memset(&datafmt, 0, sizeof(datafmt));
+    for (unsigned i = 0; i < column_count; ++i) {
+        CS_DATAFMT_EX datafmt;
+        memset(&datafmt, 0, sizeof(datafmt));
 
-      CS_RETCODE err = ct_describe(m_cmd, i + 1, &datafmt);
-      if (err != CS_SUCCEED) {
-         m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_describe() failed with error %d", (int)err);
-         return -1;
-      }
-      datafmt.count = 1; // fetch just single row per every ct_fetch()
-      bool is_multi_byte = m_conn.getEncoding()->isMultiByte();
+        CS_RETCODE err = ct_describe(m_cmd, i + 1, &datafmt);
+        if (err != CS_SUCCEED) {
+            m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_describe() failed with error %d", (int)err);
+            return -1;
+        }
+        datafmt.count = 1; // fetch just single row per every ct_fetch()
+        bool is_multi_byte = m_conn.getEncoding()->isMultiByte();
 
-      printd(5, "command::get_row_description(): name=%s type=%d usertype=%d\n",
-             datafmt.name, datafmt.datatype, datafmt.usertype);
+        printd(5, "command::get_row_description(): name=%s type=%d usertype=%d\n",
+                datafmt.name, datafmt.datatype, datafmt.usertype);
 
-      datafmt.origin_datatype = datafmt.datatype;
-      switch (datafmt.datatype) {
-         // we map DECIMAL types to strings so we have no conversion to do
-         case CS_DECIMAL_TYPE:
-         case CS_NUMERIC_TYPE:
-            datafmt.maxlength = 50;
-            datafmt.datatype = CS_CHAR_TYPE;
-            datafmt.format = CS_FMT_PADBLANK;
-            break;
+        datafmt.origin_datatype = datafmt.datatype;
+        switch (datafmt.datatype) {
+            // we map DECIMAL types to strings so we have no conversion to do
+            case CS_DECIMAL_TYPE:
+            case CS_NUMERIC_TYPE:
+                datafmt.maxlength = 50;
+                datafmt.datatype = CS_CHAR_TYPE;
+                datafmt.format = CS_FMT_PADBLANK;
+                break;
 
-         case CS_UNICHAR_TYPE:
-            datafmt.datatype = CS_TEXT_TYPE;
-            datafmt.format = CS_FMT_NULLTERM;
-            break;
+            case CS_UNICHAR_TYPE:
+                datafmt.datatype = CS_TEXT_TYPE;
+                datafmt.format = CS_FMT_NULLTERM;
+                break;
 
-            // freetds only works with CS_FMT_PADBLANK with CS_CHAR columns it seems
-            // however this is also compatible with Sybase's ct-lib
-         case CS_CHAR_TYPE:
-            datafmt.format = CS_FMT_PADBLANK;
-            break;
+                // freetds only works with CS_FMT_PADBLANK with CS_CHAR columns it seems
+                // however this is also compatible with Sybase's ct-lib
+            case CS_CHAR_TYPE:
+                datafmt.format = CS_FMT_PADBLANK;
+                break;
 
-         case CS_LONGCHAR_TYPE:
-         case CS_VARCHAR_TYPE:
-         case CS_TEXT_TYPE:
-            // if it's a multi-byte encoding, double the buffer size
-            if (is_multi_byte)
-               datafmt.maxlength *= 2;
-            datafmt.format = CS_FMT_NULLTERM;
-            break;
+            case CS_LONGCHAR_TYPE:
+            case CS_VARCHAR_TYPE:
+            case CS_TEXT_TYPE:
+                // if it's a multi-byte encoding, double the buffer size
+                if (is_multi_byte)
+                datafmt.maxlength *= 2;
+                datafmt.format = CS_FMT_NULLTERM;
+                break;
 
 #ifdef FREETDS
-            // FreeTDS seems to return DECIMAL types as FLOAT for some reason
-         case CS_FLOAT_TYPE:
-            // can't find a defined USER_TYPE_* for 26
-            if (datafmt.usertype == 26) {
-               datafmt.maxlength = 50;
-               datafmt.datatype = CS_CHAR_TYPE;
-               datafmt.format = CS_FMT_NULLTERM;
-               break;
-            }
+                // FreeTDS seems to return DECIMAL types as FLOAT for some reason
+            case CS_FLOAT_TYPE:
+                // can't find a defined USER_TYPE_* for 26
+                if (datafmt.usertype == 26) {
+                datafmt.maxlength = 50;
+                datafmt.datatype = CS_CHAR_TYPE;
+                datafmt.format = CS_FMT_NULLTERM;
+                break;
+                }
 #endif
 
-         case CS_MONEY_TYPE:
-         case CS_MONEY4_TYPE:
-            datafmt.datatype = CS_FLOAT_TYPE;
+            case CS_MONEY_TYPE:
+            case CS_MONEY4_TYPE:
+                datafmt.datatype = CS_FLOAT_TYPE;
 
-         default:
-            datafmt.format = CS_FMT_UNUSED;
-            break;
-      }
+            default:
+                datafmt.format = CS_FMT_UNUSED;
+                break;
+        }
 
-      printd(5, "command::get_row_description(): name=%s type=%d usertype=%d maxlength=%d\n", datafmt.name, datafmt.datatype, datafmt.usertype, datafmt.maxlength);
+        printd(5, "command::get_row_description(): name=%s type=%d usertype=%d maxlength=%d\n", datafmt.name,
+            datafmt.datatype, datafmt.usertype, datafmt.maxlength);
 
-      result.push_back(datafmt);
-   }
-   return 0;
+        result.push_back(datafmt);
+    }
+    return 0;
 }
 
 int command::setup_output_buffers(const row_result_t &input_row_descriptions, ExceptionSink *xsink) {
-   out_buffers.reset();
-   for (unsigned i = 0, n = input_row_descriptions.size(); i != n; ++i) {
-      unsigned size = input_row_descriptions[i].maxlength;
-      output_value_buffer *out = out_buffers.insert(size);
+    out_buffers.reset();
+    for (unsigned i = 0, n = input_row_descriptions.size(); i != n; ++i) {
+        unsigned size = input_row_descriptions[i].maxlength;
+        output_value_buffer *out = out_buffers.insert(size);
 
-      CS_RETCODE err = ct_bind(m_cmd, i + 1,
-                               (CS_DATAFMT*)&input_row_descriptions[i],
-                               out->value, &out->value_len, &out->indicator);
+        CS_RETCODE err = ct_bind(m_cmd, i + 1,
+                                (CS_DATAFMT*)&input_row_descriptions[i],
+                                out->value, &out->value_len, &out->indicator);
 
-      if (err != CS_SUCCEED) {
-         m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_bind() failed with error %d", (int)err);
-         return -1;
-      }
-   }
-   return 0;
+        if (err != CS_SUCCEED) {
+            m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_bind() failed with error %d", (int)err);
+            return -1;
+        }
+    }
+    return 0;
 }
 
 int command::append_buffers_to_list(row_result_t &column_info, row_output_buffers& all_buffers, QoreHashNode *h, ExceptionSink *xsink) {
@@ -682,29 +744,29 @@ QoreHashNode *command::output_buffers_to_hash(const Placeholders *ph, ExceptionS
 }
 
 static bool is_number(const CS_DATAFMT_EX& datafmt) {
-   switch (datafmt.origin_datatype) {
-      case CS_DECIMAL_TYPE:
-      case CS_NUMERIC_TYPE:
-         return true;
-   }
-   return false;
+    switch (datafmt.origin_datatype) {
+        case CS_DECIMAL_TYPE:
+        case CS_NUMERIC_TYPE:
+            return true;
+    }
+    return false;
 }
 
 static inline bool need_trim(const CS_DATAFMT_EX& datafmt) {
-   if (datafmt.format == CS_FMT_PADBLANK || datafmt.usertype == 34 ||
-       // seems TEXT needs trim as well (found on mssql, sybase-test.q)
-       datafmt.datatype == CS_TEXT_TYPE
+    if (datafmt.format == CS_FMT_PADBLANK || datafmt.usertype == 34 ||
+        // seems TEXT needs trim as well (found on mssql, sybase-test.q)
+        datafmt.datatype == CS_TEXT_TYPE
 #ifdef SYBASE
-       // for some reason sybase returns a char field as LONGCHAR when the
-       // server is uses iso_1 character encoding, but the connection is set
-       // to utf-8 also in this case the result is always blank padded even
-       // though the datafmt.format is set to CS_FMT_NULLTERM
-       || datafmt.datatype == CS_LONGCHAR_TYPE
+        // for some reason sybase returns a char field as LONGCHAR when the
+        // server is uses iso_1 character encoding, but the connection is set
+        // to utf-8 also in this case the result is always blank padded even
+        // though the datafmt.format is set to CS_FMT_NULLTERM
+        || datafmt.datatype == CS_LONGCHAR_TYPE
 #endif
-      ) {
-      return true;
-   }
-   return false;
+        ) {
+        return true;
+    }
+    return false;
 }
 
 QoreValue command::getNumber(const char* str, size_t len) {
@@ -750,7 +812,7 @@ QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_bu
         return null();
     }
 
-    const QoreEncoding *encoding = m_conn.getEncoding();
+    const QoreEncoding* encoding = m_conn.getEncoding();
 
     switch (datafmt.datatype) {
         case CS_LONGCHAR_TYPE:
@@ -852,6 +914,7 @@ QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_bu
 
             return conv.DATETIME_to_DateTime(*value, m_conn.getTZ());
         }
+
         case CS_DATETIME4_TYPE: {
             ss::Conversions conv;
             CS_DATETIME4* value = (CS_DATETIME4*)(buffer.value);
@@ -889,12 +952,12 @@ QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_bu
     } // switch
 }
 
-int command::bind_query(std::unique_ptr<sybase_query> &q, const QoreListNode *args, ExceptionSink *xsink) {
-   query.reset(q.release());
+int command::bind_query(std::unique_ptr<sybase_query>& q, const QoreListNode* args, ExceptionSink* xsink) {
+    query.reset(q.release());
 
-   initiate_language_command(query->buff(), xsink);
+    initiate_language_command(query->buff(), xsink);
 
-   if (args) set_params(*query, args, xsink);
+    if (args) set_params(*query, args, xsink);
 
-   return 0;
+    return 0;
 }

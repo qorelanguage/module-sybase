@@ -6,7 +6,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright (C) 2003 - 2022 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -132,12 +132,12 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     if (ds->getDBEncoding()) {
         const QoreEncoding *enc = name_to_QoreEncoding(ds->getDBEncoding());
         ds->setQoreEncoding(enc);
-    }
-    else {
+    } else {
         const char *enc = QoreEncoding_to_SybaseName(QCS_DEFAULT);
         // if the encoding cannot be mapped, throw a Qore-language exception and return
         if (!enc) {
-            xsink->raiseException("TDS-UNKNOWN-CHARACTER-SET", "cannot find the Sybase character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
+            xsink->raiseException("TDS-UNKNOWN-CHARACTER-SET", "cannot find the Sybase character encoding equivalent "
+                "for '%s'", QCS_DEFAULT->getCode());
             return -1;
         }
         ds->setDBEncoding(enc);
@@ -152,17 +152,20 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     int port = ds->getPort();
 
     if (port && !ds->getHostName()) {
-        xsink->raiseException("TDS-CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname and port must be set to override the interfaces file", port);
+        xsink->raiseException("TDS-CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname "
+            "and port must be set to override the interfaces file", port);
         return -1;
     }
 
     if (!port && ds->getHostName()) {
-        xsink->raiseException("TDS-CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and port must be set to override the interfaces file", ds->getHostName());
+        xsink->raiseException("TDS-CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and "
+            "port must be set to override the interfaces file", ds->getHostName());
         return -1;
     }
 
     // make the actual connection to the database
-    sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink);
+    sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(),
+        ds->getQoreEncoding(), ds->getHostName(), port, xsink);
     // return with an error if it didn't work
     if (*xsink)
         return -1;
@@ -184,28 +187,32 @@ static int sybase_close(Datasource *ds) {
     return 0;
 }
 
-static QoreValue sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static QoreValue sybase_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink) {
     BEGIN_CALLBACK;
     connection *conn = (connection*)ds->getPrivateData();
     return conn->select(qstr, args, xsink);
     END_CALLBACK(0);
 }
 
-static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection *conn = (connection*)ds->getPrivateData();
-   ValueHolder holder(conn->exec_row(qstr, args, xsink), xsink);
-   qore_type_t nt = holder->getType();
-   if (nt != NT_HASH && nt != NT_NOTHING) {
-      if (!*xsink)
-         xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a single row", holder->getTypeName());
-      holder.release().discard(xsink);
-   }
-   return holder ? holder.release().get<QoreHashNode>() : nullptr;
-   END_CALLBACK(0);
+static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection *conn = (connection*)ds->getPrivateData();
+    ValueHolder holder(conn->exec_row(qstr, args, xsink), xsink);
+    qore_type_t nt = holder->getType();
+    if (nt != NT_HASH && nt != NT_NOTHING) {
+        if (!*xsink)
+            xsink->raiseException("DBI-SELECT-ROW-ERROR", "selectRow() returned type '%s'; expecting a hash for a "
+                "single row", holder->getTypeName());
+        holder.release().discard(xsink);
+    }
+    return holder ? holder.release().get<QoreHashNode>() : nullptr;
+    END_CALLBACK(0);
 }
 
-static QoreValue sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static QoreValue sybase_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink) {
     BEGIN_CALLBACK;
     connection *conn = (connection*)ds->getPrivateData();
     QoreValue rv = conn->exec_rows(qstr, args, xsink);
@@ -219,7 +226,8 @@ static QoreValue sybase_select_rows(Datasource *ds, const QoreString *qstr, cons
     END_CALLBACK(0);
 }
 
-static QoreValue sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static QoreValue sybase_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink) {
     BEGIN_CALLBACK;
     connection *conn = (connection*)ds->getPrivateData();
     QoreValue rv = conn->exec(qstr, args, xsink);
@@ -242,17 +250,17 @@ static QoreValue sybase_execRaw(Datasource *ds, const QoreString *qstr, Exceptio
 }
 
 static int sybase_commit(Datasource *ds, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection* conn = (connection*)ds->getPrivateData();
-   return conn->commit(xsink);
-   END_CALLBACK(0);
+    BEGIN_CALLBACK;
+    connection* conn = (connection*)ds->getPrivateData();
+    return conn->commit(xsink);
+    END_CALLBACK(0);
 }
 
 static int sybase_rollback(Datasource *ds, ExceptionSink *xsink) {
-   BEGIN_CALLBACK;
-   connection* conn = (connection*)ds->getPrivateData();
-   return conn->rollback(xsink);
-   END_CALLBACK(0);
+    BEGIN_CALLBACK;
+    connection* conn = (connection*)ds->getPrivateData();
+    return conn->rollback(xsink);
+    END_CALLBACK(0);
 }
 
 static QoreValue sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink) {
@@ -292,59 +300,67 @@ namespace ss {
     void init(qore_dbi_method_list &methods);
 }
 
-QoreStringNode *sybase_module_init() {
+QoreStringNode* sybase_module_init() {
    QORE_TRACE("sybase_module_init()");
 
    // init_namespace();
 
 /*
 #ifdef DEBUG
-   builtinFunctions.add("runSybaseTests", runSybaseTests, QDOM_DATABASE);
-   builtinFunctions.add("runRecentSybaseTests", runRecentSybaseTests, QDOM_DATABASE);
+    builtinFunctions.add("runSybaseTests", runSybaseTests, QDOM_DATABASE);
+    builtinFunctions.add("runRecentSybaseTests", runRecentSybaseTests, QDOM_DATABASE);
 #endif
 */
 
-   // register driver with DBI subsystem
-   qore_dbi_method_list methods;
-   methods.add(QDBI_METHOD_OPEN, sybase_open);
-   methods.add(QDBI_METHOD_CLOSE, sybase_close);
-   methods.add(QDBI_METHOD_SELECT, sybase_select);
-   methods.add(QDBI_METHOD_SELECT_ROW, sybase_select_row);
-   methods.add(QDBI_METHOD_SELECT_ROWS, sybase_select_rows);
-   methods.add(QDBI_METHOD_EXEC, sybase_exec);
-   methods.add(QDBI_METHOD_EXECRAW, sybase_execRaw);
-   methods.add(QDBI_METHOD_COMMIT, sybase_commit);
-   methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
-   methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
-   methods.add(QDBI_METHOD_GET_SERVER_VERSION, sybase_get_server_version);
+    // register driver with DBI subsystem
+    qore_dbi_method_list methods;
+    methods.add(QDBI_METHOD_OPEN, sybase_open);
+    methods.add(QDBI_METHOD_CLOSE, sybase_close);
+    methods.add(QDBI_METHOD_SELECT, sybase_select);
+    methods.add(QDBI_METHOD_SELECT_ROW, sybase_select_row);
+    methods.add(QDBI_METHOD_SELECT_ROWS, sybase_select_rows);
+    methods.add(QDBI_METHOD_EXEC, sybase_exec);
+    methods.add(QDBI_METHOD_EXECRAW, sybase_execRaw);
+    methods.add(QDBI_METHOD_COMMIT, sybase_commit);
+    methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
+    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
+    methods.add(QDBI_METHOD_GET_SERVER_VERSION, sybase_get_server_version);
 
-   methods.add(QDBI_METHOD_OPT_SET, sybase_opt_set);
-   methods.add(QDBI_METHOD_OPT_GET, sybase_opt_get);
+    methods.add(QDBI_METHOD_OPT_SET, sybase_opt_set);
+    methods.add(QDBI_METHOD_OPT_GET, sybase_opt_get);
 
-   methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'numeric-numbers'");
-   methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
-   methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
-   methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone,"
-           " value must be a string in the format accepted by"
-           " Timezone::constructor() on the client (ie either a region"
-           " name or a UTC offset like \"+01:00\"), if not set the"
-           " server's time zone will be assumed to be the same as"
-           " the client's", stringTypeInfo);
+    methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if "
+        "possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option "
+        "turns it on and turns off 'string-numbers' and 'numeric-numbers'");
+    methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for "
+        "backwards-compatibility; the argument is ignored; setting this option turns it on and turns off "
+        "'optimal-numbers' and 'numeric-numbers'");
+    methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as "
+        "arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off "
+        "'string-numbers' and 'optimal-numbers'");
+    methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone, the value must be a string in the format "
+        "accepted by Timezone::constructor() on the client (ie either a region name or a UTC offset like "
+        "\"+01:00\"); if not set the server's time zone will be assumed to be the same as the client's",
+        stringTypeInfo);
+    methods.registerOption(SYBASE_OPT_OPTIMIZED_DATE_BINDS, "when set, date/time values are bound with full "
+        "resolution including microseconds, however this will cause any operations with date/time values with "
+        "microseconds bound for DATETIME columns to fail, if this is not set, then date/time values are bound with "
+        "an approach that works for all columns but gives a maximum of 1/300 second resolution");
 
-   ss::init(methods);
+    ss::init(methods);
 
 #ifdef SYBASE
-   DBID_SYBASE = DBI.registerDriver("sybase", methods, DBI_SYBASE_CAPS);
+    DBID_SYBASE = DBI.registerDriver("sybase", methods, DBI_SYBASE_CAPS);
 #else
-   DBID_SYBASE = DBI.registerDriver("freetds", methods, DBI_SYBASE_CAPS);
+    DBID_SYBASE = DBI.registerDriver("freetds", methods, DBI_SYBASE_CAPS);
 #endif
 
-   return 0;
+    return 0;
 }
 
-void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns) {
+void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace* qns) {
 }
 
 void sybase_module_delete() {
-   QORE_TRACE("sybase_module_delete()");
+    QORE_TRACE("sybase_module_delete()");
 }
