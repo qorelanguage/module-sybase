@@ -15,6 +15,7 @@ variables:
   TDSVER: "7.4"
   QORE_DB_CONNSTR_FREETDS: 'freetds:test/test@rippy%192.168.16.2:1433'
   REPO_NAME: module-sybase
+  FREETDSCONF: /opt/qorus/etc/freetds.conf
 
 test-ubuntu:
   stage: test
