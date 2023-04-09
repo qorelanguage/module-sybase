@@ -252,9 +252,14 @@ exec get_values :string output, :int output");
     version of this driver should offer an alternative Datasource method allowing explicit stored procedure execution
     through ct-lib RPC functions, which will allow output parameters to be returned.\n\n
     There are other issues with data types, character encoding, and more when using this driver; please see
-    http://www.freetds.org for more information.
+    http://www.freetds.org for more information
 
     @section sybasereleasenotes Release Notes
+
+    @subsection sybase_1_2 sybase Driver Version 1.2
+    - detect and automatically set the server character encoding for MS SQL server connections to ensure that strings
+      with invalid encodings are never sent to or retrieved from the server
+      (<a href="https://github.com/qorelanguage/qore/issues/4710">issue 4710</a>)
 
     @subsection sybase_1_1 sybase Driver Version 1.1
     - fixed a bug handliing \c DATETIME2 column data

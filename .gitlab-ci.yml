@@ -21,6 +21,7 @@ test-ubuntu:
   image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:develop
   script:
     - |
+        printf "[rippy]\n  host = rippy\n  port = 1433\n  tds version = 7.4" > /etc/freetds/freetds.conf
         if test/docker_test/test-ubuntu.sh; then
           curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
@@ -38,6 +39,7 @@ test-alpine:
   image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:develop-alpine
   script:
     - |
+        printf "[rippy]\n  host = rippy\n  port = 1433\n  tds version = 7.4" > /etc/freetds.conf
         if test/docker_test/test-alpine.sh; then
           curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \

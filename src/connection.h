@@ -1,12 +1,12 @@
 /*
-    sybase_connection.h
+    connection.h
 
     Sybase DB layer for QORE
     uses Sybase OpenClient C library
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2022 Qore Technologies, s.r.o.
+    Copyright (C) 2007 - 2023 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -57,39 +57,6 @@ class AbstractQoreZoneInfo;
 typedef ss::DBModuleWrap<ss::Statement>::ModuleWrap stmt_t;
 
 class context {
-private:
-    CS_CONTEXT *m_context;
-
-    DLLLOCAL void del() {
-        //printd(5, "context::del() this=%p deleting %p\n", this, m_context);
-
-        CS_RETCODE ret;
-#ifdef SYBASE
-        {
-            AutoLocker al(ct_lock);
-#endif
-            ret = ct_exit(m_context, CS_UNUSED);
-#ifdef SYBASE
-        }
-#endif
-        if (ret != CS_SUCCEED) {
-#ifdef SYBASE
-            {
-                AutoLocker al(ct_lock);
-#endif
-                ret = ct_exit(m_context, CS_FORCE_EXIT);
-#ifdef SYBASE
-            }
-#endif
-            assert(ret == CS_SUCCEED);
-        }
-#ifdef SYBASE
-        AutoLocker al(cs_lock);
-#endif
-        ret = cs_ctx_drop(m_context);
-        assert(ret == CS_SUCCEED);
-    }
-
 public:
     DLLLOCAL context(ExceptionSink *xsink) {
         CS_RETCODE ret;
@@ -146,6 +113,39 @@ public:
         }
         //printd(5, "client version=%s (olen=%d, strlen=%d)\n", buf, olen, strlen(buf));
         return new QoreStringNode(buf, olen - 1, CLIENT_VER_LEN, QCS_DEFAULT);
+    }
+
+private:
+    CS_CONTEXT* m_context;
+
+    DLLLOCAL void del() {
+        //printd(5, "context::del() this=%p deleting %p\n", this, m_context);
+
+        CS_RETCODE ret;
+#ifdef SYBASE
+        {
+            AutoLocker al(ct_lock);
+#endif
+            ret = ct_exit(m_context, CS_UNUSED);
+#ifdef SYBASE
+        }
+#endif
+        if (ret != CS_SUCCEED) {
+#ifdef SYBASE
+            {
+                AutoLocker al(ct_lock);
+#endif
+                ret = ct_exit(m_context, CS_FORCE_EXIT);
+#ifdef SYBASE
+            }
+#endif
+            assert(ret == CS_SUCCEED);
+        }
+#ifdef SYBASE
+        AutoLocker al(cs_lock);
+#endif
+        ret = cs_ctx_drop(m_context);
+        assert(ret == CS_SUCCEED);
     }
 };
 
@@ -245,15 +245,16 @@ public:
 
 private:
     context m_context;
-    CS_CONNECTION* m_connection;
-    bool connected;
-    const QoreEncoding *enc;
-    Datasource *ds;
-    int numeric_support;
-    const AbstractQoreZoneInfo* server_tz;
+    CS_CONNECTION* m_connection = nullptr;
+    bool connected = false;
+    bool sybase = false;
+    const QoreEncoding* enc = nullptr;
+    Datasource* ds;
+    int numeric_support = OPT_NUM_OPTIMAL;
+    const AbstractQoreZoneInfo* server_tz = nullptr;
     bool optimized_date_binds = false;
 
-    stmt_t* stmt;
+    stmt_t* stmt = nullptr;
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);

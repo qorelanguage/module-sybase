@@ -9,13 +9,24 @@ namespace ss {
 
 class Error {
 public:
-    Error(const std::string &e1, const std::string &e2) :
-        e1(e1), e2(e2)
-    {}
+    DLLLOCAL Error(const std::string& e1, const std::string& e2) :
+        e1(e1), e2(e2) {
 
-    void raise(ExceptionSink *xsink) const {
-        if (xsink->isException()) return;
+    }
+
+    DLLLOCAL void raise(ExceptionSink* xsink) const {
+        if (xsink->isException()) {
+            return;
+        }
         xsink->raiseException(e1.c_str(), e2.c_str());
+    }
+
+    DLLLOCAL const char* getErr() const {
+        return e1.c_str();
+    }
+
+    DLLLOCAL const char* getDesc() const {
+        return e2.c_str();
     }
 
 private:

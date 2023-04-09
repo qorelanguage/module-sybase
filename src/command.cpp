@@ -468,16 +468,16 @@ QoreValue command::readOutput(connection& conn, command& cmd, bool list, bool& c
 }
 
 int command::retr_colinfo(ExceptionSink* xsink) {
-   unsigned columns = get_column_count(xsink);
-   if (*xsink)
-      return -1;
+    unsigned columns = get_column_count(xsink);
+    if (*xsink)
+        return -1;
 
-   colinfo.reset();
-   get_row_description(colinfo.datafmt, columns, xsink);
-   setup_output_buffers(colinfo.datafmt, xsink);
-   colinfo.dirty = false;
+    colinfo.reset();
+    get_row_description(colinfo.datafmt, columns, xsink);
+    setup_output_buffers(colinfo.datafmt, xsink);
+    colinfo.dirty = false;
 
-   return 0;
+    return 0;
 }
 
 void command::setupColumns(QoreHashNode& h, const Placeholders *ph) {
@@ -598,14 +598,15 @@ int command::get_row_description(row_result_t &result, unsigned column_count, Ex
 
         CS_RETCODE err = ct_describe(m_cmd, i + 1, &datafmt);
         if (err != CS_SUCCEED) {
-            m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_describe() failed with error %d", (int)err);
+            m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_describe() failed with error %d on column %u / %u",
+                (int)err, i + 1, column_count);
             return -1;
         }
         datafmt.count = 1; // fetch just single row per every ct_fetch()
         bool is_multi_byte = m_conn.getEncoding()->isMultiByte();
 
-        printd(5, "command::get_row_description(): name=%s type=%d usertype=%d\n",
-                datafmt.name, datafmt.datatype, datafmt.usertype);
+        printd(5, "command::get_row_description(): name: %s type: %d usertype: %d\n",
+            datafmt.name, datafmt.datatype, datafmt.usertype);
 
         datafmt.origin_datatype = datafmt.datatype;
         switch (datafmt.datatype) {
