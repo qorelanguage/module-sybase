@@ -1,12 +1,12 @@
 /*
-    sybase_connection.cpp
+    connection.cpp
 
     Sybase DB layer for QORE
     uses Sybase OpenClient C library or FreeTDS's ct-lib
 
     Qore Programming Language
 
-    Copyright (C) 2007 - 2022 Qore Technolgoies s.r.o.
+    Copyright (C) 2007 - 2023 Qore Technolgoies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -44,117 +44,114 @@ QoreThreadLock ct_lock;
 QoreThreadLock cs_lock;
 #endif
 
-connection::connection(Datasource *n_ds, ExceptionSink *xsink)
-   : m_context(xsink),
-     m_connection(0),
-     connected(false),
-     ds(n_ds),
-     numeric_support(OPT_NUM_OPTIMAL),
-     server_tz(0),
-     stmt(0)
-{}
+connection::connection(Datasource *n_ds, ExceptionSink *xsink) :
+        m_context(xsink),
+        ds(n_ds) {
+}
 
 connection::~connection() {
-   invalidateStatement();
-   CS_RETCODE ret = CS_SUCCEED;
+    invalidateStatement();
+    CS_RETCODE ret = CS_SUCCEED;
 
-   if (m_connection) {
-      if (connected) {
-         ret = ct_close(m_connection, CS_UNUSED);
-         if (ret != CS_SUCCEED) {
-            ret = ct_close(m_connection, CS_FORCE_CLOSE);
-            assert(ret == CS_SUCCEED);
-         }
-      }
-      ret = ct_con_drop(m_connection);
-      assert(ret == CS_SUCCEED);
-   }
+    if (m_connection) {
+        if (connected) {
+            ret = ct_close(m_connection, CS_UNUSED);
+            if (ret != CS_SUCCEED) {
+                ret = ct_close(m_connection, CS_FORCE_CLOSE);
+                assert(ret == CS_SUCCEED);
+            }
+        }
+        ret = ct_con_drop(m_connection);
+        assert(ret == CS_SUCCEED);
+    }
 }
 
 // FIXME: check for auto-reconnect here if ct_command fails
 int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
-   assert(sql_text && sql_text[0]);
+    assert(sql_text && sql_text[0]);
 
-   CS_COMMAND* cmd = 0;
+    CS_COMMAND* cmd = 0;
 
-   CS_RETCODE err = ct_cmd_alloc(m_connection, &cmd);
-   if (err != CS_SUCCEED)
-      do_exception(xsink, "TDS-EXEC-ERROR", "ct_cmd_alloc() failed");
+    CS_RETCODE err = ct_cmd_alloc(m_connection, &cmd);
+    if (err != CS_SUCCEED)
+        do_exception(xsink, "TDS-EXEC-ERROR", "ct_cmd_alloc() failed");
 
-   ON_BLOCK_EXIT(ct_cmd_drop, cmd);
-   ScopeGuard canceller = MakeGuard(ct_cancel, (CS_CONNECTION*)0, cmd, CS_CANCEL_ALL);
+    ON_BLOCK_EXIT(ct_cmd_drop, cmd);
+    ScopeGuard canceller = MakeGuard(ct_cancel, (CS_CONNECTION*)0, cmd, CS_CANCEL_ALL);
 
-   err = ct_command(cmd, CS_LANG_CMD, (CS_CHAR*)sql_text, strlen(sql_text), CS_END);
-   if (err != CS_SUCCEED)
-      do_exception(xsink, "TDS-EXEC-ERROR", "ct_command() failed");
+    err = ct_command(cmd, CS_LANG_CMD, (CS_CHAR*)sql_text, strlen(sql_text), CS_END);
+    if (err != CS_SUCCEED)
+        do_exception(xsink, "TDS-EXEC-ERROR", "ct_command() failed");
 
-   err = ct_send(cmd);
-   if (err != CS_SUCCEED)
-      do_exception(xsink, "TDS-EXEC-ERROR", "ct_send() failed");
+    err = ct_send(cmd);
+    if (err != CS_SUCCEED)
+        do_exception(xsink, "TDS-EXEC-ERROR", "ct_send() failed");
 
-   // no results expected
-   CS_INT result_type;
-   err = ct_results(cmd, &result_type);
-   if (err != CS_SUCCEED)
-      do_exception(xsink, "TDS-EXEC-ERROR",
-                   "connection::direct_execute(): ct_results()"
-                   " returned error code %d", err);
+    // no results expected
+    CS_INT result_type;
+    err = ct_results(cmd, &result_type);
+    if (err != CS_SUCCEED)
+        do_exception(xsink, "TDS-EXEC-ERROR",
+                    "connection::direct_execute(): ct_results()"
+                    " returned error code %d", err);
 
-   if (result_type != CS_CMD_SUCCEED)
-      do_check_exception(xsink, true, "TDS-EXEC-ERROR",
-                         "connection::direct_execute(): ct_results()"
-                         " failed with result_type = %d", result_type);
+    if (result_type != CS_CMD_SUCCEED)
+        do_check_exception(xsink, true, "TDS-EXEC-ERROR",
+                            "connection::direct_execute(): ct_results()"
+                            " failed with result_type = %d", result_type);
 
-   while ((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
-   canceller.Dismiss();
+    while ((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
+    canceller.Dismiss();
 
-   return purge_messages(xsink);
+    return purge_messages(xsink);
 }
 
 static inline bool wasInTransaction(Datasource *ds) {
 #ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
-   return ds->activeTransaction();
+    return ds->activeTransaction();
 #else
-   return ds->isInTransaction();
+    return ds->isInTransaction();
 #endif
 }
 
 bool connection::ping() const {
-   // check if the connection is up
-   CS_INT up;
-   CS_INT outlen;
-   CS_RETCODE rc = ct_con_props(m_connection, CS_GET, CS_CON_STATUS, &up, sizeof(up), &outlen);
-   printd(0, "ping() rc: %d raw: %d up: %d\n", rc, up, up == CS_CONSTAT_CONNECTED);
-   return (rc == CS_SUCCEED) && (up == CS_CONSTAT_CONNECTED);
+    // check if the connection is up
+    CS_INT up;
+    CS_INT outlen;
+    CS_RETCODE rc = ct_con_props(m_connection, CS_GET, CS_CON_STATUS, &up, sizeof(up), &outlen);
+    printd(5, "ping() rc: %d raw: %d up: %d\n", rc, up, up == CS_CONSTAT_CONNECTED);
+    return (rc == CS_SUCCEED) && (up == CS_CONSTAT_CONNECTED);
 }
 
-command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode* args, bool raw, ExceptionSink* xsink) {
-   while (true) {
-      std::unique_ptr<sybase_query> query(new sybase_query);
-      if (!raw) {
-         if (query->init(cmd_text, args, xsink))
-            return 0;
-      } else {
-         assert(!args);
-         query->init(cmd_text);
-      }
+command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode* args, bool raw,
+        ExceptionSink* xsink) {
+    while (true) {
+        std::unique_ptr<sybase_query> query(new sybase_query);
+        if (!raw) {
+            if (query->init(cmd_text, args, xsink))
+                return nullptr;
+        } else {
+            assert(!args);
+            query->init(cmd_text);
+        }
 
-      std::unique_ptr<command> cmd(new command(*this, xsink));
-      cmd->bind_query(query, args, xsink);
+        std::unique_ptr<command> cmd(new command(*this, xsink));
+        cmd->bind_query(query, args, xsink);
 
-      try {
-         cmd->send(xsink);
-      } catch (const ss::Error& e) {
-         // if the connection is down and we can reconnect transparently, then we do so
-         if (!ping() && !closeAndReconnect(xsink, *cmd.get(), true))
-            continue;
-         throw;
-      }
-      return cmd.release();
-   }
+        try {
+            cmd->send(xsink);
+        } catch (const ss::Error& e) {
+            // if the connection is down and we can reconnect transparently, then we do so
+            if (!ping() && !closeAndReconnect(xsink, *cmd.get(), true))
+                continue;
+            throw;
+        }
+        return cmd.release();
+    }
 }
 
-QoreValue connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row) {
+QoreValue connection::execReadOutput(QoreString* cmd_text, const QoreListNode* qore_args, bool need_list,
+        bool doBinding, bool cols, ExceptionSink* xsink, bool single_row) {
     // cancel any active statement
     invalidateStatement();
 
@@ -181,51 +178,55 @@ QoreValue connection::execReadOutput(QoreString* cmd_text, const QoreListNode* q
 }
 
 int connection::closeAndReconnect(ExceptionSink* xsink, command& cmd, bool try_reconnect) {
-   // cancel the current command
-   cmd.cancelDisconnect();
+    // cancel the current command
+    cmd.cancelDisconnect();
 
-   // cancel any current statement
-   invalidateStatement();
+    // cancel any current statement
+    invalidateStatement();
 
-   // see if we need to reconnect and try again
-   ct_close(m_connection, CS_FORCE_CLOSE);
-   connected = false;
+    // see if we need to reconnect and try again
+    ct_close(m_connection, CS_FORCE_CLOSE);
+    connected = false;
 
-   // discard all current messages
-   discard_messages();
+    // discard all current messages
+    discard_messages();
 
-   if (wasInTransaction(ds))
-      xsink->raiseException("TDS-TRANSACTION-ERROR", "connection to server lost while in a transaction; transaction has been lost");
+    if (wasInTransaction(ds))
+        xsink->raiseException("TDS-TRANSACTION-ERROR", "connection to server lost while in a transaction; "
+            "transaction has been lost");
 
-   // otherwise try to reconnect
-   ct_con_drop(m_connection);
-   m_connection = 0;
+    // otherwise try to reconnect
+    ct_con_drop(m_connection);
+    m_connection = nullptr;
 
-   int port = ds->getPort();
+    int port = ds->getPort();
 
-   printd(5, "connection::closeAndReconnect() this: %p reconnecting to %s@%s (trans: %d, try_reconnect: %d)\n", this, ds->getUsername(), ds->getDBName(), wasInTransaction(ds), try_reconnect);
+    printd(5, "connection::closeAndReconnect() this: %p reconnecting to %s@%s (trans: %d, try_reconnect: %d)\n", this,
+        ds->getUsername(), ds->getDBName(), wasInTransaction(ds), try_reconnect);
 
-   // make the actual connection to the database
-   if (init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(), ds->getQoreEncoding(), ds->getHostName(), port, xsink)) {
-      // make sure and mark Datasource as closed
-      ds->connectionAborted();
-      return -1;
-   }
+    // make the actual connection to the database
+    if (init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(),
+        ds->getQoreEncoding(), ds->getHostName(), port, xsink)) {
+        // make sure and mark Datasource as closed
+        ds->connectionAborted();
+        return -1;
+    }
 
-   printd(5, "connection::closeAndReconnect() this: %p auto reconnected to %s@%s m_connection: %p\n", this, ds->getUsername(), ds->getDBName(), m_connection);
+    printd(5, "connection::closeAndReconnect() this: %p auto reconnected to %s@%s m_connection: %p\n", this,
+        ds->getUsername(), ds->getDBName(), m_connection);
 
-   if (!try_reconnect || wasInTransaction(ds))
-      return -1;
+    if (!try_reconnect || wasInTransaction(ds))
+        return -1;
 
 #ifdef DEBUG
-   // otherwise show the exception on stdout in debug mode
-   xsink->handleExceptions();
+    // otherwise show the exception on stdout in debug mode
+    xsink->handleExceptions();
 #endif
 
-   // clear any exceptions that have been ignored
-   xsink->clear();
+    // clear any exceptions that have been ignored
+    xsink->clear();
 
-   return 0;
+    return 0;
 }
 
 command::ResType connection::readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink) {
@@ -374,8 +375,9 @@ QoreValue connection::exec_rows(const QoreString *cmd, const QoreListNode *param
 QoreValue connection::exec_row(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink) {
     // copy the string here for intrusive editing, convert encoding too if necessary
     QoreString *query = cmd->convertEncoding(enc, xsink);
-    if (!query)
+    if (!query) {
         return QoreValue();
+    }
 
     std::unique_ptr<QoreString> tmp(query);
     ValueHolder rv(execReadOutput(query, parameters, true, true, false, xsink, true), xsink);
@@ -397,33 +399,36 @@ int connection::rollback(ExceptionSink *xsink) {
     return direct_execute("rollback", xsink);
 }
 
+#define CHAR_ENC_SIZE 256
+
 // Post-constructor initialization
 int connection::init(const char* username,
                      const char* password,
                      const char* dbname,
                      const char* db_encoding,
-                     const QoreEncoding *n_enc,
-                     const char *hostname,
+                     const QoreEncoding* n_enc,
+                     const char* hostname,
                      int port,
                      ExceptionSink* xsink) {
     assert(!m_connection);
-    printd(5, "connection::init() user: %s pass: %s dbname: %s, db_enc: %s\n", username, password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
+    printd(5, "connection::init() user: %s pass: %s dbname: %s, db_enc: %s\n", username,
+        password ? password : "<n/a>", dbname, db_encoding ? db_encoding : "<n/a>");
 
     enc = n_enc;
 
-/*
-// add callbacks
-ret = ct_callback(m_context, 0, CS_SET, CS_CLIENTMSG_CB, (CS_VOID*)clientmsg_callback);
-if (ret != CS_SUCCEED) {
-xsink->raiseException("TDS-CTLIB-SET-CALLBACK", "ct_callback(CS_CLIENTMSG_CB) failed with error %d", ret);
-return -1;
-}
-ret = ct_callback(m_context, 0, CS_SET, CS_SERVERMSG_CB, (CS_VOID*)servermsg_callback);
-if (ret != CS_SUCCEED) {
-xsink->raiseException("TDS-CTLIB-SET-CALLBACK", "ct_callback(CS_SERVERMSG_CB) failed with error %d", ret);
-return -1;
-}
-*/
+    /*
+    // add callbacks
+    ret = ct_callback(m_context, 0, CS_SET, CS_CLIENTMSG_CB, (CS_VOID*)clientmsg_callback);
+    if (ret != CS_SUCCEED) {
+        xsink->raiseException("TDS-CTLIB-SET-CALLBACK", "ct_callback(CS_CLIENTMSG_CB) failed with error %d", ret);
+        return -1;
+    }
+    ret = ct_callback(m_context, 0, CS_SET, CS_SERVERMSG_CB, (CS_VOID*)servermsg_callback);
+    if (ret != CS_SUCCEED) {
+        xsink->raiseException("TDS-CTLIB-SET-CALLBACK", "ct_callback(CS_SERVERMSG_CB) failed with error %d", ret);
+        return -1;
+    }
+    */
 
     CS_RETCODE ret = ct_con_alloc(m_context.get_context(), &m_connection);
     if (ret != CS_SUCCEED) {
@@ -465,45 +470,45 @@ return -1;
         QoreString hn(hostname);
         hn.sprintf(" %d", port);
 
-        ret = ct_con_props(m_connection, CS_SET, CS_SERVERADDR, (CS_VOID*)hn.getBuffer(), CS_NULLTERM, 0);
+        ret = ct_con_props(m_connection, CS_SET, CS_SERVERADDR, (CS_VOID*)hn.c_str(), CS_NULLTERM, 0);
         if (ret != CS_SUCCEED) {
-            xsink->raiseException("TDS-CTLIB-SET-SERVERADDR", "ct_con_props(CS_SERVERADDR, '%s') failed with error %d", hn.getBuffer(), ret);
+            xsink->raiseException("TDS-CTLIB-SET-SERVERADDR", "ct_con_props(CS_SERVERADDR, '%s') failed with error %d", hn.c_str(), ret);
             return -1;
         }
     }
 
 #if defined(SYBASE) || defined(FREETDS_LOCALE)
-    CS_LOCALE *m_charset_locale = 0;
+    CS_LOCALE* m_charset_locale = nullptr;
 
     ret = cs_loc_alloc(m_context.get_context(), &m_charset_locale);
     if (ret != CS_SUCCEED) {
         xsink->raiseException("TDS-EXEC-EXCEPTION", "cs_loc_alloc() returned error %d", (int)ret);
         return -1;
     }
+    ON_BLOCK_EXIT(cs_loc_drop, m_context.get_context(), m_charset_locale);
     ret = cs_locale(m_context.get_context(), CS_SET, m_charset_locale, CS_LC_ALL, 0, CS_NULLTERM, 0);
     if (ret != CS_SUCCEED) {
         xsink->raiseException("TDS-EXEC-EXCEPTION", "cs_locale(CS_LC_ALL) returned error %d", (int)ret);
         return -1;
     }
-    ret = cs_locale(m_context.get_context(), CS_SET, m_charset_locale, CS_SYB_CHARSET, (CS_CHAR*)db_encoding, CS_NULLTERM, 0);
+    ret = cs_locale(m_context.get_context(), CS_SET, m_charset_locale, CS_SYB_CHARSET, (CS_CHAR*)db_encoding,
+        CS_NULLTERM, 0);
     if (ret != CS_SUCCEED) {
-        xsink->raiseException("TDS-EXEC-EXCEPTION", "cs_locale(CS_SYB_CHARSET, '%s') failed with error %d", db_encoding, (int)ret);
+        xsink->raiseException("TDS-EXEC-EXCEPTION", "cs_locale(CS_SYB_CHARSET, '%s') failed with error %d",
+            db_encoding, (int)ret);
         return -1;
     }
     ret = ct_con_props(m_connection, CS_SET, CS_LOC_PROP, m_charset_locale, CS_UNUSED, 0);
     if (ret !=CS_SUCCEED) {
-        xsink->raiseException("TDS-EXEC-EXCEPTION", "ct_con_props(CS_SET, CS_LOC_PROP) failed with error %d", (int)ret);
+        xsink->raiseException("TDS-EXEC-EXCEPTION", "ct_con_props(CS_SET, CS_LOC_PROP) failed with error %d",
+            (int)ret);
         return -1;
     }
-
-    ret = cs_loc_drop(m_context.get_context(), m_charset_locale);
-    assert(ret == CS_SUCCEED);
 #endif
 
     ret = ct_connect(m_connection, (CS_CHAR*)dbname, strlen(dbname));
     if (ret != CS_SUCCEED) {
         do_exception(xsink, "TDS-CTLIB-CONNECT-ERROR", "ct_connect() failed with error %d", ret);
-        return -1;
     }
     connected = true;
 
@@ -511,23 +516,94 @@ return -1;
     // - in autocommit mode qore executes a commit after every request manually
     CS_BOOL cs_bool = CS_TRUE;
     ret = ct_options(m_connection, CS_SET, CS_OPT_CHAINXACTS, &cs_bool, CS_UNUSED, 0);
-    if (ret != CS_SUCCEED)
+    if (ret != CS_SUCCEED) {
         do_exception(xsink, "TDS-INIT-ERROR", "ct_options(CS_OPT_CHAINXACTS) failed");
+    }
 
     // returns up to 1MB images or text values
     CS_INT cs_size = 1024 * 1024;
     ret = ct_options(m_connection, CS_SET, CS_OPT_TEXTSIZE, &cs_size, CS_UNUSED, 0);
-    if (ret != CS_SUCCEED)
+    if (ret != CS_SUCCEED) {
         do_exception(xsink, "TDS-INIT-ERROR", "ct_options(CS_OPT_TEXTSIZE) failed");
+    }
 
     // Set default type of string representation of DATETIME to long (like Jan 1 1990 12:32:55:0000 PM)
     // Without this some routines in conversions.cpp would fail.
     CS_INT aux = CS_DATES_LONG;
     ret = cs_dt_info(m_context.get_context(), CS_SET, NULL, CS_DT_CONVFMT, CS_UNUSED, (CS_VOID*)&aux, sizeof(aux), 0);
-    if (ret != CS_SUCCEED)
+    if (ret != CS_SUCCEED) {
         do_exception(xsink, "TDS-INIT-ERROR", "cs_dt_info(CS_DT_CONVFMT) failed");
+    }
 
-    return purge_messages(xsink);
+    // issue #4710: determine DB character encoding
+    cs_bool = CS_FALSE;
+    ret = ct_con_props(m_connection, CS_SET, CS_CHARSETCNV, &cs_bool, CS_UNUSED, 0);
+    if (ret != CS_SUCCEED) {
+        do_exception(xsink, "TDS-INIT-ERROR", "ct_options(CS_CHARSETCNV) failed");
+    }
+
+    if (!cs_bool) {
+        // issue #4710: determine DB character encoding
+        // see if we have Sybase or MS SQL
+        ValueHolder v(get_server_version(xsink), xsink);
+        if (!*xsink) {
+            if (v->getType() == NT_STRING) {
+                const QoreStringNode* str = v->get<const QoreStringNode>();
+                if (str->find("Adaptive Server") >= 0) {
+                    sybase = true;
+                }
+            }
+
+            // issue #4710: determine DB character encoding
+            if (!sybase) {
+                QoreString sql("select convert(varchar, serverproperty('collation')) as 'coll'");
+                ValueHolder holder(exec_row(&sql, nullptr, xsink), xsink);
+                if (holder->getType() == NT_HASH) {
+                    const QoreStringNode* coll = holder->get<const QoreHashNode>()
+                        ->getKeyValue("coll")
+                        .get<const QoreStringNode>();
+                    assert(coll);
+                    printd(5, "MS SQL Server collation: '%s'\n", coll->c_str());
+                    QoreString c(coll);
+                    c.tolwr();
+                    if (c.find("utf8") >= 0) {
+                        // set character encoding to UTF-8
+                        enc = QCS_UTF8;
+                    } else {
+                        sql = "select cast(collationproperty(%v, 'CodePage') as varchar) as 'cp'";
+                        try {
+                            ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), xsink);
+                            args->push(coll->refSelf(), xsink);
+                            holder = exec_row(&sql, *args, xsink);
+                            if (*xsink) {
+                                purge_messages(xsink);
+                                xsink->clear();
+                            } else {
+                                if (holder->getType() == NT_HASH) {
+                                    QoreStringNode* cp = holder->get<const QoreHashNode>()
+                                        ->getKeyValue("cp")
+                                        .get<QoreStringNode>();
+                                    if (cp && isdigit((*cp)[0])) {
+                                        printd(5, "MS SQL Server code page: '%s'\n", cp->c_str());
+                                        cp->prepend("WINDOWS-");
+                                        enc = QEM.findCreate(cp->c_str());
+                                        printd(5, "set connection encoding to '%s'\n", cp->c_str());
+                                    }
+                                }
+                            }
+
+                        } catch (const ss::Error& e) {
+                            printd(5, "ignoring error trying to determine server character encoding: %s: %s\n",
+                                e.getErr(), e.getDesc());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    purge_messages(xsink);
+    return *xsink ? -1 : 0;
 }
 
 void connection::discard_messages() {
@@ -662,7 +738,7 @@ void connection::do_check_exception(ExceptionSink *xsink, bool check, const char
     if (!count)
         estr->terminate(estr->size() - 2);
 
-    throw ss::Error(err, estr->getBuffer());
+    throw ss::Error(err, estr->c_str());
 }
 
 void connection::do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...) {
@@ -753,8 +829,9 @@ QoreValue connection::get_server_version(ExceptionSink *xsink) {
     QoreValue rv;
     {
         ValueHolder res(execReadOutput(&ver_str, 0, true, true, false, xsink), xsink);
-        if (!res)
+        if (!res) {
             return QoreValue();
+        }
         assert(res->getType() == NT_HASH);
         HashIterator hi(res->get<QoreHashNode>());
         hi.next();
@@ -762,8 +839,9 @@ QoreValue connection::get_server_version(ExceptionSink *xsink) {
     }
 
     QoreStringNode* str = rv.getType() == NT_STRING ? rv.get<QoreStringNode>() : nullptr;
-    if (str)
+    if (str) {
         str->trim_trailing('\n');
+    }
 
     return rv;
 }
