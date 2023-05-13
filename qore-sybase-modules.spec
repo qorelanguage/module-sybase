@@ -123,7 +123,7 @@ make install DESTDIR=$RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
-* Sat May 13 2022 David Nichols <david@qore.org> 1.2
+* Sat May 13 2023 David Nichols <david@qore.org> 1.2
 - updated version to 1.2
 
 * Wed Jan 19 2022 David Nichols <david@qore.org> 1.1
