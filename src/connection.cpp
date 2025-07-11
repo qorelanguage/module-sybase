@@ -34,8 +34,6 @@
 #include "sybase_query.h"
 #include "command.h"
 
-#include "minitest.hpp"
-
 static QoreString ver_str("begin tran select @@version commit tran");
 
 #ifdef SYBASE

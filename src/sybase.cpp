@@ -34,8 +34,6 @@
 #include "connection.h"
 #include "encoding_helpers.h"
 
-#include "minitest.hpp"
-
 #ifdef SYBASE
 DLLEXPORT char qore_module_name[] = "sybase";
 DLLEXPORT char qore_module_description[] = "Sybase database driver";
@@ -80,39 +78,6 @@ int DBI_SYBASE_CAPS =
                return RV; \
            }\
       } while(0)
-
-/*
-#ifdef DEBUG
-// exported
-AbstractQoreNode* runSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
-   minitest::result res = minitest::execute_all_tests();
-   if (res.all_tests_succeeded) {
-      printf("************************************************\n");
-      printf("Sybase module: %d tests succeeded\n", res.sucessful_tests_count);
-      printf("************************************************\n");
-      return 0;
-   }
-
-   xsink->raiseException("SYBASE-TEST-FAILURE", "Sybase test in file %s, line %d threw an exception.",
-			 res.failed_test_file, res.failed_test_line);
-   return 0;
-}
-
-AbstractQoreNode* runRecentSybaseTests(const QoreListNode *params, ExceptionSink *xsink) {
-   minitest::result res = minitest::test_last_changed_files(1);
-   if (res.all_tests_succeeded) {
-      printf("************************************************\n");
-      printf("Sybase module: %d recent tests succeeded\n", res.sucessful_tests_count);
-      printf("************************************************\n");
-      return 0;
-   }
-
-   xsink->raiseException("SYBASE-TEST-FAILURE", "Sybase test in file %s, line %d threw an exception.",
-			 res.failed_test_file, res.failed_test_line);
-   return 0;
-}
-#endif
-*/
 
 static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
     BEGIN_CALLBACK;

@@ -29,8 +29,6 @@
 #include "sybase.h"
 #include "sybase_query.h"
 
-#include "minitest.hpp"
-
 // returns 0=OK, -1=error (exception raised)
 int sybase_query::init(const QoreString *cmd_text,
         const QoreListNode *args,

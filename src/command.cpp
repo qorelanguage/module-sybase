@@ -38,8 +38,6 @@
 #include "utils.h"
 #include "resultfactory.h"
 
-#include "minitest.hpp"
-
 static std::string get_placeholder_at(const Placeholders *ph, size_t i) {
    if (!ph || ph->size() <= i) return ss::string_cast(i);
    if (ph->at(i).empty()) return ss::string_cast(i);
