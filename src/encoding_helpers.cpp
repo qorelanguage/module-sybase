@@ -32,8 +32,6 @@
 #include "encoding_helpers.h"
 #include "connection.h"
 
-#include "minitest.hpp"
-
 //------------------------------------------------------------------------------
 typedef std::map<const QoreEncoding*, const char*> rev_encoding_map_t;
 

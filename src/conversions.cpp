@@ -36,8 +36,6 @@
 #include "connection.h"
 #include "conversions.h"
 
-#include "minitest.hpp"
-
 namespace ss {
 
 // Sybase dates (so the "Sybase epoch") start from 1900-01-01
