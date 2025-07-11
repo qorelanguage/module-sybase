@@ -21,7 +21,7 @@ freetds_la_LDFLAGS = -module -avoid-version ${FREETDS_LIBS}
 freetds_la_CPPFLAGS = $(QORE_CPPFLAGS) $(FREETDS_INCLUDES) -DFREETDS=1
 endif
 
-INCLUDES = -I$(top_srcdir)/include
+AM_CPPFLAGS = -I$(top_srcdir)/include
 
 if COND_PROFILE
 AM_CXXFLAGS=-g -pg
