@@ -1,18 +1,15 @@
 # Process this file with autoconf to produce a configure script.
 
-# AC_PREREQ(2.59)
-AC_INIT([qore-sybase-modules], [1.2],
-        [David Nichols <david@qore.org>],
-        [qore-sybase-modules])
+AC_PREREQ([2.72])
+AC_INIT([qore-sybase-modules],[1.2],[David Nichols <david@qore.org>],[qore-sybase-modules])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 AC_LANG(C++)
 AC_PROG_CXX
 AC_PROG_CC
 AC_DISABLE_STATIC
-AC_LIBTOOL_DLOPEN
-AM_PROG_LIBTOOL
+LT_INIT(dlopen)
 AC_PROG_INSTALL
 
 # fix for building with older autotools
@@ -124,7 +121,7 @@ case "${host_os}" in
                 fi
 		LIBS="-L${LIB_PREFIX}/lib $LIBS"
                 ;;
-     *)         AC_WARN([Unknown platform ${host_os}])
+     *)         AC_MSG_WARN(Unknown platform ${host_os})
                 ;;
 esac
 AC_SUBST(SHLIB_SUFFIX)
@@ -294,20 +291,14 @@ else
 fi
 
 # test for C++17
-AX_CXX_COMPILE_STDCXX_17([noext], [mandatory])
-if test "$HAVE_CXX17" = "1"; then
-    AM_CXXFLAGS=-std=gnu++17
-fi
-
-# test for C++17
-AX_CXX_COMPILE_STDCXX_17([noext], [mandatory])
+AX_CXX_COMPILE_STDCXX_17(noext, mandatory)
 if test "$HAVE_CXX17" = "1"; then
     AM_CXXFLAGS=-std=gnu++17
 fi
 
 # checks for how to build threads
 if test "$mingw" != yes; then
-    ACX_PTHREAD
+    AX_PTHREAD
     if test "$acx_pthread_ok" = "no"; then
         AC_MSG_ERROR(POSIX threads do not seem to be supported on this platform, aborting)
     fi
@@ -816,7 +807,8 @@ AC_TYPE_SIZE_T
 AC_CHECK_MEMBERS([struct stat.st_blksize])
 AC_STRUCT_ST_BLOCKS
 AC_CHECK_MEMBERS([struct stat.st_rdev])
-AC_HEADER_TIME
+# End of obsolete code.
+
 AC_STRUCT_TM
 AC_C_VOLATILE
 
