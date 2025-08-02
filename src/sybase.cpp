@@ -266,16 +266,9 @@ namespace ss {
 }
 
 QoreStringNode* sybase_module_init() {
-   QORE_TRACE("sybase_module_init()");
+    QORE_TRACE("sybase_module_init()");
 
-   // init_namespace();
-
-/*
-#ifdef DEBUG
-    builtinFunctions.add("runSybaseTests", runSybaseTests, QDOM_DATABASE);
-    builtinFunctions.add("runRecentSybaseTests", runRecentSybaseTests, QDOM_DATABASE);
-#endif
-*/
+    // init_namespace();
 
     // register driver with DBI subsystem
     qore_dbi_method_list methods;
