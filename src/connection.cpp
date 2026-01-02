@@ -6,7 +6,7 @@
 
     Qore Programming Language
 
-    Copyright (C) 2007 - 2023 Qore Technologies s.r.o.
+    Copyright (C) 2007 - 2026 Qore Technologies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public

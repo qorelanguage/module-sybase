@@ -11,7 +11,6 @@ include(CheckCXXSymbolExists)
 find_package(Qore 0.9 REQUIRED)
 
 # Check for C++17
-include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
 if(COMPILER_SUPPORTS_CXX17)
     set(CMAKE_CXX_STANDARD 17)

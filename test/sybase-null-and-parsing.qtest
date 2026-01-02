@@ -104,7 +104,7 @@ public class NullAndParsingTest inherits QUnit::Test {
         # Insert string with escaped quote
         ds.exec("INSERT INTO parse_test VALUES (1, 'it''s a test')");
         ds.exec("INSERT INTO parse_test VALUES (2, 'say ''hello''')");
-        ds.exec("INSERT INTO parse_test VALUES (3, '''quoted''')");;
+        ds.exec("INSERT INTO parse_test VALUES (3, '''quoted''')");
         ds.commit();
 
         auto rows = ds.selectRows("SELECT * FROM parse_test ORDER BY id");
