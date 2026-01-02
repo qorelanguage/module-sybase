@@ -1,0 +1,200 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class NullAndParsingTest
+
+public class NullAndParsingTest inherits QUnit::Test {
+    private {
+        Datasource ds;
+    }
+
+    constructor() : Test("NullAndParsingTest", "1.0") {
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@mssql-local";
+        ds = new Datasource(connstr);
+
+        addTestCase("NULL value insertion", \testNullInsertion());
+        addTestCase("NULL value selection", \testNullSelection());
+        addTestCase("NULL in expressions", \testNullExpressions());
+        addTestCase("SQL escaped single quotes", \testEscapedQuotes());
+        addTestCase("SQL with special characters", \testSpecialCharacters());
+        addTestCase("SQL with unicode", \testUnicode());
+        addTestCase("empty strings vs NULL", \testEmptyStrings());
+
+        set_return_value(main());
+    }
+
+    destructor() {
+        # Cleanup
+        try { ds.exec("DROP TABLE null_test"); } catch () {}
+        try { ds.exec("DROP TABLE parse_test"); } catch () {}
+        ds.commit();
+        ds.close();
+    }
+
+    testNullInsertion() {
+        # Test inserting NULL values
+        try { ds.exec("DROP TABLE null_test"); } catch () {}
+        ds.exec("CREATE TABLE null_test (id INT, str_col VARCHAR(50) NULL, int_col INT NULL, date_col DATETIME NULL)");
+        ds.commit();
+
+        # Insert with explicit NULLs
+        ds.exec("INSERT INTO null_test VALUES (1, NULL, NULL, NULL)");
+
+        # Insert with bound NULL values
+        ds.vexec("INSERT INTO null_test VALUES (%v, %v, %v, %v)", (2, NOTHING, NOTHING, NOTHING));
+        ds.commit();
+
+        auto rows = ds.selectRows("SELECT * FROM null_test ORDER BY id");
+        assertEq(2, rows.size(), "two rows inserted");
+
+        # Check first row (explicit NULLs)
+        assertEq(NULL, rows[0].str_col, "explicit NULL string");
+        assertEq(NULL, rows[0].int_col, "explicit NULL int");
+        assertEq(NULL, rows[0].date_col, "explicit NULL date");
+
+        # Check second row (bound NULLs)
+        assertEq(NULL, rows[1].str_col, "bound NULL string");
+        assertEq(NULL, rows[1].int_col, "bound NULL int");
+        assertEq(NULL, rows[1].date_col, "bound NULL date");
+    }
+
+    testNullSelection() {
+        # Test selecting and comparing NULLs
+        auto row = ds.selectRow("SELECT NULL AS null_val");
+        assertEq(NULL, row.null_val, "SELECT NULL returns NULL");
+
+        # ISNULL function
+        row = ds.selectRow("SELECT ISNULL(NULL, 'default') AS val");
+        assertEq("default", row.val, "ISNULL works");
+
+        # COALESCE
+        row = ds.selectRow("SELECT COALESCE(NULL, NULL, 'third') AS val");
+        assertEq("third", row.val, "COALESCE works");
+    }
+
+    testNullExpressions() {
+        # Test NULL in various expressions
+        auto row = ds.selectRow("SELECT CASE WHEN NULL IS NULL THEN 'yes' ELSE 'no' END AS result");
+        assertEq("yes", row.result, "NULL IS NULL works");
+
+        row = ds.selectRow("SELECT CASE WHEN NULL = NULL THEN 'yes' ELSE 'no' END AS result");
+        assertEq("no", row.result, "NULL = NULL is not true (SQL standard)");
+
+        # NULL in arithmetic
+        row = ds.selectRow("SELECT 1 + NULL AS result");
+        assertEq(NULL, row.result, "arithmetic with NULL returns NULL");
+
+        # NULL in string concat
+        row = ds.selectRow("SELECT 'hello' + NULL AS result");
+        assertEq(NULL, row.result, "string concat with NULL returns NULL");
+    }
+
+    testEscapedQuotes() {
+        # Test SQL-style escaped single quotes ('')
+        try { ds.exec("DROP TABLE parse_test"); } catch () {}
+        ds.exec("CREATE TABLE parse_test (id INT, val VARCHAR(100))");
+        ds.commit();
+
+        # Insert string with escaped quote
+        ds.exec("INSERT INTO parse_test VALUES (1, 'it''s a test')");
+        ds.exec("INSERT INTO parse_test VALUES (2, 'say ''hello''')");
+        ds.exec("INSERT INTO parse_test VALUES (3, '''quoted''')");;
+        ds.commit();
+
+        auto rows = ds.selectRows("SELECT * FROM parse_test ORDER BY id");
+
+        assertEq("it's a test", rows[0].val, "single escaped quote");
+        assertEq("say 'hello'", rows[1].val, "multiple escaped quotes");
+        assertEq("'quoted'", rows[2].val, "quotes at start/end");
+
+        # Test with bound values containing quotes
+        ds.vexec("INSERT INTO parse_test VALUES (%v, %v)", (4, "it's bound"));
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT val FROM parse_test WHERE id = 4");
+        assertEq("it's bound", row.val, "bound value with quote");
+    }
+
+    testSpecialCharacters() {
+        # Test various special characters in strings
+        try { ds.exec("DROP TABLE parse_test"); } catch () {}
+        ds.exec("CREATE TABLE parse_test (id INT, val VARCHAR(100))");
+        ds.commit();
+
+        hash<auto> tests = {
+            "1": "tab\there",
+            "2": "new\nline",
+            "3": "carriage\rreturn",
+            "4": "percent%sign",
+            "5": "underscore_here",
+            "6": "backslash\\here",
+            "7": "brackets[test]",
+        };
+
+        foreach string id in (keys tests) {
+            ds.vexec("INSERT INTO parse_test VALUES (%v, %v)", (int(id), tests{id}));
+        }
+        ds.commit();
+
+        foreach string id in (keys tests) {
+            auto row = ds.selectRow("SELECT val FROM parse_test WHERE id = %v", int(id));
+            assertEq(tests{id}, row.val, sprintf("special char test %s", id));
+        }
+    }
+
+    testUnicode() {
+        # Test unicode characters
+        try { ds.exec("DROP TABLE parse_test"); } catch () {}
+        ds.exec("CREATE TABLE parse_test (id INT, val NVARCHAR(100))");
+        ds.commit();
+
+        hash<auto> tests = {
+            "1": "Hello World",
+            "2": "Caf\u00e9",  # café
+            "3": "\u4e2d\u6587",  # Chinese
+            "4": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",  # Russian
+            "5": "\u00e4\u00f6\u00fc\u00df",  # German umlauts
+        };
+
+        foreach string id in (keys tests) {
+            ds.vexec("INSERT INTO parse_test VALUES (%v, %v)", (int(id), tests{id}));
+        }
+        ds.commit();
+
+        foreach string id in (keys tests) {
+            auto row = ds.selectRow("SELECT val FROM parse_test WHERE id = %v", int(id));
+            assertEq(tests{id}, row.val, sprintf("unicode test %s", id));
+        }
+    }
+
+    testEmptyStrings() {
+        # Test empty strings vs NULL
+        try { ds.exec("DROP TABLE parse_test"); } catch () {}
+        ds.exec("CREATE TABLE parse_test (id INT, val VARCHAR(100) NULL)");
+        ds.commit();
+
+        ds.exec("INSERT INTO parse_test VALUES (1, '')");
+        ds.exec("INSERT INTO parse_test VALUES (2, NULL)");
+        ds.vexec("INSERT INTO parse_test VALUES (%v, %v)", (3, ""));
+        ds.vexec("INSERT INTO parse_test VALUES (%v, %v)", (4, NOTHING));
+        ds.commit();
+
+        auto rows = ds.selectRows("SELECT * FROM parse_test ORDER BY id");
+
+        # Empty string should be empty string, not NULL
+        assertEq("", rows[0].val, "explicit empty string");
+        assertEq(NULL, rows[1].val, "explicit NULL");
+        assertEq("", rows[2].val, "bound empty string");
+        assertEq(NULL, rows[3].val, "bound NULL");
+
+        # Test DATALENGTH
+        auto row = ds.selectRow("SELECT DATALENGTH(val) AS len FROM parse_test WHERE id = 1");
+        assertEq(0, row.len, "empty string has length 0");
+    }
+}

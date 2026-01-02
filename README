@@ -21,7 +21,17 @@ FreeTDS website: http://www.freetds.org
 
 Documentation in docs/sybase-module-doc.html
 
-test/example scripts: test/sybase-statement.qtest, test/sybase-types.qtest
+Test scripts:
+  test/sybase-types.qtest           - Data type handling tests
+  test/sybase-statement.qtest       - SQLStatement API tests
+  test/sybase-direct-connect.qtest  - Direct connection (hostname:port) tests
+  test/sybase-connection-errors.qtest - Connection error handling tests
+  test/sybase-options.qtest         - Driver options (number handling, timezone)
+  test/sybase-null-and-parsing.qtest - NULL handling and SQL parsing tests
+  test/sybase-stored-procedures.qtest - Stored procedure tests
+  test/sybase-lob.qtest             - Large object (TEXT, IMAGE, etc.) tests
+  test/sybase-multiple-resultsets.qtest - Multiple result set tests
+  test/sybase-reconnection.qtest    - Connection lifecycle tests
 
 
 LICENSE

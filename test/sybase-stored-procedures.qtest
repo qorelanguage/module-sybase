@@ -1,0 +1,117 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class StoredProcedureTest
+
+public class StoredProcedureTest inherits QUnit::Test {
+    private {
+        Datasource ds;
+    }
+
+    constructor() : Test("StoredProcedureTest", "1.0") {
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@mssql-local";
+        ds = new Datasource(connstr);
+
+        addTestCase("simple procedure no params", \testSimpleProcNoParams());
+        addTestCase("procedure with input params", \testProcWithInputParams());
+        addTestCase("procedure with select", \testProcWithSelect());
+        addTestCase("procedure with table operations", \testProcWithTableOperations());
+
+        set_return_value(main());
+    }
+
+    destructor() {
+        # Cleanup procedures
+        try { ds.exec("DROP PROCEDURE sp_test_simple"); } catch () {}
+        try { ds.exec("DROP PROCEDURE sp_test_input"); } catch () {}
+        try { ds.exec("DROP PROCEDURE sp_test_select"); } catch () {}
+        try { ds.exec("DROP PROCEDURE sp_test_table"); } catch () {}
+        try { ds.exec("DROP TABLE sp_test_data"); } catch () {}
+        ds.commit();
+        ds.close();
+    }
+
+    testSimpleProcNoParams() {
+        # Create a simple procedure that returns a constant
+        try { ds.exec("DROP PROCEDURE sp_test_simple"); } catch () {}
+        ds.exec("CREATE PROCEDURE sp_test_simple AS SELECT 'hello' AS greeting, 42 AS magic_number");
+        ds.commit();
+
+        # Execute the procedure
+        auto result = ds.selectRow("EXEC sp_test_simple");
+        assertEq("hello", result.greeting, "procedure returns correct string");
+        assertEq(42, result.magic_number, "procedure returns correct number");
+    }
+
+    testProcWithInputParams() {
+        # Create procedure with input parameters
+        try { ds.exec("DROP PROCEDURE sp_test_input"); } catch () {}
+        ds.exec("CREATE PROCEDURE sp_test_input @name VARCHAR(50), @multiplier INT AS SELECT @name AS echo_name, @multiplier * 10 AS result");
+        ds.commit();
+
+        # Execute with literal values
+        auto result = ds.selectRow("EXEC sp_test_input 'test', 5");
+        assertEq("test", result.echo_name, "input param string echoed");
+        assertEq(50, result.result, "input param calculation correct");
+
+        # Execute with bound values
+        result = ds.selectRow("EXEC sp_test_input %v, %v", "bound", 3);
+        assertEq("bound", result.echo_name, "bound input param string");
+        assertEq(30, result.result, "bound input param calculation");
+    }
+
+    testProcWithSelect() {
+        # Create procedure that selects from a table
+        try { ds.exec("DROP PROCEDURE sp_test_select"); } catch () {}
+        try { ds.exec("DROP TABLE sp_test_data"); } catch () {}
+
+        ds.exec("CREATE TABLE sp_test_data (id INT, name VARCHAR(50), value INT)");
+        ds.exec("INSERT INTO sp_test_data VALUES (1, 'first', 100)");
+        ds.exec("INSERT INTO sp_test_data VALUES (2, 'second', 200)");
+        ds.exec("INSERT INTO sp_test_data VALUES (3, 'third', 300)");
+        ds.commit();
+
+        ds.exec("CREATE PROCEDURE sp_test_select @min_value INT AS SELECT id, name, value FROM sp_test_data WHERE value >= @min_value ORDER BY id");
+        ds.commit();
+
+        # Get all rows
+        auto rows = ds.selectRows("EXEC sp_test_select 0");
+        assertEq(3, rows.size(), "procedure returns all 3 rows");
+
+        # Get filtered rows
+        rows = ds.selectRows("EXEC sp_test_select 200");
+        assertEq(2, rows.size(), "procedure returns 2 filtered rows");
+        assertEq("second", rows[0].name, "first filtered row is 'second'");
+    }
+
+    testProcWithTableOperations() {
+        # Create procedure that modifies data and returns result
+        try { ds.exec("DROP PROCEDURE sp_test_table"); } catch () {}
+        try { ds.exec("DROP TABLE sp_test_data"); } catch () {}
+
+        ds.exec("CREATE TABLE sp_test_data (id INT, counter INT)");
+        ds.exec("INSERT INTO sp_test_data VALUES (1, 0)");
+        ds.commit();
+
+        ds.exec("CREATE PROCEDURE sp_test_table @id INT AS BEGIN UPDATE sp_test_data SET counter = counter + 1 WHERE id = @id; SELECT counter FROM sp_test_data WHERE id = @id; END");
+        ds.commit();
+
+        # Call procedure multiple times
+        auto result = ds.selectRow("EXEC sp_test_table 1");
+        assertEq(1, result.counter, "counter incremented to 1");
+
+        result = ds.selectRow("EXEC sp_test_table 1");
+        assertEq(2, result.counter, "counter incremented to 2");
+
+        result = ds.selectRow("EXEC sp_test_table 1");
+        assertEq(3, result.counter, "counter incremented to 3");
+
+        ds.commit();
+    }
+}

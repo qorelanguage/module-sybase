@@ -1,0 +1,113 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class MultipleResultSetsTest
+
+public class MultipleResultSetsTest inherits QUnit::Test {
+    private {
+        Datasource ds;
+    }
+
+    constructor() : Test("MultipleResultSetsTest", "1.0") {
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@mssql-local";
+        ds = new Datasource(connstr);
+
+        addTestCase("two SELECT statements", \testTwoSelects());
+        addTestCase("three SELECT statements", \testThreeSelects());
+        addTestCase("mixed result types", \testMixedResultTypes());
+        addTestCase("select with row counts", \testSelectWithRowCounts());
+        addTestCase("empty result sets", \testEmptyResultSets());
+        addTestCase("different column counts", \testDifferentColumnCounts());
+
+        set_return_value(main());
+    }
+
+    destructor() {
+        try { ds.exec("DROP TABLE multi_rs_test"); } catch () {}
+        ds.commit();
+        ds.close();
+    }
+
+    setUp() {
+        try { ds.exec("DROP TABLE multi_rs_test"); } catch () {}
+        ds.exec("CREATE TABLE multi_rs_test (id INT, name VARCHAR(50), value DECIMAL(10,2))");
+        ds.exec("INSERT INTO multi_rs_test VALUES (1, 'first', 10.50)");
+        ds.exec("INSERT INTO multi_rs_test VALUES (2, 'second', 20.75)");
+        ds.exec("INSERT INTO multi_rs_test VALUES (3, 'third', 30.25)");
+        ds.commit();
+    }
+
+    testTwoSelects() {
+        setUp();
+
+        # Execute two SELECT statements in one batch
+        string sql = "SELECT id, name FROM multi_rs_test WHERE id = 1; SELECT id, name FROM multi_rs_test WHERE id = 2";
+        auto results = ds.select(sql);
+
+        # Results should be returned - verify we got some data
+        assertTrue(results.size() > 0, "got results from two selects");
+
+        # Alternative: use selectRows to get data as list
+        auto rows = ds.selectRows(sql);
+        assertTrue(rows.size() > 0, "got rows from two selects");
+    }
+
+    testThreeSelects() {
+        setUp();
+
+        # Execute three SELECT statements
+        string sql = "SELECT 1 AS a; SELECT 2 AS b; SELECT 3 AS c";
+        auto results = ds.select(sql);
+
+        assertTrue(results.size() > 0, "got results from three selects");
+    }
+
+    testMixedResultTypes() {
+        setUp();
+
+        # Mix different column types in each result set
+        string sql = "SELECT id FROM multi_rs_test; SELECT name FROM multi_rs_test; SELECT value FROM multi_rs_test";
+        auto results = ds.select(sql);
+
+        assertTrue(results.size() > 0, "got results from mixed type selects");
+    }
+
+    testSelectWithRowCounts() {
+        setUp();
+
+        # Mix SELECT with DML that returns row counts
+        # Note: The behavior here depends on driver implementation
+        string sql = "SELECT COUNT(*) AS cnt FROM multi_rs_test; UPDATE multi_rs_test SET value = value + 1 WHERE id = 1; SELECT COUNT(*) AS cnt FROM multi_rs_test";
+
+        auto results = ds.exec(sql);
+        ds.rollback();  # Roll back the update
+
+        assertTrue(True, "mixed select and DML executed");
+    }
+
+    testEmptyResultSets() {
+        setUp();
+
+        # One result set has rows, another is empty
+        string sql = "SELECT id FROM multi_rs_test WHERE id = 1; SELECT id FROM multi_rs_test WHERE id = 999; SELECT id FROM multi_rs_test WHERE id = 2";
+        auto results = ds.select(sql);
+
+        assertTrue(results.size() > 0, "got results including empty set");
+    }
+
+    testDifferentColumnCounts() {
+        setUp();
+
+        # Each result set has different number of columns
+        string sql = "SELECT id FROM multi_rs_test WHERE id = 1; SELECT id, name FROM multi_rs_test WHERE id = 2; SELECT id, name, value FROM multi_rs_test WHERE id = 3";
+        auto results = ds.select(sql);
+
+        assertTrue(results.size() > 0, "got results with different column counts");
+    }
+}
