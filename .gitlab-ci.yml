@@ -20,7 +20,8 @@ variables:
   MSSQL_SA_PASSWORD: "Test1234!"
   MSSQL_PID: "Express"
   # Connection string using direct connection format
-  QORE_DB_CONNSTR_FREETDS: 'freetds:sa/Test1234!@test%mssql:1433'
+  # Use master database since test database may not be creatable in all environments
+  QORE_DB_CONNSTR_FREETDS: 'freetds:sa/Test1234!@master%mssql:1433'
 
 .wait_for_mssql: &wait_for_mssql |
   echo "Configuring freetds.conf..."
@@ -30,25 +31,41 @@ variables:
   cat /etc/freetds/freetds.conf
   echo "Waiting for MS SQL Server to start..."
   # Wait up to 120 seconds for MS SQL Server to be ready
-  # Use tsql directly since nc/ping may not be available
+  # Use bash TCP check as a fallback if tsql is not available
   for i in $(seq 1 120); do
-    if echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>/dev/null | grep -q "1"; then
-      echo "MS SQL Server is ready!"
-      break
+    # First check if port is open using bash TCP
+    if (echo > /dev/tcp/mssql/1433) 2>/dev/null; then
+      # Try tsql if available, otherwise just wait a bit more for SQL to be fully ready
+      if command -v tsql >/dev/null 2>&1; then
+        if echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>/dev/null | grep -q "1"; then
+          echo "MS SQL Server is ready!"
+          break
+        fi
+      else
+        # No tsql, wait a few more seconds for SQL to be fully ready after port opens
+        echo "Port 1433 is open, waiting for SQL Server to fully initialize..."
+        sleep 10
+        echo "MS SQL Server should be ready now"
+        break
+      fi
     fi
     if [ $i -eq 120 ]; then
       echo "ERROR: MS SQL Server did not become ready in time"
       # Try to get diagnostic info
-      echo "Attempting tsql connection for diagnostics..."
-      echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>&1 || true
+      echo "Checking port connectivity..."
+      (echo > /dev/tcp/mssql/1433) 2>&1 || echo "Cannot connect to mssql:1433"
       exit 1
     fi
     echo "Waiting for MS SQL Server... ($i/120)"
     sleep 1
   done
-  # Create test database
-  echo "Creating test database..."
-  echo -e "CREATE DATABASE test\nGO" | tsql -S mssql -U sa -P 'Test1234!' || echo "Database may already exist"
+  # Create test database (only if tsql is available)
+  if command -v tsql >/dev/null 2>&1; then
+    echo "Creating test database..."
+    echo -e "CREATE DATABASE test\nGO" | tsql -S mssql -U sa -P 'Test1234!' || echo "Database may already exist"
+  else
+    echo "Note: tsql not available, database creation will be handled by tests"
+  fi
 
 test-ubuntu:
   stage: test
