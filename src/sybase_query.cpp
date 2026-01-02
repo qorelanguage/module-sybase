@@ -41,11 +41,15 @@ int sybase_query::init(const QoreString *cmd_text,
    while (*s) {
        char ch = *s++;
 
-       // skip double qouted strings
+       // skip double quoted strings
        if (ch == '"') {
            for (;;) {
                ch = *s++;
-               if (ch == '\\') {
+               if (!ch) {
+                   // unterminated string - return without error; the DB will report it
+                   return 0;
+               }
+               if (ch == '\\' && *s) {
                    ch = *s++;
                    continue;
                }
@@ -54,12 +58,17 @@ int sybase_query::init(const QoreString *cmd_text,
                }
            }
        }
-       // skip single qouted strings
+       // skip single quoted strings
        if (ch == '\'') {
            for (;;) {
                ch = *s++;
-               if (ch == '\\') {
-                   ch = *s++;
+               if (!ch) {
+                   // unterminated string - return without error; the DB will report it
+                   return 0;
+               }
+               if (ch == '\'' && *s == '\'') {
+                   // escaped single quote in SQL
+                   s++;
                    continue;
                }
                if (ch == '\'') {
@@ -132,8 +141,6 @@ next:
        ;
    } // while
 
-   s = m_cmd.getBuffer();
-   s = 0;
    //printd(5, "size=%d, m_cmd=%s\n", param_list.size(), m_cmd.getBuffer());
    return 0;
 }

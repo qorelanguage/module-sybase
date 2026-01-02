@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 #AC_PREREQ([2.72])
-AC_INIT([qore-sybase-modules],[1.2],[David Nichols <david@qore.org>],[qore-sybase-modules])
+AC_INIT([qore-sybase-modules],[1.2.1],[David Nichols <david@qore.org>],[qore-sybase-modules])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
 AC_CONFIG_HEADERS([config.h])
 

@@ -21,15 +21,15 @@ TEST()
     assert(false);
   }
 
-  std::auto_ptr<DateTime> d(new DateTime);
+  std::unique_ptr<DateTime> d(new DateTime);
 
   CS_DATETIME dt1;
   DateTime_to_DATETIME(d.get(), dt1, &xsink);
   if (xsink.isException()) {
     assert(false);
   }
- 
-  std::auto_ptr<DateTime> d2(DATETIME_to_DateTime(dt1));
+
+  std::unique_ptr<DateTime> d2(DATETIME_to_DateTime(dt1));
   if (xsink.isException()) {
     assert(false);
   }
@@ -53,7 +53,7 @@ TEST()
     assert(false);
   }
 
-  std::auto_ptr<DateTime> d(new DateTime);
+  std::unique_ptr<DateTime> d(new DateTime);
 
   CS_DATETIME4 dt1;
   DateTime_to_DATETIME4(conn, d.get(), dt1, &xsink);
@@ -61,7 +61,7 @@ TEST()
     assert(false);
   }
 
-  std::auto_ptr<DateTime> d2(DATETIME4_to_DateTime(conn, dt1, &xsink));
+  std::unique_ptr<DateTime> d2(DATETIME4_to_DateTime(conn, dt1, &xsink));
   if (xsink.isException()) {
     assert(false);
   }

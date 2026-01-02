@@ -256,6 +256,22 @@ exec get_values :string output, :int output");
 
     @section sybasereleasenotes Release Notes
 
+    @subsection sybase_1_2_1 sybase Driver Version 1.2.1
+    - fixed the \c freetds driver to allow direct connections using hostname and port without
+      requiring a \c freetds.conf entry; now connections like
+      <tt>freetds:user/pass@dbname:hostname:port</tt> work correctly
+      (<a href="https://github.com/qoretechnologies/qore/issues/5103">issue 5103</a>)
+    - fixed a potential buffer overrun when parsing SQL with unterminated quoted strings
+    - fixed an error message format string that was missing the error code parameter
+    - fixed SQL quote parsing to properly handle SQL-style escaped single quotes ('')
+    - added explicit C++17 <tt>[[fallthrough]]</tt> annotation for intentional case fallthrough
+    - fixed typo in copyright header
+    - removed dead code in query parser
+    - updated deprecated <tt>std::auto_ptr</tt> to <tt>std::unique_ptr</tt> in tests
+    - updated GitLab CI to use k8s runner tag
+    - fixed GitHub organization name in CI API calls
+    - updated README with correct version and requirements
+
     @subsection sybase_1_2 sybase Driver Version 1.2
     - detect and automatically set the server character encoding for MS SQL server connections to ensure that strings
       with invalid encodings are never sent to or retrieved from the server

@@ -115,22 +115,39 @@ static int sybase_open(Datasource *ds, ExceptionSink *xsink) {
         return -1;
 
     int port = ds->getPort();
+    const char* hostname = ds->getHostName();
+    std::string hostname_str;
 
-    if (port && !ds->getHostName()) {
+    // Parse hostname:port format if port is 0 but hostname contains a colon
+    // This allows direct connections like freetds:user/pass@db%hostname:port
+    if (!port && hostname) {
+        const char* colon = strchr(hostname, ':');
+        if (colon && colon[1]) {
+            hostname_str.assign(hostname, colon - hostname);
+            hostname = hostname_str.c_str();
+            port = atoi(colon + 1);
+            if (port <= 0 || port > 65535) {
+                xsink->raiseException("TDS-CONNECT-ERROR", "invalid port number in hostname '%s'", ds->getHostName());
+                return -1;
+            }
+        }
+    }
+
+    if (port && !hostname) {
         xsink->raiseException("TDS-CONNECT-ERROR", "port is set to %d, but no hostname is set; both hostname "
             "and port must be set to override the interfaces file", port);
         return -1;
     }
 
-    if (!port && ds->getHostName()) {
+    if (!port && hostname) {
         xsink->raiseException("TDS-CONNECT-ERROR", "hostname is set to '%s', but no port is set; both hostname and "
-            "port must be set to override the interfaces file", ds->getHostName());
+            "port must be set to override the interfaces file", hostname);
         return -1;
     }
 
     // make the actual connection to the database
     sc->init(ds->getUsername(), ds->getPassword() ? ds->getPassword() : "", ds->getDBName(), ds->getDBEncoding(),
-        ds->getQoreEncoding(), ds->getHostName(), port, xsink);
+        ds->getQoreEncoding(), hostname, port, xsink);
     // return with an error if it didn't work
     if (*xsink)
         return -1;

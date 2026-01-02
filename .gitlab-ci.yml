@@ -3,10 +3,10 @@ stages:
 
 default:
   tags:
-    - docker-exec
+    - k8s
   before_script:
     - |
-        curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
+        curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
         -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
         -d "{\"state\": \"pending\", \"context\": \"${REPO_NAME}\", \"description\": \"Gitlab CI\", \"target_url\": \"${CI_JOB_URL}\"}"
     - set +e
@@ -23,12 +23,12 @@ test-ubuntu:
     - |
         printf "[rippy]\n  host = rippy\n  port = 1433\n  tds version = 7.4" > /etc/freetds/freetds.conf
         if test/docker_test/test-ubuntu.sh; then
-          curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
+          curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
             -d "{\"state\": \"success\", \"context\": \"${REPO_NAME}\", \"description\": \"Gitlab CI\", \"target_url\": \"${CI_JOB_URL}\"}"
           exit 0
         else
-          curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
+          curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
             -d "{\"state\": \"failure\", \"context\": \"${REPO_NAME}\", \"description\": \"Gitlab CI\", \"target_url\": \"${CI_JOB_URL}\"}"
           exit 1
@@ -41,12 +41,12 @@ test-alpine:
     - |
         printf "[rippy]\n  host = rippy\n  port = 1433\n  tds version = 7.4" > /etc/freetds.conf
         if test/docker_test/test-alpine.sh; then
-          curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
+          curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
             -d "{\"state\": \"success\", \"context\": \"${REPO_NAME}\", \"description\": \"Gitlab CI\", \"target_url\": \"${CI_JOB_URL}\"}"
           exit 0
         else
-          curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
+          curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
             -d "{\"state\": \"failure\", \"context\": \"${REPO_NAME}\", \"description\": \"Gitlab CI\", \"target_url\": \"${CI_JOB_URL}\"}"
           exit 1
