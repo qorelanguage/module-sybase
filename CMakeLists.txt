@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5...3.29)
 
-project(qore-sybase-modules VERSION 1.2.1)
+project(qore-sybase-modules VERSION 1.3)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 

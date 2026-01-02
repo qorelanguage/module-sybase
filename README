@@ -1,5 +1,5 @@
 sybase and freetds modules for Qore
-version 1.2.1 by David Nichols
+version 1.3 by David Nichols
 
 Requires qore 0.9+ and either or both of:
 1) Sybase headers and libraries to build the "sybase" module
