@@ -560,7 +560,7 @@ int connection::init(const char* username,
         }
 
         QoreString use_db("use ");
-        use_db.concat(&safe_dbname);
+        use_db.concat(safe_dbname.c_str());
         printd(5, "connection::init() switching to database with: %s\n", use_db.c_str());
         // Clear any pending messages before USE to avoid false errors
         discard_messages();
