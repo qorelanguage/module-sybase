@@ -16,6 +16,7 @@ public class DirectConnectTest inherits QUnit::Test {
         string user;
         string pass;
         string db;
+        bool canTestDirectConnect = False;
     }
 
     constructor() : Test("DirectConnectTest", "1.0") {
@@ -31,21 +32,31 @@ public class DirectConnectTest inherits QUnit::Test {
             db = m[2];
             host = m[3];
             port = int(m[4]);
+            canTestDirectConnect = True;
         } else {
-            # Try simpler format without hostname:port
-            m = (connstr =~ x/freetds:([^\/]+)\/([^@]+)@(.+)/);
-            if (m) {
-                user = m[0];
-                pass = m[1];
-                db = m[2];
+            # Check if FREETDS_HOST is available for direct connection testing
+            if (ENV.FREETDS_HOST) {
+                m = (connstr =~ x/freetds:([^\/]+)\/([^@]+)@(.+)/);
+                if (m) {
+                    user = m[0];
+                    pass = m[1];
+                    db = m[2];
+                }
+                host = ENV.FREETDS_HOST;
+                port = int(ENV.FREETDS_PORT ?? "1433");
+                if (user && host) {
+                    canTestDirectConnect = True;
+                }
             }
-            # Use defaults for host/port
-            host = ENV.FREETDS_HOST ?? "localhost";
-            port = int(ENV.FREETDS_PORT ?? "1433");
-            if (!user) {
+            # If still no valid config, use defaults for local testing
+            if (!canTestDirectConnect) {
                 user = "test";
                 pass = "test";
                 db = "test";
+                host = "localhost";
+                port = 1433;
+                # Only enable if no QORE_DB_CONNSTR_FREETDS is set (local testing)
+                canTestDirectConnect = !ENV.QORE_DB_CONNSTR_FREETDS.val();
             }
         }
 
@@ -58,6 +69,10 @@ public class DirectConnectTest inherits QUnit::Test {
     }
 
     testDirectConnection() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
         # Test direct connection format: freetds:user/pass@dbname%hostname:port
         string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
 
@@ -77,6 +92,10 @@ public class DirectConnectTest inherits QUnit::Test {
     }
 
     testDatabaseSelection() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
         # Test that the correct database is selected with direct connection
         string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
 
@@ -88,6 +107,10 @@ public class DirectConnectTest inherits QUnit::Test {
     }
 
     testDirectConnectionQueries() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
         string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
 
         Datasource ds(connstr);
@@ -108,6 +131,10 @@ public class DirectConnectTest inherits QUnit::Test {
     }
 
     testDirectConnectionTransactions() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
         string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
 
         Datasource ds(connstr);
