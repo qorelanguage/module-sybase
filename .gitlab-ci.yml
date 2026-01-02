@@ -17,29 +17,41 @@ variables:
   # MS SQL Server configuration
   ACCEPT_EULA: "Y"
   MSSQL_SA_PASSWORD: "Test1234!"
-  MSSQL_PID: "Developer"
-  # Connection string using direct connection format (no freetds.conf needed)
+  MSSQL_PID: "Express"
+  # Connection string using direct connection format
   QORE_DB_CONNSTR_FREETDS: 'freetds:sa/Test1234!@test%mssql:1433'
 
 .wait_for_mssql: &wait_for_mssql |
+  echo "Configuring freetds.conf..."
+  # Create freetds.conf entry for the mssql service
+  mkdir -p /etc/freetds
+  printf "[mssql]\n\thost = mssql\n\tport = 1433\n\ttds version = 7.4\n" > /etc/freetds/freetds.conf
+  cat /etc/freetds/freetds.conf
   echo "Waiting for MS SQL Server to start..."
-  # Wait up to 60 seconds for MS SQL Server to be ready
-  for i in $(seq 1 60); do
-    # Try connecting with FreeTDS using direct connection
-    if echo -e "SELECT 1\nGO" | TDSVER=7.4 tsql -H mssql -p 1433 -U sa -P 'Test1234!' > /dev/null 2>&1; then
-      echo "MS SQL Server is ready!"
-      break
+  # Wait up to 90 seconds for MS SQL Server to be ready
+  for i in $(seq 1 90); do
+    # Try a simple TCP connection first
+    if nc -z mssql 1433 2>/dev/null; then
+      echo "Port 1433 is open, checking SQL Server..."
+      # Now try tsql with the configured server
+      if echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>/dev/null | grep -q "1"; then
+        echo "MS SQL Server is ready!"
+        break
+      fi
     fi
-    if [ $i -eq 60 ]; then
+    if [ $i -eq 90 ]; then
       echo "ERROR: MS SQL Server did not become ready in time"
+      echo "Checking if mssql host is reachable..."
+      ping -c 1 mssql || echo "Cannot ping mssql"
+      nc -zv mssql 1433 || echo "Cannot connect to port 1433"
       exit 1
     fi
-    echo "Waiting for MS SQL Server... ($i/60)"
+    echo "Waiting for MS SQL Server... ($i/90)"
     sleep 1
   done
   # Create test database
   echo "Creating test database..."
-  echo -e "CREATE DATABASE test\nGO" | TDSVER=7.4 tsql -H mssql -p 1433 -U sa -P 'Test1234!' || echo "Database may already exist"
+  echo -e "CREATE DATABASE test\nGO" | tsql -S mssql -U sa -P 'Test1234!' || echo "Database may already exist"
 
 test-ubuntu:
   stage: test
@@ -47,6 +59,10 @@ test-ubuntu:
   services:
     - name: mcr.microsoft.com/mssql/server:2022-latest
       alias: mssql
+      variables:
+        ACCEPT_EULA: "Y"
+        MSSQL_SA_PASSWORD: "Test1234!"
+        MSSQL_PID: "Express"
   script:
     - *wait_for_mssql
     - |
@@ -69,6 +85,10 @@ test-alpine:
   services:
     - name: mcr.microsoft.com/mssql/server:2022-latest
       alias: mssql
+      variables:
+        ACCEPT_EULA: "Y"
+        MSSQL_SA_PASSWORD: "Test1234!"
+        MSSQL_PID: "Express"
   script:
     - *wait_for_mssql
     - |
