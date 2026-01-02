@@ -464,7 +464,7 @@ int connection::init(const char* username,
 
     // set hostname and port - when both are provided, we connect directly without freetds.conf
     bool direct_connect = hostname && hostname[0] && port;
-    printd(1, "connection::init() hostname=%s port=%d direct_connect=%d dbname=%s\n",
+    printd(5, "connection::init() hostname=%s port=%d direct_connect=%d dbname=%s\n",
         hostname ? hostname : "NULL", port, direct_connect, dbname ? dbname : "NULL");
     if (direct_connect) {
         QoreString hn(hostname);
@@ -523,9 +523,45 @@ int connection::init(const char* username,
 
     // When using direct connection, switch to the specified database
     if (direct_connect && dbname && dbname[0]) {
+        // Validate database name to prevent SQL injection
+        // Only allow alphanumeric, underscore, and bracket-delimited names
+        QoreString safe_dbname;
+        bool needs_quoting = false;
+        for (const char* p = dbname; *p; ++p) {
+            char c = *p;
+            if (!isalnum(c) && c != '_') {
+                // Check for already-bracketed name
+                if (p == dbname && c == '[') {
+                    // Accept bracketed identifiers as-is after validation
+                    const char* end = strchr(p + 1, ']');
+                    if (end && *(end + 1) == '\0') {
+                        safe_dbname.concat(dbname);
+                        break;
+                    }
+                }
+                needs_quoting = true;
+            }
+        }
+        if (safe_dbname.empty()) {
+            if (needs_quoting) {
+                // Quote the identifier with brackets, escaping any existing brackets
+                safe_dbname.concat('[');
+                for (const char* p = dbname; *p; ++p) {
+                    if (*p == ']') {
+                        safe_dbname.concat("]]");
+                    } else {
+                        safe_dbname.concat(*p);
+                    }
+                }
+                safe_dbname.concat(']');
+            } else {
+                safe_dbname.concat(dbname);
+            }
+        }
+
         QoreString use_db("use ");
-        use_db.concat(dbname);
-        printd(1, "connection::init() switching to database with: %s\n", use_db.c_str());
+        use_db.concat(&safe_dbname);
+        printd(5, "connection::init() switching to database with: %s\n", use_db.c_str());
         // Clear any pending messages before USE to avoid false errors
         discard_messages();
         if (direct_execute(use_db.c_str(), xsink)) {
