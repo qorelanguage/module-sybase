@@ -29,25 +29,21 @@ variables:
   printf "[mssql]\n\thost = mssql\n\tport = 1433\n\ttds version = 7.4\n" > /etc/freetds/freetds.conf
   cat /etc/freetds/freetds.conf
   echo "Waiting for MS SQL Server to start..."
-  # Wait up to 90 seconds for MS SQL Server to be ready
-  for i in $(seq 1 90); do
-    # Try a simple TCP connection first
-    if nc -z mssql 1433 2>/dev/null; then
-      echo "Port 1433 is open, checking SQL Server..."
-      # Now try tsql with the configured server
-      if echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>/dev/null | grep -q "1"; then
-        echo "MS SQL Server is ready!"
-        break
-      fi
+  # Wait up to 120 seconds for MS SQL Server to be ready
+  # Use tsql directly since nc/ping may not be available
+  for i in $(seq 1 120); do
+    if echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>/dev/null | grep -q "1"; then
+      echo "MS SQL Server is ready!"
+      break
     fi
-    if [ $i -eq 90 ]; then
+    if [ $i -eq 120 ]; then
       echo "ERROR: MS SQL Server did not become ready in time"
-      echo "Checking if mssql host is reachable..."
-      ping -c 1 mssql || echo "Cannot ping mssql"
-      nc -zv mssql 1433 || echo "Cannot connect to port 1433"
+      # Try to get diagnostic info
+      echo "Attempting tsql connection for diagnostics..."
+      echo -e "SELECT 1\nGO" | tsql -S mssql -U sa -P 'Test1234!' 2>&1 || true
       exit 1
     fi
-    echo "Waiting for MS SQL Server... ($i/90)"
+    echo "Waiting for MS SQL Server... ($i/120)"
     sleep 1
   done
   # Create test database

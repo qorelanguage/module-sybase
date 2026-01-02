@@ -98,7 +98,7 @@ public class ConnectionErrorTest inherits QUnit::Test {
             ds.rollback();
             ds.close();
         } catch (hash<ExceptionInfo> ex) {
-            fail(sprintf("valid connection string failed: %s", ex.err));
+            fail(sprintf("valid connection string failed: %s: %s", ex.err, ex.desc));
         }
     }
 }
