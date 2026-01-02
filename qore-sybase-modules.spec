@@ -124,7 +124,14 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 * Thu Jan 02 2026 David Nichols <david@qore.org> 1.2.1
-- updated version to 1.2.1
+- added direct connection support (hostname:port without freetds.conf)
+- added CMake build system as alternative to autotools
+- fixed potential buffer overrun in SQL parsing
+- fixed SQL quote parsing for escaped single quotes
+- fixed format string error in error message
+- added C++17 [[fallthrough]] annotation
+- removed dead code in query parser
+- updated to C++17 std::unique_ptr in tests
 - refs https://github.com/qoretechnologies/qore/issues/5103
 
 * Sat May 13 2023 David Nichols <david@qore.org> 1.2
