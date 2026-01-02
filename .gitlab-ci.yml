@@ -18,8 +18,28 @@ variables:
   ACCEPT_EULA: "Y"
   MSSQL_SA_PASSWORD: "Test1234!"
   MSSQL_PID: "Developer"
-  # Connection string using the mssql service container
+  # Connection string using direct connection format (no freetds.conf needed)
   QORE_DB_CONNSTR_FREETDS: 'freetds:sa/Test1234!@test%mssql:1433'
+
+.wait_for_mssql: &wait_for_mssql |
+  echo "Waiting for MS SQL Server to start..."
+  # Wait up to 60 seconds for MS SQL Server to be ready
+  for i in $(seq 1 60); do
+    # Try connecting with FreeTDS using direct connection
+    if echo -e "SELECT 1\nGO" | TDSVER=7.4 tsql -H mssql -p 1433 -U sa -P 'Test1234!' > /dev/null 2>&1; then
+      echo "MS SQL Server is ready!"
+      break
+    fi
+    if [ $i -eq 60 ]; then
+      echo "ERROR: MS SQL Server did not become ready in time"
+      exit 1
+    fi
+    echo "Waiting for MS SQL Server... ($i/60)"
+    sleep 1
+  done
+  # Create test database
+  echo "Creating test database..."
+  echo -e "CREATE DATABASE test\nGO" | TDSVER=7.4 tsql -H mssql -p 1433 -U sa -P 'Test1234!' || echo "Database may already exist"
 
 test-ubuntu:
   stage: test
@@ -28,21 +48,8 @@ test-ubuntu:
     - name: mcr.microsoft.com/mssql/server:2022-latest
       alias: mssql
   script:
+    - *wait_for_mssql
     - |
-        # Configure freetds.conf for the mssql service
-        printf "[mssql]\n  host = mssql\n  port = 1433\n  tds version = 7.4\n" > /etc/freetds/freetds.conf
-        # Wait for MS SQL Server to be ready
-        echo "Waiting for MS SQL Server to start..."
-        for i in $(seq 1 30); do
-          if echo "SELECT 1" | tsql -S mssql -U sa -P 'Test1234!' > /dev/null 2>&1; then
-            echo "MS SQL Server is ready"
-            break
-          fi
-          echo "Waiting... ($i/30)"
-          sleep 2
-        done
-        # Create test database
-        echo "CREATE DATABASE test" | tsql -S mssql -U sa -P 'Test1234!' || true
         # Run tests
         if test/docker_test/test-ubuntu.sh; then
           curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
@@ -63,21 +70,8 @@ test-alpine:
     - name: mcr.microsoft.com/mssql/server:2022-latest
       alias: mssql
   script:
+    - *wait_for_mssql
     - |
-        # Configure freetds.conf for the mssql service
-        printf "[mssql]\n  host = mssql\n  port = 1433\n  tds version = 7.4\n" > /etc/freetds.conf
-        # Wait for MS SQL Server to be ready
-        echo "Waiting for MS SQL Server to start..."
-        for i in $(seq 1 30); do
-          if echo "SELECT 1" | tsql -S mssql -U sa -P 'Test1234!' > /dev/null 2>&1; then
-            echo "MS SQL Server is ready"
-            break
-          fi
-          echo "Waiting... ($i/30)"
-          sleep 2
-        done
-        # Create test database
-        echo "CREATE DATABASE test" | tsql -S mssql -U sa -P 'Test1234!' || true
         # Run tests
         if test/docker_test/test-alpine.sh; then
           curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
