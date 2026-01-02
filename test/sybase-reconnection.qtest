@@ -1,0 +1,161 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class ReconnectionTest
+
+public class ReconnectionTest inherits QUnit::Test {
+    private {
+        string connstr;
+    }
+
+    constructor() : Test("ReconnectionTest", "1.0") {
+        connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@mssql-local";
+
+        addTestCase("close and reopen", \testCloseAndReopen());
+        addTestCase("multiple connections", \testMultipleConnections());
+        addTestCase("connection after error", \testConnectionAfterError());
+        addTestCase("rapid open close cycles", \testRapidOpenCloseCycles());
+        addTestCase("concurrent connections", \testConcurrentConnections());
+        addTestCase("connection state after rollback", \testConnectionStateAfterRollback());
+
+        set_return_value(main());
+    }
+
+    testCloseAndReopen() {
+        # Test basic close and reopen cycle
+        Datasource ds(connstr);
+
+        auto result = ds.selectRow("SELECT 1 AS test");
+        assertEq(1, result.test, "first query works");
+
+        ds.close();
+
+        # Reopen the same datasource
+        ds.open();
+        result = ds.selectRow("SELECT 2 AS test");
+        assertEq(2, result.test, "query after reopen works");
+
+        ds.close();
+    }
+
+    testMultipleConnections() {
+        # Test multiple simultaneous connections
+        Datasource ds1(connstr);
+        Datasource ds2(connstr);
+        Datasource ds3(connstr);
+
+        auto r1 = ds1.selectRow("SELECT 'ds1' AS source");
+        auto r2 = ds2.selectRow("SELECT 'ds2' AS source");
+        auto r3 = ds3.selectRow("SELECT 'ds3' AS source");
+
+        assertEq("ds1", r1.source, "ds1 query works");
+        assertEq("ds2", r2.source, "ds2 query works");
+        assertEq("ds3", r3.source, "ds3 query works");
+
+        ds1.close();
+        ds2.close();
+        ds3.close();
+    }
+
+    testConnectionAfterError() {
+        # Test that connection remains usable after SQL error
+        Datasource ds(connstr);
+
+        # Execute a valid query first
+        auto result = ds.selectRow("SELECT 1 AS test");
+        assertEq(1, result.test, "initial query works");
+
+        # Cause an error
+        bool caught = False;
+        try {
+            ds.exec("SELECT * FROM nonexistent_table_xyz123");
+        } catch (hash<ExceptionInfo> ex) {
+            caught = True;
+        }
+        assertTrue(caught, "error was thrown");
+
+        # Rollback any implicit transaction from the error
+        ds.rollback();
+
+        # Connection should still be usable
+        result = ds.selectRow("SELECT 2 AS test");
+        assertEq(2, result.test, "query after error works");
+
+        ds.rollback();
+        ds.close();
+    }
+
+    testRapidOpenCloseCycles() {
+        # Test rapid open/close cycles for potential resource leaks
+        for (int i = 0; i < 10; i++) {
+            Datasource ds(connstr);
+            auto result = ds.selectRow("SELECT %v AS iteration", i);
+            assertEq(i, result.iteration, sprintf("iteration %d works", i));
+            ds.rollback();
+            ds.close();
+        }
+        assertTrue(True, "10 rapid open/close cycles completed");
+    }
+
+    testConcurrentConnections() {
+        # Test creating many connections and using them in parallel-like fashion
+        list<Datasource> connections = ();
+
+        # Create 5 connections
+        for (int i = 0; i < 5; i++) {
+            connections += new Datasource(connstr);
+        }
+
+        # Use all connections
+        for (int i = 0; i < 5; i++) {
+            auto result = connections[i].selectRow("SELECT %v AS conn_id", i);
+            assertEq(i, result.conn_id, sprintf("connection %d query works", i));
+        }
+
+        # Close all connections
+        foreach Datasource ds in (connections) {
+            ds.rollback();
+            ds.close();
+        }
+
+        assertTrue(True, "5 concurrent connections handled");
+    }
+
+    testConnectionStateAfterRollback() {
+        # Test connection state is clean after rollback
+        Datasource ds(connstr);
+
+        # Create a temp table and insert data
+        try { ds.exec("DROP TABLE reconnect_test"); } catch () {}
+        ds.exec("CREATE TABLE reconnect_test (id INT)");
+        ds.commit();
+
+        # Insert data then rollback
+        ds.exec("INSERT INTO reconnect_test VALUES (1)");
+        auto result = ds.selectRow("SELECT COUNT(*) AS cnt FROM reconnect_test");
+        assertEq(1, result.cnt, "row visible before rollback");
+
+        ds.rollback();
+
+        result = ds.selectRow("SELECT COUNT(*) AS cnt FROM reconnect_test");
+        assertEq(0, result.cnt, "no rows after rollback");
+
+        # Connection should still be usable
+        ds.exec("INSERT INTO reconnect_test VALUES (2)");
+        ds.commit();
+
+        result = ds.selectRow("SELECT COUNT(*) AS cnt FROM reconnect_test");
+        assertEq(1, result.cnt, "row inserted after rollback cycle");
+
+        # Cleanup
+        ds.exec("DROP TABLE reconnect_test");
+        ds.commit();
+        ds.close();
+    }
+}

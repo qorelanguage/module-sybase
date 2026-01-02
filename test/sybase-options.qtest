@@ -1,0 +1,129 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class OptionsTest
+
+public class OptionsTest inherits QUnit::Test {
+    private {
+        string connstr;
+    }
+
+    constructor() : Test("OptionsTest", "1.0") {
+        connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@mssql-local";
+
+        addTestCase("optimal-numbers option", \testOptimalNumbers());
+        addTestCase("string-numbers option", \testStringNumbers());
+        addTestCase("numeric-numbers option", \testNumericNumbers());
+        addTestCase("timezone option", \testTimezoneOption());
+
+        set_return_value(main());
+    }
+
+    private Datasource getDs(string options = "") {
+        string cs = connstr;
+        if (options)
+            cs += "{" + options + "}";
+        return new Datasource(cs);
+    }
+
+    testOptimalNumbers() {
+        # Test optimal-numbers: returns int if possible, otherwise number
+        Datasource ds = getDs("optimal-numbers");
+        on_exit ds.close();
+
+        # Create test table
+        try { ds.exec("DROP TABLE num_test"); } catch () {}
+        ds.exec("CREATE TABLE num_test (int_col INT, dec_col DECIMAL(20,4), big_dec DECIMAL(30,10))");
+        ds.commit();
+
+        on_exit {
+            try { ds.exec("DROP TABLE num_test"); } catch () {}
+            ds.commit();
+        }
+
+        # Insert test data
+        ds.exec("INSERT INTO num_test VALUES (42, 123.4567, 12345678901234567890.1234567890)");
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT * FROM num_test");
+
+        # Integer column should be int
+        assertEq(Type::Int, row.int_col.type(), "int column returns int");
+        assertEq(42, row.int_col, "int value correct");
+
+        # Small decimal should be number (can't be represented as int)
+        assertEq(Type::Number, row.dec_col.type(), "decimal column returns number");
+
+        # Large decimal should be number
+        assertEq(Type::Number, row.big_dec.type(), "big decimal returns number");
+    }
+
+    testStringNumbers() {
+        # Test string-numbers: returns all numerics as strings
+        Datasource ds = getDs("string-numbers");
+        on_exit ds.close();
+
+        # Create test table
+        try { ds.exec("DROP TABLE num_test_str"); } catch () {}
+        ds.exec("CREATE TABLE num_test_str (dec_col DECIMAL(20,4))");
+        ds.commit();
+
+        on_exit {
+            try { ds.exec("DROP TABLE num_test_str"); } catch () {}
+            ds.commit();
+        }
+
+        ds.exec("INSERT INTO num_test_str VALUES (123.4567)");
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT * FROM num_test_str");
+
+        # With string-numbers, decimal should be string
+        assertEq(Type::String, row.dec_col.type(), "decimal returns string with string-numbers");
+    }
+
+    testNumericNumbers() {
+        # Test numeric-numbers: returns all numerics as arbitrary-precision numbers
+        Datasource ds = getDs("numeric-numbers");
+        on_exit ds.close();
+
+        # Create test table
+        try { ds.exec("DROP TABLE num_test_num"); } catch () {}
+        ds.exec("CREATE TABLE num_test_num (dec_col DECIMAL(20,4))");
+        ds.commit();
+
+        on_exit {
+            try { ds.exec("DROP TABLE num_test_num"); } catch () {}
+            ds.commit();
+        }
+
+        ds.exec("INSERT INTO num_test_num VALUES (123.4567)");
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT * FROM num_test_num");
+
+        # With numeric-numbers, decimal should be number
+        assertEq(Type::Number, row.dec_col.type(), "decimal returns number with numeric-numbers");
+        assertEq(123.4567n, row.dec_col, "number value correct");
+    }
+
+    testTimezoneOption() {
+        # Test timezone option
+        Datasource ds = getDs("timezone=UTC");
+        on_exit ds.close();
+
+        # Query current time - should be tagged with UTC
+        auto row = ds.selectRow("SELECT GETDATE() AS server_time");
+        assertEq(Type::Date, row.server_time.type(), "datetime returned");
+
+        # The timezone info should be accessible via info()
+        hash<auto> info = row.server_time.info();
+        assertTrue(info.hasKey("zone"), "timezone info present in date");
+    }
+}

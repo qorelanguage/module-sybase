@@ -1,0 +1,104 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class ConnectionErrorTest
+
+public class ConnectionErrorTest inherits QUnit::Test {
+    constructor() : Test("ConnectionErrorTest", "1.0") {
+        addTestCase("invalid host", \testInvalidHost());
+        addTestCase("invalid port", \testInvalidPort());
+        addTestCase("invalid credentials", \testInvalidCredentials());
+        addTestCase("invalid database", \testInvalidDatabase());
+        addTestCase("connection string parsing", \testConnectionStringParsing());
+
+        set_return_value(main());
+    }
+
+    testInvalidHost() {
+        # Test connection to non-existent host
+        bool caught = False;
+        try {
+            Datasource ds("freetds:test/test@test%nonexistent.invalid.host.local:1433");
+            ds.selectRow("SELECT 1");
+        } catch (hash<ExceptionInfo> ex) {
+            caught = True;
+            # Verify we get an error (type varies by system configuration)
+            assertTrue(True, sprintf("got error for invalid host: %s", ex.err));
+        }
+        assertTrue(caught, "exception thrown for invalid host");
+    }
+
+    testInvalidPort() {
+        # Test connection to invalid port (use a port that's unlikely to have a service)
+        bool caught = False;
+        try {
+            Datasource ds("freetds:test/test@test%localhost:59999");
+            ds.selectRow("SELECT 1");
+        } catch (hash<ExceptionInfo> ex) {
+            caught = True;
+            # Verify we get an error (type varies by system configuration)
+            assertTrue(True, sprintf("got error for invalid port: %s", ex.err));
+        }
+        assertTrue(caught, "exception thrown for invalid port");
+    }
+
+    testInvalidCredentials() {
+        # Test with wrong password - need a valid host for this test
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@test%localhost:1433";
+
+        # Modify to use wrong password
+        string bad_connstr = connstr;
+        bad_connstr =~ s/\/[^@]+@/\/wrongpassword123@/;
+
+        bool caught = False;
+        try {
+            Datasource ds(bad_connstr);
+            ds.selectRow("SELECT 1");
+        } catch (hash<ExceptionInfo> ex) {
+            caught = True;
+            # Login failed error expected
+            assertTrue(True, sprintf("got error for bad credentials: %s", ex.err));
+        }
+        assertTrue(caught, "exception thrown for invalid credentials");
+    }
+
+    testInvalidDatabase() {
+        # Test with non-existent database
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@test%localhost:1433";
+
+        # Modify to use non-existent database
+        string bad_connstr = connstr;
+        bad_connstr =~ s/@[^%]+%/@nonexistent_db_12345%/;
+
+        bool caught = False;
+        try {
+            Datasource ds(bad_connstr);
+            ds.selectRow("SELECT 1");
+        } catch (hash<ExceptionInfo> ex) {
+            caught = True;
+            assertTrue(True, sprintf("got error for bad database: %s", ex.err));
+        }
+        assertTrue(caught, "exception thrown for invalid database");
+    }
+
+    testConnectionStringParsing() {
+        # Test valid connection string formats work
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@test%localhost:1433";
+
+        try {
+            Datasource ds(connstr);
+            auto result = ds.selectRow("SELECT 1 AS test");
+            assertEq(1, result.test, "valid connection string works");
+            ds.rollback();
+            ds.close();
+        } catch (hash<ExceptionInfo> ex) {
+            fail(sprintf("valid connection string failed: %s: %s", ex.err, ex.desc));
+        }
+    }
+}

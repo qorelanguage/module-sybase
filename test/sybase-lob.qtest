@@ -1,0 +1,122 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class LobTest
+
+public class LobTest inherits QUnit::Test {
+    private {
+        Datasource ds;
+    }
+
+    constructor() : Test("LobTest", "1.0") {
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@mssql-local";
+        ds = new Datasource(connstr);
+
+        addTestCase("TEXT column", \testTextColumn());
+        addTestCase("VARCHAR with large data", \testVarcharLarge());
+        addTestCase("VARBINARY column", \testVarbinaryColumn());
+        addTestCase("IMAGE column", \testImageColumn());
+        addTestCase("binary with null bytes", \testBinaryWithNullBytes());
+
+        set_return_value(main());
+    }
+
+    destructor() {
+        try { ds.exec("DROP TABLE lob_test"); } catch () {}
+        ds.commit();
+        ds.close();
+    }
+
+    private createLobTable(string col_def) {
+        try { ds.exec("DROP TABLE lob_test"); } catch () {}
+        ds.exec(sprintf("CREATE TABLE lob_test (id INT, data %s)", col_def));
+        ds.commit();
+    }
+
+    testTextColumn() {
+        createLobTable("TEXT NULL");
+
+        # Test text storage with moderate size (within FreeTDS limits)
+        string test_data = "This is a test of TEXT column storage. " + strmul("x", 500);
+
+        ds.vexec("INSERT INTO lob_test VALUES (%v, %v)", (1, test_data));
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT data FROM lob_test WHERE id = 1");
+        assertEq(test_data, row.data, "TEXT data retrieved correctly");
+    }
+
+    testVarcharLarge() {
+        createLobTable("VARCHAR(8000) NULL");
+
+        # Test at the VARCHAR limit (8000 bytes is the max for regular VARCHAR)
+        string test_data = strmul("X", 7900);
+
+        ds.vexec("INSERT INTO lob_test VALUES (%v, %v)", (1, test_data));
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT data FROM lob_test WHERE id = 1");
+        assertEq(test_data, row.data, "VARCHAR(8000) data retrieved correctly");
+        assertEq(test_data.size(), row.data.size(), "VARCHAR(8000) length matches");
+    }
+
+    testVarbinaryColumn() {
+        createLobTable("VARBINARY(4000) NULL");
+
+        # Create binary data with various byte values
+        binary test_data = binary();
+        for (int i = 0; i < 256; i++) {
+            test_data += chr(i);
+        }
+        # Repeat a few times (within limits)
+        test_data = test_data + test_data + test_data;
+
+        ds.vexec("INSERT INTO lob_test VALUES (%v, %v)", (1, test_data));
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT data FROM lob_test WHERE id = 1");
+        assertEq(Type::Binary, row.data.type(), "VARBINARY returns binary");
+        assertEq(test_data.size(), row.data.size(), "VARBINARY size matches");
+        assertEq(test_data, row.data, "VARBINARY data matches");
+    }
+
+    testImageColumn() {
+        createLobTable("IMAGE NULL");
+
+        # Create binary data simulating an image
+        binary test_data = binary();
+        # PNG-like header followed by data
+        test_data += <89504E470D0A1A0A>;
+        for (int i = 0; i < 500; i++) {
+            test_data += chr(i % 256);
+        }
+
+        ds.vexec("INSERT INTO lob_test VALUES (%v, %v)", (1, test_data));
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT data FROM lob_test WHERE id = 1");
+        assertEq(Type::Binary, row.data.type(), "IMAGE returns binary");
+        assertEq(test_data.size(), row.data.size(), "IMAGE size matches");
+        assertEq(test_data, row.data, "IMAGE data matches");
+    }
+
+    testBinaryWithNullBytes() {
+        createLobTable("VARBINARY(100) NULL");
+
+        # Create binary data with embedded null bytes
+        binary test_data = <00010203040500060708090A00000B0C0D0E0F00>;
+
+        ds.vexec("INSERT INTO lob_test VALUES (%v, %v)", (1, test_data));
+        ds.commit();
+
+        auto row = ds.selectRow("SELECT data FROM lob_test WHERE id = 1");
+        assertEq(test_data.size(), row.data.size(), "binary with nulls size matches");
+        assertEq(test_data, row.data, "binary with null bytes preserved");
+    }
+}

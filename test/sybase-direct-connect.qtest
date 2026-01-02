@@ -1,0 +1,168 @@
+#!/usr/bin/env qore
+
+%new-style
+%require-types
+%strict-args
+%enable-all-warnings
+
+%requires QUnit
+
+%exec-class DirectConnectTest
+
+public class DirectConnectTest inherits QUnit::Test {
+    private {
+        string host;
+        int port;
+        string user;
+        string pass;
+        string db;
+        bool canTestDirectConnect = False;
+    }
+
+    constructor() : Test("DirectConnectTest", "1.0") {
+        # Parse connection info from environment or use defaults
+        string connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? "freetds:test/test@test%localhost:1433";
+
+        # Extract connection components for direct connect tests
+        # Expected format: freetds:user/pass@dbname%hostname:port
+        *list<*string> m = (connstr =~ x/freetds:([^\/]+)\/([^@]+)@([^%]+)%([^:]+):(\d+)/);
+        if (m) {
+            user = m[0];
+            pass = m[1];
+            db = m[2];
+            host = m[3];
+            port = int(m[4]);
+            canTestDirectConnect = True;
+        } else {
+            # Check if FREETDS_HOST is available for direct connection testing
+            if (ENV.FREETDS_HOST) {
+                m = (connstr =~ x/freetds:([^\/]+)\/([^@]+)@(.+)/);
+                if (m) {
+                    user = m[0];
+                    pass = m[1];
+                    db = m[2];
+                }
+                host = ENV.FREETDS_HOST;
+                port = int(ENV.FREETDS_PORT ?? "1433");
+                if (user && host) {
+                    canTestDirectConnect = True;
+                }
+            }
+            # If still no valid config, use defaults for local testing
+            if (!canTestDirectConnect) {
+                user = "test";
+                pass = "test";
+                db = "test";
+                host = "localhost";
+                port = 1433;
+                # Only enable if no QORE_DB_CONNSTR_FREETDS is set (local testing)
+                canTestDirectConnect = !ENV.QORE_DB_CONNSTR_FREETDS.val();
+            }
+        }
+
+        addTestCase("direct connection with hostname:port", \testDirectConnection());
+        addTestCase("direct connection database selection", \testDatabaseSelection());
+        addTestCase("direct connection queries work", \testDirectConnectionQueries());
+        addTestCase("direct connection transactions", \testDirectConnectionTransactions());
+
+        set_return_value(main());
+    }
+
+    testDirectConnection() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
+        # Test direct connection format: freetds:user/pass@dbname%hostname:port
+        string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
+
+        Datasource ds;
+        try {
+            ds = new Datasource(connstr);
+            assertTrue(True, "direct connection succeeded");
+
+            # Verify connection is working
+            auto result = ds.selectRow("SELECT 1 AS test_value");
+            assertEq(1, result.test_value, "query on direct connection works");
+
+            ds.close();
+        } catch (hash<ExceptionInfo> ex) {
+            fail(sprintf("direct connection failed: %s: %s", ex.err, ex.desc));
+        }
+    }
+
+    testDatabaseSelection() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
+        # Test that the correct database is selected with direct connection
+        string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
+
+        Datasource ds(connstr);
+        on_exit ds.close();
+
+        auto result = ds.selectRow("SELECT DB_NAME() AS current_db");
+        assertEq(db, result.current_db, "correct database selected");
+    }
+
+    testDirectConnectionQueries() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
+        string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
+
+        Datasource ds(connstr);
+        on_exit ds.close();
+
+        # Test various query types
+        # Simple arithmetic
+        auto result = ds.selectRow("SELECT 1+1 AS sum_result");
+        assertEq(2, result.sum_result, "arithmetic query works");
+
+        # String operations
+        result = ds.selectRow("SELECT 'hello' + ' ' + 'world' AS concat_result");
+        assertEq("hello world", result.concat_result, "string concat works");
+
+        # Date operations
+        result = ds.selectRow("SELECT GETDATE() AS dt");
+        assertEq(Type::Date, result.dt.type(), "date query works");
+    }
+
+    testDirectConnectionTransactions() {
+        if (!canTestDirectConnect) {
+            testSkip("direct connection test requires hostname:port in connection string or FREETDS_HOST env var");
+        }
+
+        string connstr = sprintf("freetds:%s/%s@%s%%%s:%d", user, pass, db, host, port);
+
+        Datasource ds(connstr);
+        on_exit {
+            # Cleanup
+            try { ds.exec("DROP TABLE direct_conn_test"); } catch () {}
+            ds.commit();
+            ds.close();
+        }
+
+        # Create test table
+        try { ds.exec("DROP TABLE direct_conn_test"); } catch () {}
+        ds.exec("CREATE TABLE direct_conn_test (id INT, name VARCHAR(50))");
+        ds.commit();
+
+        # Test insert and rollback
+        ds.exec("INSERT INTO direct_conn_test VALUES (1, 'test')");
+        auto result = ds.selectRow("SELECT COUNT(*) AS cnt FROM direct_conn_test");
+        assertEq(1, result.cnt, "insert before rollback");
+
+        ds.rollback();
+        result = ds.selectRow("SELECT COUNT(*) AS cnt FROM direct_conn_test");
+        assertEq(0, result.cnt, "rollback worked");
+
+        # Test insert and commit
+        ds.exec("INSERT INTO direct_conn_test VALUES (2, 'committed')");
+        ds.commit();
+        result = ds.selectRow("SELECT COUNT(*) AS cnt FROM direct_conn_test");
+        assertEq(1, result.cnt, "commit worked");
+    }
+}

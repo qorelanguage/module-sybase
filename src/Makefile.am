@@ -1,5 +1,13 @@
 if COND_SINGLE_COMPILATION_UNIT
 SYBASE_SOURCES = single-compilation-unit.cpp
+# Explicit dependencies for single-compilation-unit mode
+SINGLE_UNIT_DEPS = sybase.cpp connection.cpp conversions.cpp command.cpp \
+				   encoding_helpers.cpp sybase_query.cpp row_output_buffers.cpp statement.cpp \
+				   sybase.h connection.h conversions.h command.h encoding_helpers.h \
+				   sybase_query.h row_output_buffers.h statement.h emptystatement.h \
+				   resultfactory.h dbmodulewrap.h error.h utils.h common_constants.h
+single-compilation-unit.cpp: $(SINGLE_UNIT_DEPS)
+	@touch $@
 else
 SYBASE_SOURCES = sybase.cpp connection.cpp\
 				 conversions.cpp command.cpp\

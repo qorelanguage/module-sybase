@@ -315,7 +315,7 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
 
         if (err != CS_SUCCEED) {
             m_conn.do_exception(xsink, "TDS-EXEC-ERROR",
-                                "ct_param() for binary parameter %u failed with error",
+                                "ct_param() for parameter %u failed with error %d",
                                 i, (int)err);
         }
     }
@@ -651,6 +651,7 @@ int command::get_row_description(row_result_t &result, unsigned column_count, Ex
             case CS_MONEY_TYPE:
             case CS_MONEY4_TYPE:
                 datafmt.datatype = CS_FLOAT_TYPE;
+                [[fallthrough]];
 
             default:
                 datafmt.format = CS_FMT_UNUSED;

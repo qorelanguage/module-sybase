@@ -45,7 +45,8 @@ fi
 chown -R qore:qore ${MODULE_SRC_DIR}
 
 # run the tests
-export QORE_MODULE_DIR=${MODULE_SRC_DIR}/qlib:${QORE_MODULE_DIR}
+# Include both the source qlib dir and the installed module path
+export QORE_MODULE_DIR=${MODULE_SRC_DIR}/qlib:${INSTALL_PREFIX}/lib/qore-modules:${QORE_MODULE_DIR}
 cd ${MODULE_SRC_DIR}
 for test in test/*.qtest; do
     gosu qore:qore qore $test -vv
