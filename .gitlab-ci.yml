@@ -13,15 +13,37 @@ default:
 
 variables:
   TDSVER: "7.4"
-  QORE_DB_CONNSTR_FREETDS: 'freetds:test/test@rippy'
   REPO_NAME: module-sybase
+  # MS SQL Server configuration
+  ACCEPT_EULA: "Y"
+  MSSQL_SA_PASSWORD: "Test1234!"
+  MSSQL_PID: "Developer"
+  # Connection string using the mssql service container
+  QORE_DB_CONNSTR_FREETDS: 'freetds:sa/Test1234!@test%mssql:1433'
 
 test-ubuntu:
   stage: test
   image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:develop
+  services:
+    - name: mcr.microsoft.com/mssql/server:2022-latest
+      alias: mssql
   script:
     - |
-        printf "[rippy]\n  host = rippy\n  port = 1433\n  tds version = 7.4" > /etc/freetds/freetds.conf
+        # Configure freetds.conf for the mssql service
+        printf "[mssql]\n  host = mssql\n  port = 1433\n  tds version = 7.4\n" > /etc/freetds/freetds.conf
+        # Wait for MS SQL Server to be ready
+        echo "Waiting for MS SQL Server to start..."
+        for i in $(seq 1 30); do
+          if echo "SELECT 1" | tsql -S mssql -U sa -P 'Test1234!' > /dev/null 2>&1; then
+            echo "MS SQL Server is ready"
+            break
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 2
+        done
+        # Create test database
+        echo "CREATE DATABASE test" | tsql -S mssql -U sa -P 'Test1234!' || true
+        # Run tests
         if test/docker_test/test-ubuntu.sh; then
           curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
@@ -37,9 +59,26 @@ test-ubuntu:
 test-alpine:
   stage: test
   image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:develop-alpine
+  services:
+    - name: mcr.microsoft.com/mssql/server:2022-latest
+      alias: mssql
   script:
     - |
-        printf "[rippy]\n  host = rippy\n  port = 1433\n  tds version = 7.4" > /etc/freetds.conf
+        # Configure freetds.conf for the mssql service
+        printf "[mssql]\n  host = mssql\n  port = 1433\n  tds version = 7.4\n" > /etc/freetds.conf
+        # Wait for MS SQL Server to be ready
+        echo "Waiting for MS SQL Server to start..."
+        for i in $(seq 1 30); do
+          if echo "SELECT 1" | tsql -S mssql -U sa -P 'Test1234!' > /dev/null 2>&1; then
+            echo "MS SQL Server is ready"
+            break
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 2
+        done
+        # Create test database
+        echo "CREATE DATABASE test" | tsql -S mssql -U sa -P 'Test1234!' || true
+        # Run tests
         if test/docker_test/test-alpine.sh; then
           curl "https://api.github.com/repos/qoretechnologies/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
             -X POST -u omusil24:${GITHUB_ACCESS_TOKEN} -H "Content-Type: application/json" \
