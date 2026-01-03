@@ -81,6 +81,10 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
     if (err != CS_SUCCEED)
         do_exception(xsink, "TDS-EXEC-ERROR", "ct_command() failed");
 
+    // Check for interrupt before sending command
+    if (qore_check_io_interrupt(xsink))
+        return -1;
+
     err = ct_send(cmd);
     if (err != CS_SUCCEED)
         do_exception(xsink, "TDS-EXEC-ERROR", "ct_send() failed");
@@ -505,6 +509,11 @@ int connection::init(const char* username,
         return -1;
     }
 #endif
+
+    // Check for interrupt before connection
+    if (qore_check_io_interrupt(xsink)) {
+        return -1;
+    }
 
     // When using direct connection (hostname:port) with CS_SERVERADDR set,
     // we pass dbname as the server identifier (won't be looked up since CS_SERVERADDR is set),

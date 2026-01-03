@@ -70,6 +70,11 @@ void command::clear() {
 }
 
 void command::send(ExceptionSink *xsink) {
+   // Check for interrupt before sending command
+   if (qore_check_io_interrupt(xsink)) {
+      return;
+   }
+
    CS_RETCODE err = ct_send(m_cmd);
 
    if (err != CS_SUCCEED) {
@@ -527,7 +532,14 @@ QoreHashNode* command::read_cols(const Placeholders* ph, int cnt, bool cols, Exc
         setupColumns(**h, ph);
     }
 
+    int row_count = 0;
     while (fetch_row_into_buffers(xsink)) {
+        // Check for interrupt periodically during fetch (every 100 rows)
+        if ((row_count % 100) == 0 && qore_check_io_interrupt(xsink)) {
+            return nullptr;
+        }
+        ++row_count;
+
         if (h->empty()) {
             setupColumns(**h, ph);
         }
@@ -554,7 +566,14 @@ QoreValue command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool 
 
     ReferenceHolder<AbstractQoreNode> rv(xsink);
     QoreListNode *l = nullptr;
+    int row_count = 0;
     while (fetch_row_into_buffers(xsink)) {
+        // Check for interrupt periodically during fetch (every 100 rows)
+        if ((row_count % 100) == 0 && qore_check_io_interrupt(xsink)) {
+            return QoreValue();
+        }
+        ++row_count;
+
         ReferenceHolder<QoreHashNode> h(output_buffers_to_hash(ph, xsink), xsink);
         if (*xsink) return QoreValue();
         if (rv) {
