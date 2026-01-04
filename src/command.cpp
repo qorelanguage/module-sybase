@@ -344,6 +344,15 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
             return lastRes;
     }
 
+    // check for interrupt before waiting for results
+    if (qore_check_io_interrupt(xsink)) {
+        lastRes = RES_CANCELED;
+        if (cancelIntern()) {
+            disconnect = true;
+        }
+        return RES_ERROR;
+    }
+
     CS_INT result_type;
     CS_RETCODE err = ct_results(m_cmd, &result_type);
     //printf("command::read_next_result1 result: %d\n", err);
