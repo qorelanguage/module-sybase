@@ -75,7 +75,12 @@ void command::send(ExceptionSink *xsink) {
       return;
    }
 
-   CS_RETCODE err = ct_send(m_cmd);
+   CS_RETCODE err;
+   {
+      // Register cancel callback for interruptible execution
+      QoreSybaseCancelHelper cancel_helper(m_conn.getConnection());
+      err = ct_send(m_cmd);
+   }
 
    if (err != CS_SUCCEED) {
       m_conn.do_exception(xsink, "TDS-EXEC-ERROR", "ct_send() failed");
@@ -92,7 +97,12 @@ void command::initiate_language_command(const char* cmd_text, ExceptionSink* xsi
 
 bool command::fetch_row_into_buffers(ExceptionSink* xsink) {
    CS_INT rows_read;
-   CS_RETCODE err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
+   CS_RETCODE err;
+   {
+      // Register cancel callback for interruptible fetch
+      QoreSybaseCancelHelper cancel_helper(m_conn.getConnection());
+      err = ct_fetch(m_cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, &rows_read);
+   }
     //printd(5, "command::fetch_row_into_buffers() err: %d (CS_END_DATA: %d)\n", err, CS_END_DATA);
     if (err == CS_SUCCEED) {
         if (rows_read != 1) {
@@ -354,7 +364,12 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
     }
 
     CS_INT result_type;
-    CS_RETCODE err = ct_results(m_cmd, &result_type);
+    CS_RETCODE err;
+    {
+        // Register cancel callback for interruptible results fetch
+        QoreSybaseCancelHelper cancel_helper(m_conn.getConnection());
+        err = ct_results(m_cmd, &result_type);
+    }
     //printf("command::read_next_result1 result: %d\n", err);
     switch (err) {
         case CS_END_RESULTS:

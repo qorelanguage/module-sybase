@@ -30,8 +30,11 @@
 #include <ctpublic.h>
 #include <stdarg.h>
 
+#include <atomic>
+
 #include "qore/common.h"
 #include "qore/ExceptionSink.h"
+#include "qore/QoreSandboxManager.h"
 
 #include "command.h"
 #include "dbmodulewrap.h"
@@ -147,6 +150,25 @@ private:
         ret = cs_ctx_drop(m_context);
         assert(ret == CS_SUCCEED);
     }
+};
+
+//! RAII helper for Sybase statement cancellation
+/** Registers a cancel callback with the sandbox manager before blocking operations.
+    When requestInterrupt() is called, the callback will use ct_cancel() to cancel the operation.
+*/
+class QoreSybaseCancelHelper {
+public:
+    DLLLOCAL QoreSybaseCancelHelper(CS_CONNECTION* conn);
+    DLLLOCAL ~QoreSybaseCancelHelper();
+
+    // Non-copyable
+    QoreSybaseCancelHelper(const QoreSybaseCancelHelper&) = delete;
+    QoreSybaseCancelHelper& operator=(const QoreSybaseCancelHelper&) = delete;
+
+private:
+    // Use atomic pointer for thread safety with callback invocation
+    std::atomic<CS_CONNECTION*> conn;
+    QoreSandboxManager* sm;
 };
 
 // Instantiated class is kept as private data of the Datasource

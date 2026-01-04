@@ -42,6 +42,36 @@ QoreThreadLock ct_lock;
 QoreThreadLock cs_lock;
 #endif
 
+//------------------------------------------------------------------------------
+// QoreSybaseCancelHelper implementation
+//------------------------------------------------------------------------------
+
+QoreSybaseCancelHelper::QoreSybaseCancelHelper(CS_CONNECTION* conn)
+    : conn(conn), sm(runtime_get_sandbox_manager()) {
+    if (sm && conn) {
+        // Register cancel callback
+        sm->registerCancelCallback(this, [this]() -> bool {
+            // Load pointer atomically - it may be set to nullptr by destructor
+            CS_CONNECTION* c = this->conn.load(std::memory_order_acquire);
+            if (c) {
+                // ct_cancel with CS_CANCEL_ALL cancels the current operation on the connection
+                CS_RETCODE rc = ct_cancel(c, nullptr, CS_CANCEL_ALL);
+                return rc == CS_SUCCEED;
+            }
+            return false;
+        });
+    }
+}
+
+QoreSybaseCancelHelper::~QoreSybaseCancelHelper() {
+    // Set pointer to nullptr atomically before unregistering to prevent
+    // use-after-free if a callback is currently being invoked
+    conn.store(nullptr, std::memory_order_release);
+    if (sm) {
+        sm->unregisterCancelCallback(this);
+    }
+}
+
 connection::connection(Datasource *n_ds, ExceptionSink *xsink) :
         m_context(xsink),
         ds(n_ds) {
@@ -85,13 +115,21 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
     if (qore_check_io_interrupt(xsink))
         return -1;
 
-    err = ct_send(cmd);
+    {
+        // Register cancel callback for interruptible execution
+        QoreSybaseCancelHelper cancel_helper(m_connection);
+        err = ct_send(cmd);
+    }
     if (err != CS_SUCCEED)
         do_exception(xsink, "TDS-EXEC-ERROR", "ct_send() failed");
 
     // no results expected
     CS_INT result_type;
-    err = ct_results(cmd, &result_type);
+    {
+        // Register cancel callback for interruptible results fetch
+        QoreSybaseCancelHelper cancel_helper(m_connection);
+        err = ct_results(cmd, &result_type);
+    }
     if (err != CS_SUCCEED)
         do_exception(xsink, "TDS-EXEC-ERROR",
                     "connection::direct_execute(): ct_results()"
@@ -102,7 +140,15 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
                             "connection::direct_execute(): ct_results()"
                             " failed with result_type = %d", result_type);
 
-    while ((err = ct_results(cmd, &result_type)) == CS_SUCCEED);
+    {
+        // Move cancel helper outside the loop for efficiency
+        QoreSybaseCancelHelper cancel_helper(m_connection);
+        while (true) {
+            err = ct_results(cmd, &result_type);
+            if (err != CS_SUCCEED)
+                break;
+        }
+    }
     canceller.Dismiss();
 
     return purge_messages(xsink);
