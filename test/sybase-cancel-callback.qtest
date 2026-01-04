@@ -1,0 +1,119 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%new-style
+%enable-all-warnings
+%require-types
+%strict-args
+%no-child-restrictions
+
+%requires QUnit
+%requires freetds
+
+%exec-class SybaseCancelCallbackTest
+
+#! Test Sybase/FreeTDS cancel callback functionality for sandbox interruption
+class SybaseCancelCallbackTest inherits QUnit::Test {
+    private {
+        *string connstr;
+    }
+
+    constructor() : QUnit::Test("SybaseCancelCallbackTest", "1.0", \ARGV) {
+        connstr = ENV.QORE_DB_CONNSTR_SYBASE ?? ENV.QORE_DB_CONNSTR_FREETDS ?? shift ARGV;
+
+        if (!connstr) {
+            addTestCase("No database connection configured", \testNoDatabaseConfigured());
+        } else {
+            addTestCase("Sybase cancel callback test", \testSybaseCancel());
+            addTestCase("Sybase blocked cancel test", \testSybaseBlockedCancel());
+        }
+
+        set_return_value(main());
+    }
+
+    testNoDatabaseConfigured() {
+        testSkip("QORE_DB_CONNSTR_SYBASE/QORE_DB_CONNSTR_FREETDS not set; skipping cancel callback tests");
+    }
+
+    #! Test that Sybase operations can be cancelled via the cancel callback
+    testSybaseCancel() {
+        SandboxManager sm();
+        Queue resultQueue();
+
+        Program p(PO_NO_CHILD_PO_RESTRICTIONS);
+        p.setSandboxManager(sm);
+        p.loadModule("freetds");
+
+        p.parse(sprintf("
+%%new-style
+%%require-types
+%%strict-args
+
+sub runQuery(Queue q, string connstr) {
+    Datasource ds(connstr);
+    ds.setAutoCommit(True);
+    q.push('connected');
+
+    try {
+        # WAITFOR DELAY is Sybase/SQL Server's equivalent of sleep
+        ds.exec('WAITFOR DELAY ''00:00:10''');
+        q.push({'cancelled': False});
+    } catch (hash<ExceptionInfo> ex) {
+        q.push({'cancelled': True, 'err': ex.err, 'desc': ex.desc});
+    }
+}
+        ", "sybase_cancel"), "sybase_cancel_test");
+
+        background p.callFunction("runQuery", resultQueue, connstr);
+
+        auto connected = resultQueue.get(10s);
+        assertEq("connected", connected, "Connected to Sybase");
+
+        usleep(500ms);
+        sm.requestInterrupt();
+
+        hash<auto> result = resultQueue.get(5s);
+        assertEq(True, result.cancelled, "Sybase query was cancelled");
+        assertEq(True, exists result.err, "Exception was thrown: " + result.err);
+    }
+
+    #! Test Sybase cancel when query is blocked on server
+    testSybaseBlockedCancel() {
+        SandboxManager sm();
+        Queue resultQueue();
+
+        Program p(PO_NO_CHILD_PO_RESTRICTIONS);
+        p.setSandboxManager(sm);
+        p.loadModule("freetds");
+
+        p.parse(sprintf("
+%%new-style
+%%require-types
+%%strict-args
+
+sub runBlockingQuery(Queue q, string connstr) {
+    Datasource ds(connstr);
+    ds.setAutoCommit(True);
+    q.push('connected');
+
+    try {
+        ds.exec('WAITFOR DELAY ''00:01:00''');
+        q.push({'cancelled': False});
+    } catch (hash<ExceptionInfo> ex) {
+        q.push({'cancelled': True, 'err': ex.err});
+    }
+}
+        ", "sybase_blocked"), "sybase_blocked_test");
+
+        background p.callFunction("runBlockingQuery", resultQueue, connstr);
+
+        auto connected = resultQueue.get(10s);
+        assertEq("connected", connected, "Connected to Sybase");
+
+        usleep(1s);
+        sm.requestInterrupt();
+
+        hash<auto> result = resultQueue.get(5s);
+        assertEq(True, result.cancelled, "Blocked Sybase query was cancelled");
+    }
+}
