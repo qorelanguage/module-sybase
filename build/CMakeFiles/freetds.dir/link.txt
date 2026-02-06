@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC  -DBUILDING_DLL=1 -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/freetds.dir/link.d -shared  -o freetds-api-2.0.qmod "CMakeFiles/freetds.dir/src/single-compilation-unit.cpp.o"  /usr/lib/x86_64-linux-gnu/libsybdb.so /usr/lib/x86_64-linux-gnu/libct.so
