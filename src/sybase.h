@@ -28,9 +28,5 @@
 #include "qore/Qore.h"
 #include <qore/QoreSandboxManager.h>
 
-extern QoreStringNode *sybase_module_init();
-extern void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);
-extern void sybase_module_delete();
-
 #endif
 

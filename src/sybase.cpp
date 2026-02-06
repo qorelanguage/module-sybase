@@ -34,23 +34,29 @@
 #include "connection.h"
 #include "encoding_helpers.h"
 
+static void sybase_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink);
+static void sybase_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink);
+static void sybase_module_delete();
+
+extern "C" DLLEXPORT void sybase_qore_module_desc(QoreModuleInfo& mod_info) {
 #ifdef SYBASE
-DLLEXPORT char qore_module_name[] = "sybase";
-DLLEXPORT char qore_module_description[] = "Sybase database driver";
+    mod_info.name = "sybase";
+    mod_info.desc = "Sybase database driver";
 #else
-DLLEXPORT char qore_module_name[] = "freetds";
-DLLEXPORT char qore_module_description[] = "FreeTDS-based database driver for MS-SQL Server and Sybase";
+    mod_info.name = "freetds";
+    mod_info.desc = "FreeTDS-based database driver for MS-SQL Server and Sybase";
 #endif
-DLLEXPORT char qore_module_version[] = PACKAGE_VERSION;
-DLLEXPORT char qore_module_author[] = "Qore Technologies";
-DLLEXPORT char qore_module_url[] = "http://qore.org";
-DLLEXPORT int qore_module_api_major = QORE_MODULE_API_MAJOR;
-DLLEXPORT int qore_module_api_minor = QORE_MODULE_API_MINOR;
-DLLEXPORT qore_module_init_t qore_module_init = sybase_module_init;
-DLLEXPORT qore_module_ns_init_t qore_module_ns_init = sybase_module_ns_init;
-DLLEXPORT qore_module_delete_t qore_module_delete = sybase_module_delete;
-DLLEXPORT qore_license_t qore_module_license = QL_MIT;
-DLLEXPORT char qore_module_license_str[] = "MIT";
+    mod_info.version = PACKAGE_VERSION;
+    mod_info.author = "Qore Technologies";
+    mod_info.url = "http://qore.org";
+    mod_info.api_major = QORE_MODULE_API_MAJOR;
+    mod_info.api_minor = QORE_MODULE_API_MINOR;
+    mod_info.init = sybase_module_init;
+    mod_info.ns_init = sybase_module_ns_init;
+    mod_info.del = sybase_module_delete;
+    mod_info.license = QL_MIT;
+    mod_info.license_str = "MIT";
+}
 static DBIDriver* DBID_SYBASE;
 
 // capabilities of this driver
@@ -282,7 +288,7 @@ namespace ss {
     void init(qore_dbi_method_list &methods);
 }
 
-QoreStringNode* sybase_module_init() {
+static void sybase_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) {
     QORE_TRACE("sybase_module_init()");
 
     // init_namespace();
@@ -329,13 +335,11 @@ QoreStringNode* sybase_module_init() {
 #else
     DBID_SYBASE = DBI.registerDriver("freetds", methods, DBI_SYBASE_CAPS);
 #endif
-
-    return 0;
 }
 
-void sybase_module_ns_init(QoreNamespace *rns, QoreNamespace* qns) {
+static void sybase_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink) {
 }
 
-void sybase_module_delete() {
+static void sybase_module_delete() {
     QORE_TRACE("sybase_module_delete()");
 }
