@@ -1,8 +1,6 @@
 #!/usr/bin/env qore
 
-%new-style
-%require-types
-%strict-args
+%modern
 
 %requires QUnit
 

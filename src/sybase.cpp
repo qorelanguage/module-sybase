@@ -6,7 +6,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2003 - 2022 Qore Technologies, s.r.o.
+    Copyright (C) 2003 - 2026 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -38,14 +38,7 @@ static void sybase_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink)
 static void sybase_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink);
 static void sybase_module_delete();
 
-extern "C" DLLEXPORT void sybase_qore_module_desc(QoreModuleInfo& mod_info) {
-#ifdef SYBASE
-    mod_info.name = "sybase";
-    mod_info.desc = "Sybase database driver";
-#else
-    mod_info.name = "freetds";
-    mod_info.desc = "FreeTDS-based database driver for MS-SQL Server and Sybase";
-#endif
+static void sybase_module_desc_common(QoreModuleInfo& mod_info) {
     mod_info.version = PACKAGE_VERSION;
     mod_info.author = "Qore Technologies";
     mod_info.url = "http://qore.org";
@@ -57,6 +50,20 @@ extern "C" DLLEXPORT void sybase_qore_module_desc(QoreModuleInfo& mod_info) {
     mod_info.license = QL_MIT;
     mod_info.license_str = "MIT";
 }
+
+extern "C" DLLEXPORT void sybase_qore_module_desc(QoreModuleInfo& mod_info) {
+    mod_info.name = "sybase";
+    mod_info.desc = "Sybase database driver";
+    sybase_module_desc_common(mod_info);
+}
+
+#ifndef SYBASE
+extern "C" DLLEXPORT void freetds_qore_module_desc(QoreModuleInfo& mod_info) {
+    mod_info.name = "freetds";
+    mod_info.desc = "FreeTDS-based database driver for MS-SQL Server and Sybase";
+    sybase_module_desc_common(mod_info);
+}
+#endif
 static DBIDriver* DBID_SYBASE;
 
 // capabilities of this driver

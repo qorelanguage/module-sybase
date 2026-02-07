@@ -2,9 +2,8 @@
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
 
-%require-our
-%new-style
-    
+%modern
+
 our hash thash;
 our int errors;
 our hash o.verbose = True;

@@ -1,8 +1,7 @@
 #!/usr/bin/env qore
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
-%require-our
-%new-style
+%modern
 
 %requires UnitTest
 
