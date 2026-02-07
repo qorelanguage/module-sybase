@@ -168,7 +168,7 @@ public:
 private:
     // Use atomic pointer for thread safety with callback invocation
     std::atomic<CS_CONNECTION*> conn;
-    QoreSandboxManager* sm;
+    QoreSandboxManagerHelper smh;
 };
 
 // Instantiated class is kept as private data of the Datasource

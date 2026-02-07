@@ -47,10 +47,10 @@ QoreThreadLock cs_lock;
 //------------------------------------------------------------------------------
 
 QoreSybaseCancelHelper::QoreSybaseCancelHelper(CS_CONNECTION* conn)
-    : conn(conn), sm(runtime_get_sandbox_manager()) {
-    if (sm && conn) {
+    : conn(conn) {
+    if (smh && conn) {
         // Register cancel callback
-        sm->registerCancelCallback(this, [this]() -> bool {
+        smh->registerCancelCallback(this, [this]() -> bool {
             // Load pointer atomically - it may be set to nullptr by destructor
             CS_CONNECTION* c = this->conn.load(std::memory_order_acquire);
             if (c) {
@@ -67,8 +67,8 @@ QoreSybaseCancelHelper::~QoreSybaseCancelHelper() {
     // Set pointer to nullptr atomically before unregistering to prevent
     // use-after-free if a callback is currently being invoked
     conn.store(nullptr, std::memory_order_release);
-    if (sm) {
-        sm->unregisterCancelCallback(this);
+    if (smh) {
+        smh->unregisterCancelCallback(this);
     }
 }
 
