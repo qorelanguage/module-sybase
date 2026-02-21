@@ -7,7 +7,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2022 Qore Technologies s.r.o.
+    Copyright (C) 2007 - 2026 Qore Technologies s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -71,7 +71,7 @@ void command::clear() {
 
 void command::send(ExceptionSink *xsink) {
    // Check for interrupt before sending command
-   if (qore_check_io_interrupt(xsink)) {
+   if (qore_check_cancel(xsink)) {
       return;
    }
 
@@ -355,7 +355,7 @@ command::ResType command::read_next_result1(bool& disconnect, ExceptionSink* xsi
     }
 
     // check for interrupt before waiting for results
-    if (qore_check_io_interrupt(xsink)) {
+    if (qore_check_cancel(xsink)) {
         lastRes = RES_CANCELED;
         if (cancelIntern()) {
             disconnect = true;
@@ -559,7 +559,7 @@ QoreHashNode* command::read_cols(const Placeholders* ph, int cnt, bool cols, Exc
     int row_count = 0;
     while (fetch_row_into_buffers(xsink)) {
         // Check for interrupt periodically during fetch (every 100 rows)
-        if ((row_count % 100) == 0 && qore_check_io_interrupt(xsink)) {
+        if ((row_count % 100) == 0 && qore_check_cancel(xsink)) {
             return nullptr;
         }
         ++row_count;
@@ -593,7 +593,7 @@ QoreValue command::read_rows(const Placeholders *ph, ExceptionSink* xsink, bool 
     int row_count = 0;
     while (fetch_row_into_buffers(xsink)) {
         // Check for interrupt periodically during fetch (every 100 rows)
-        if ((row_count % 100) == 0 && qore_check_io_interrupt(xsink)) {
+        if ((row_count % 100) == 0 && qore_check_cancel(xsink)) {
             return QoreValue();
         }
         ++row_count;

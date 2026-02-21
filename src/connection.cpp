@@ -112,7 +112,7 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
         do_exception(xsink, "TDS-EXEC-ERROR", "ct_command() failed");
 
     // Check for interrupt before sending command
-    if (qore_check_io_interrupt(xsink))
+    if (qore_check_cancel(xsink))
         return -1;
 
     {
@@ -557,7 +557,7 @@ int connection::init(const char* username,
 #endif
 
     // Check for interrupt before connection
-    if (qore_check_io_interrupt(xsink)) {
+    if (qore_check_cancel(xsink)) {
         return -1;
     }
 
