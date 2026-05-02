@@ -660,7 +660,7 @@ int connection::init(const char* username,
         ValueHolder v(get_server_version(xsink), xsink);
         if (!*xsink) {
             if (v->getType() == NT_STRING) {
-                const QoreStringNode* str = v->get<const QoreStringNode>();
+                QoreStringValueHelper str(*v);
                 if (str->find("Adaptive Server") >= 0) {
                     sybase = true;
                 }
@@ -671,35 +671,36 @@ int connection::init(const char* username,
                 QoreString sql("select convert(varchar, serverproperty('collation')) as 'coll'");
                 ValueHolder holder(exec_row(&sql, nullptr, xsink), xsink);
                 if (holder->getType() == NT_HASH) {
-                    const QoreStringNode* coll = holder->get<const QoreHashNode>()
-                        ->getKeyValue("coll")
-                        .get<const QoreStringNode>();
-                    assert(coll);
+                    QoreValue coll_val = holder->get<const QoreHashNode>()->getKeyValue("coll");
+                    assert(coll_val.getType() == NT_STRING);
+                    QoreStringValueHelper coll(coll_val);
                     printd(5, "MS SQL Server collation: '%s'\n", coll->c_str());
-                    QoreString c(coll);
+                    QoreString c(*coll);
                     c.tolwr();
                     if (c.find("utf8") >= 0) {
                         // set character encoding to UTF-8
                         enc = QCS_UTF8;
                     } else {
                         sql = "select cast(collationproperty(%v, 'CodePage') as varchar) as 'cp'";
-                        try {
-                            ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), xsink);
-                            args->push(coll->refSelf(), xsink);
-                            holder = exec_row(&sql, *args, xsink);
-                            if (*xsink) {
+                            try {
+                                ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), xsink);
+                                args->push(new QoreStringNode(**coll), xsink);
+                                holder = exec_row(&sql, *args, xsink);
+                                if (*xsink) {
                                 purge_messages(xsink);
                                 xsink->clear();
                             } else {
                                 if (holder->getType() == NT_HASH) {
-                                    QoreStringNode* cp = holder->get<const QoreHashNode>()
-                                        ->getKeyValue("cp")
-                                        .get<QoreStringNode>();
-                                    if (cp && isdigit((*cp)[0])) {
-                                        printd(5, "MS SQL Server code page: '%s'\n", cp->c_str());
-                                        cp->prepend("WINDOWS-");
-                                        enc = QEM.findCreate(cp->c_str());
-                                        printd(5, "set connection encoding to '%s'\n", cp->c_str());
+                                    QoreValue cp_val = holder->get<const QoreHashNode>()->getKeyValue("cp");
+                                    if (cp_val.getType() == NT_STRING) {
+                                        QoreStringValueHelper cp_tmp(cp_val);
+                                        QoreString cp(*cp_tmp);
+                                        if (isdigit(cp[0])) {
+                                            printd(5, "MS SQL Server code page: '%s'\n", cp.c_str());
+                                            cp.prepend("WINDOWS-");
+                                            enc = QEM.findCreate(cp.c_str());
+                                            printd(5, "set connection encoding to '%s'\n", cp.c_str());
+                                        }
                                     }
                                 }
                             }
@@ -950,9 +951,12 @@ QoreValue connection::get_server_version(ExceptionSink *xsink) {
         rv = hi.removeKeyValue();
     }
 
-    QoreStringNode* str = rv.getType() == NT_STRING ? rv.get<QoreStringNode>() : nullptr;
-    if (str) {
-        str->trim_trailing('\n');
+    if (rv.getType() == NT_STRING) {
+        QoreStringNodeValueHelper str(rv);
+        QoreStringNode* trimmed = str.getReferencedValue();
+        rv.discard(xsink);
+        rv = trimmed;
+        trimmed->trim_trailing('\n');
     }
 
     return rv;
@@ -976,7 +980,7 @@ DLLLOCAL int connection::setOption(const char* opt, QoreValue val, ExceptionSink
 
     if (!strcasecmp(opt, DBI_OPT_TIMEZONE)) {
         assert(val.getType() == NT_STRING);
-        const QoreStringNode* str = val.get<const QoreStringNode>();
+        QoreStringValueHelper str(val);
         const AbstractQoreZoneInfo* tz =
             find_create_timezone(str->c_str(), xsink);
         if (*xsink) return -1;

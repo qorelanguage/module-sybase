@@ -177,9 +177,9 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
 
         switch (ntype) {
             case NT_STRING: {
-                const QoreStringNode *str = val.get<const QoreStringNode>();
+                QoreStringValueHelper str(val);
                 // ensure we bind with the proper encoding for the connection
-                TempEncodingHelper s(str, m_conn.getEncoding(), xsink);
+                TempEncodingHelper s(*str, m_conn.getEncoding(), xsink);
                 if (!s) throw ss::Error("TDS-EXEC-ERROR", "encoding");
 
                 int slen = s->strlen();
@@ -291,11 +291,11 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
                 QoreValue t = h->getKeyValue("type");
                 QoreValue v = h->getKeyValue("value");
                 if (t && t.getType() == NT_STRING) {
-                    const QoreStringNode& str = *t.get<const QoreStringNode>();
-                    if (str == "date") {
+                    QoreStringValueHelper str(t);
+                    if (!strcmp(str->c_str(), "date")) {
                         if (v.getType() != NT_DATE) {
                             m_conn.do_exception(xsink, "TDS-BIND-ERROR", "expecting type 'date' for bind type '%s'; "
-                                "got type '%s' instead", str.c_str(), v.getFullTypeName());
+                                "got type '%s' instead", str->c_str(), v.getFullTypeName());
                             return;
                         }
                         // NOTE: cannot bind by CS_BIGDATETIME_TYPE
@@ -316,7 +316,7 @@ void command::set_params(sybase_query &query, const QoreListNode* args, Exceptio
                         err = ct_param(m_cmd, &datafmt, (CS_VOID*)str.c_str(), slen, 0);
                         return;
                     }
-                    m_conn.do_exception(xsink, "TDS-BIND-ERROR", "unknown explicit bind type '%s'", str.c_str());
+                    m_conn.do_exception(xsink, "TDS-BIND-ERROR", "unknown explicit bind type '%s'", str->c_str());
                     return;
                 }
             }

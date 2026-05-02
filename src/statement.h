@@ -147,8 +147,8 @@ public:
         ConstListIterator it(l);
         while (it.next()) {
             QoreValue v(it.getValue());
-            QoreStringNode *s = v.get<QoreStringNode>();
-            placeholders.push_back(s->getBuffer());
+            QoreStringValueHelper s(v);
+            placeholders.emplace_back(s->c_str(), s->size());
         }
         return 0;
     }
