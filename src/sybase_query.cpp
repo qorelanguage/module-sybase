@@ -25,13 +25,54 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <string.h>
 
 #include "sybase.h"
 #include "sybase_query.h"
 
+// issue #4710: append a T-SQL Unicode (nvarchar) string literal for the given value
+// to "out", using the encoding of the SQL text.
+//
+// Security: the ONLY metacharacter in a T-SQL single-quoted string literal is the
+// single quote, escaped by doubling (' -> '').  T-SQL has no backslash escaping and
+// single-quoted literals are unaffected by SET QUOTED_IDENTIFIER, so this single,
+// total transformation fully neutralizes SQL injection.  The escaper operates on the
+// exact byte buffer (size(), not strlen()) so an embedded NUL cannot be used to
+// smuggle unescaped content; a value containing a raw NUL (which cannot appear in a
+// T-SQL literal at all) is reported so the caller falls back to parameter binding.
+//
+// returns: 0 = literal appended; 1 = embedded NUL, caller must bind as a parameter;
+//          -1 = exception raised
+static int append_tsql_nvarchar_literal(QoreString& out, const QoreValue& v,
+        const QoreEncoding* enc, ExceptionSink* xsink) {
+    QoreStringValueHelper sv(v);
+    // emit the literal in the same character encoding as the SQL text
+    TempEncodingHelper str(*sv, enc, xsink);
+    if (!str) {
+        return -1;
+    }
+    const char* buf = str->c_str();
+    size_t len = str->size();
+    if (memchr(buf, 0, len)) {
+        return 1;
+    }
+    out.concat("N'");
+    for (size_t i = 0; i < len; ++i) {
+        char c = buf[i];
+        if (c == '\'') {
+            out.concat("''");
+        } else {
+            out.concat(c);
+        }
+    }
+    out.concat('\'');
+    return 0;
+}
+
 // returns 0=OK, -1=error (exception raised)
 int sybase_query::init(const QoreString *cmd_text,
         const QoreListNode *args,
+        bool mssql,
         ExceptionSink *xsink)
 {
    m_cmd = *cmd_text;
@@ -81,6 +122,33 @@ int sybase_query::init(const QoreString *cmd_text,
            int offset = s - m_cmd.getBuffer() - 1;
            ch = *s++;
            if (ch == 'v') {
+               // issue #4710: with FreeTDS ct-lib there is no parameter type that
+               // sends a native NVARCHAR value, so string arguments are converted to
+               // the server's single-byte code page and characters outside it are
+               // lost/rejected.  For MS SQL Server, inline string values into the SQL
+               // text as escaped Unicode N'...' literals instead: the query batch is
+               // transmitted as UCS-2 (TDS 7+), so any Unicode value reaches NCHAR/
+               // NVARCHAR/NTEXT columns losslessly regardless of the database's
+               // default collation, and MS SQL implicitly converts to non-Unicode
+               // columns as needed.
+               QoreValue pv = args ? args->retrieveEntry(param_list.size()) : QoreValue();
+               if (mssql && pv.getType() == NT_STRING) {
+                   tmp.clear();
+                   tmp.setEncoding(m_cmd.getEncoding());
+                   int rc = append_tsql_nvarchar_literal(tmp, pv, m_cmd.getEncoding(), xsink);
+                   if (rc < 0) {
+                       return -1;
+                   }
+                   if (rc == 0) {
+                       // inlined as a literal; mark 'd' so it is not bound as a param
+                       param_list.push_back('d');
+                       m_cmd.replace(offset, 2, tmp.c_str());
+                       s = m_cmd.getBuffer() + offset + tmp.strlen();
+                       goto next;
+                   }
+                   // rc == 1: embedded NUL - fall through to parameter binding
+               }
+
                param_list.push_back('v');
                //param_list.resize(count + 1);
                //param_list[count++].set(PN_VALUE);

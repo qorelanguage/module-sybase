@@ -45,7 +45,12 @@ public:
     Placeholders placeholders;
 
     // returns 0=OK, -1=err (exception raised)
-    DLLLOCAL int init(const QoreString *n_cmd, const QoreListNode *args, ExceptionSink *xsink);
+    // issue #4710: when mssql is true, string arguments bound via %v are inlined into
+    // the SQL text as escaped Unicode N'...' literals instead of being bound as
+    // parameters; this is the only way (with FreeTDS ct-lib) to send characters that
+    // are not representable in the server's single-byte code page to NCHAR/NVARCHAR/
+    // NTEXT columns when the database default collation is a single-byte code page
+    DLLLOCAL int init(const QoreString *n_cmd, const QoreListNode *args, bool mssql, ExceptionSink *xsink);
 
     DLLLOCAL void init(const QoreString *n_cmd) {
         m_cmd = *n_cmd;

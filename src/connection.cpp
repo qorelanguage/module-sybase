@@ -176,7 +176,7 @@ command* connection::setupCommand(const QoreString* cmd_text, const QoreListNode
     while (true) {
         std::unique_ptr<sybase_query> query(new sybase_query);
         if (!raw) {
-            if (query->init(cmd_text, args, xsink))
+            if (query->init(cmd_text, args, isMsSql(), xsink))
                 return nullptr;
         } else {
             assert(!args);
@@ -557,6 +557,22 @@ int connection::init(const char* username,
 #endif
 
 #ifndef SYBASE
+    // issue #4710: explicitly set the FreeTDS client character set so that FreeTDS
+    // performs the correct conversion between the client encoding and the server.
+    // The cs_locale()/CS_LOC_PROP mechanism above is not reliable with FreeTDS,
+    // which otherwise leaves the client charset at its ISO-8859-1 default; this
+    // would corrupt multi-byte (e.g. UTF-8) data sent to/from the server.  This
+    // must be set before ct_connect().
+    {
+        const char* client_cs = enc->getCode();
+        ret = ct_con_props(m_connection, CS_SET, CS_CLIENTCHARSET, (CS_VOID*)client_cs, CS_NULLTERM, 0);
+        if (ret != CS_SUCCEED) {
+            xsink->raiseException("TDS-CTLIB-SET-CLIENTCHARSET",
+                "ct_con_props(CS_CLIENTCHARSET, '%s') failed with error %d", client_cs, ret);
+            return -1;
+        }
+    }
+
     // issue #4321: allow programmatically setting the TDS protocol version so that ad-hoc
     // connections can be made without requiring a freetds.conf entry; this must be set
     // before ct_connect()
@@ -705,45 +721,25 @@ int connection::init(const char* username,
                 QoreString sql("select convert(varchar, serverproperty('collation')) as 'coll'");
                 ValueHolder holder(exec_row(&sql, nullptr, xsink), xsink);
                 if (holder->getType() == NT_HASH) {
-                    QoreValue coll_val = holder->get<const QoreHashNode>()->getKeyValue("coll");
-                    assert(coll_val.getType() == NT_STRING);
-                    QoreStringValueHelper coll(coll_val);
-                    printd(5, "MS SQL Server collation: '%s'\n", coll->c_str());
-                    QoreString c(*coll);
-                    c.tolwr();
-                    if (c.find("utf8") >= 0) {
-                        // set character encoding to UTF-8
-                        enc = QCS_UTF8;
-                    } else {
-                        sql = "select cast(collationproperty(%v, 'CodePage') as varchar) as 'cp'";
-                            try {
-                                ReferenceHolder<QoreListNode> args(new QoreListNode(autoTypeInfo), xsink);
-                                args->push(new QoreStringNode(**coll), xsink);
-                                holder = exec_row(&sql, *args, xsink);
-                                if (*xsink) {
-                                purge_messages(xsink);
-                                xsink->clear();
-                            } else {
-                                if (holder->getType() == NT_HASH) {
-                                    QoreValue cp_val = holder->get<const QoreHashNode>()->getKeyValue("cp");
-                                    if (cp_val.getType() == NT_STRING) {
-                                        QoreStringValueHelper cp_tmp(cp_val);
-                                        QoreString cp(*cp_tmp);
-                                        if (isdigit(cp[0])) {
-                                            printd(5, "MS SQL Server code page: '%s'\n", cp.c_str());
-                                            cp.prepend("WINDOWS-");
-                                            enc = QEM.findCreate(cp.c_str());
-                                            printd(5, "set connection encoding to '%s'\n", cp.c_str());
-                                        }
-                                    }
-                                }
-                            }
-
-                        } catch (const ss::Error& e) {
-                            printd(5, "ignoring error trying to determine server character encoding: %s: %s\n",
-                                e.getErr(), e.getDesc());
-                        }
-                    }
+                    // issue #4710 / qore#4321: for MS SQL Server, use UTF-8 as the
+                    // connection encoding and let FreeTDS perform the character set
+                    // conversion.  With the TDS 7.x protocol used for MS SQL, FreeTDS
+                    // transparently converts between the UTF-8 client charset and the
+                    // server representation for *all* string column types:
+                    //  - NCHAR/NVARCHAR/NTEXT: UCS-2 on the wire (full Unicode), and
+                    //  - CHAR/VARCHAR/TEXT: the column's (server collation) code page.
+                    // Forcing the connection encoding to the server's single-byte
+                    // code page (e.g. WINDOWS-1252 for the default
+                    // SQL_Latin1_General_CP1_CI_AS collation) makes it impossible to
+                    // store/retrieve Unicode in N-type columns and is incorrect when
+                    // FreeTDS is doing the conversion; UTF-8 works for every column
+                    // type and every server collation (legacy LOB types like TEXT/
+                    // NTEXT also keep working, whereas a server-wide _UTF8 collation
+                    // would break them).
+                    enc = QCS_UTF8;
+                    mssql = true;
+                    printd(5, "MS SQL Server detected; using UTF-8 connection "
+                        "encoding (FreeTDS handles server-side conversion)\n");
                 }
             }
         }

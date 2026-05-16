@@ -48,6 +48,18 @@ chown -R qore:qore ${MODULE_SRC_DIR}
 # Include both the source qlib dir and the installed module path
 export QORE_MODULE_DIR=${MODULE_SRC_DIR}/qlib:${INSTALL_PREFIX}/lib/qore-modules:${QORE_MODULE_DIR}
 cd ${MODULE_SRC_DIR}
+# run every test suite and aggregate failures so that one failing suite does
+# not mask the results of the others (the loop runs alphabetically, so a single
+# early failure would otherwise abort the whole job via "set -e")
+failed=""
 for test in test/*.qtest; do
-    gosu qore:qore qore $test -vv
+    echo "=== running ${test} ==="
+    if ! gosu qore:qore qore $test -vv; then
+        failed="${failed} ${test}"
+    fi
 done
+if [ -n "${failed}" ]; then
+    echo "FAILED test suites:${failed}"
+    exit 1
+fi
+echo "all test suites passed"

@@ -259,6 +259,9 @@ public:
 
     DLLLOCAL int getNumeric() const { return numeric_support; }
 
+    // issue #4710: returns true if the server was positively identified as MS SQL Server
+    DLLLOCAL bool isMsSql() const { return mssql; }
+
     DLLLOCAL const AbstractQoreZoneInfo* getTZ() const;
 
     DLLLOCAL bool optimizedDateBinds() const {
@@ -278,6 +281,8 @@ private:
     CS_CONNECTION* m_connection = nullptr;
     bool connected = false;
     bool sybase = false;
+    // issue #4710: set to true when the server is positively identified as MS SQL Server
+    bool mssql = false;
     const QoreEncoding* enc = nullptr;
     Datasource* ds;
     int numeric_support = OPT_NUM_OPTIMAL;

@@ -22,6 +22,7 @@ public class NullAndParsingTest inherits QUnit::Test {
         addTestCase("SQL with special characters", \testSpecialCharacters());
         addTestCase("SQL with unicode", \testUnicode());
         addTestCase("empty strings vs NULL", \testEmptyStrings());
+        addTestCase("string bind SQL injection safety", \testInjectionSafety());
 
         set_return_value(main());
     }
@@ -193,5 +194,50 @@ public class NullAndParsingTest inherits QUnit::Test {
         # Test DATALENGTH
         auto row = ds.selectRow("SELECT DATALENGTH(val) AS len FROM parse_test WHERE id = 1");
         assertEq(0, row.len, "empty string has length 0");
+    }
+
+    testInjectionSafety() {
+        # issue #4710: with the freetds driver, string values bound via %v to MS SQL
+        # are inlined into the SQL text as escaped Unicode N'...' literals.  This
+        # verifies the escaping fully neutralizes SQL injection and round-trips
+        # adversarial values (including Unicode mixed with injection) losslessly.
+        try { ds.exec("DROP TABLE inj_test"); } catch () {}
+        ds.exec("CREATE TABLE inj_test (id INT, val NVARCHAR(400))");
+        ds.commit();
+
+        on_exit {
+            try { ds.exec("DROP TABLE inj_test"); } catch () {}
+            ds.commit();
+        }
+
+        list<string> payloads = (
+            "'; DROP TABLE inj_test; --",
+            "' OR '1'='1",
+            "Robert'); DROP TABLE Students;--",
+            "x'+(SELECT @@version)+'",
+            "100% safe \\ backslash 'quote' \"dq\"",
+            "中文'; DELETE FROM inj_test WHERE '1'='1",
+            "N'nested' and ''''''",
+        );
+
+        int i = 0;
+        foreach string p in (payloads) {
+            ds.vexec("INSERT INTO inj_test VALUES (%v, %v)", (i, p));
+            ++i;
+        }
+        ds.commit();
+
+        # the table must still exist with exactly the inserted rows: if any payload
+        # had been interpreted as SQL, the table would be gone or rows deleted
+        assertEq(payloads.size(), ds.selectRow("SELECT COUNT(*) AS c FROM inj_test").c,
+            "no injection executed; all rows present");
+
+        # every adversarial value must round-trip exactly
+        i = 0;
+        foreach string p in (payloads) {
+            assertEq(p, ds.selectRow("SELECT val FROM inj_test WHERE id = %v", i).val,
+                sprintf("payload %d round-trips exactly", i));
+            ++i;
+        }
     }
 }

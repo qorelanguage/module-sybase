@@ -302,6 +302,14 @@ exec get_values :string output, :int output");
     - added CMake build system as an alternative to autotools
 
     <b>Bug Fixes</b>
+    - fixed character encoding handling with MS SQL Server so that Unicode data can be
+      stored in and retrieved from \c NCHAR / \c NVARCHAR / \c NTEXT columns regardless
+      of the database's default collation: the connection now uses UTF-8 with explicit
+      FreeTDS client charset configuration, and string values bound via <tt>%v</tt> are
+      inlined into the SQL text as escaped Unicode <tt>N'...'</tt> literals (the only
+      way to send characters outside the server's single-byte code page with the
+      FreeTDS ct-lib API)
+      (<a href="https://github.com/qoretechnologies/qore/issues/4710">issue 4710</a>)
     - fixed a potential buffer overrun when parsing SQL with unterminated quoted strings
     - fixed SQL quote parsing to properly handle SQL-style escaped single quotes (\c '')
     - fixed an error message format string that was missing the error code parameter
