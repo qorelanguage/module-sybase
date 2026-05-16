@@ -556,6 +556,40 @@ int connection::init(const char* username,
     }
 #endif
 
+#ifndef SYBASE
+    // issue #4321: allow programmatically setting the TDS protocol version so that ad-hoc
+    // connections can be made without requiring a freetds.conf entry; this must be set
+    // before ct_connect()
+    if (!tds_version_set) {
+        // read the option from the connect-options hash; setOption() is not called before
+        // the connection is opened (private data does not exist yet), so the value set in
+        // the datasource configuration / connection string is only available here
+        const QoreHashNode* opts = ds->getConnectOptions();
+        if (opts) {
+            QoreValue v = opts->getKeyValue(SYBASE_OPT_TDS_VERSION);
+            if (v) {
+                CS_INT ver;
+                if (parseTdsVersion(v, ver, xsink)) {
+                    return -1;
+                }
+                tds_version = ver;
+                tds_version_set = true;
+            }
+        }
+    }
+    if (tds_version_set) {
+        printd(5, "connection::init() setting TDS version to %s (%d)\n",
+            tdsVersionString(tds_version), (int)tds_version);
+        ret = ct_con_props(m_connection, CS_SET, CS_TDS_VERSION, &tds_version, CS_UNUSED, 0);
+        if (ret != CS_SUCCEED) {
+            xsink->raiseException("TDS-CTLIB-SET-TDS-VERSION", "ct_con_props(CS_TDS_VERSION, '%s') failed with "
+                "error %d; the linked FreeTDS client library may not support setting the TDS protocol version "
+                "programmatically", tdsVersionString(tds_version), ret);
+            return -1;
+        }
+    }
+#endif
+
     // Check for interrupt before connection
     if (qore_check_cancel(xsink)) {
         return -1;
@@ -962,6 +996,73 @@ QoreValue connection::get_server_version(ExceptionSink *xsink) {
     return rv;
 }
 
+#ifndef SYBASE
+// issue #4321: mapping between "tds-version" option values and FreeTDS CS_TDS_* constants
+namespace {
+struct TdsVersionMap {
+    const char* str;
+    CS_INT ver;
+};
+
+// the first string for each CS_TDS_* value is the canonical form returned by getOption()
+static const TdsVersionMap tds_version_map[] = {
+    {"auto",  CS_TDS_AUTO},
+    {"0",     CS_TDS_AUTO},
+    {"4.0",   CS_TDS_40},
+    {"40",    CS_TDS_40},
+    {"4.2",   CS_TDS_42},
+    {"42",    CS_TDS_42},
+    {"4.6",   CS_TDS_46},
+    {"46",    CS_TDS_46},
+    {"4.9.5", CS_TDS_495},
+    {"4.95",  CS_TDS_495},
+    {"495",   CS_TDS_495},
+    {"5.0",   CS_TDS_50},
+    {"5",     CS_TDS_50},
+    {"50",    CS_TDS_50},
+    {"7.0",   CS_TDS_70},
+    {"7",     CS_TDS_70},
+    {"70",    CS_TDS_70},
+    {"7.1",   CS_TDS_71},
+    {"71",    CS_TDS_71},
+    {"7.2",   CS_TDS_72},
+    {"72",    CS_TDS_72},
+    {"7.3",   CS_TDS_73},
+    {"73",    CS_TDS_73},
+    {"7.4",   CS_TDS_74},
+    {"74",    CS_TDS_74},
+};
+}
+
+int connection::parseTdsVersion(QoreValue val, CS_INT& ver, ExceptionSink* xsink) {
+    // the option is registered with stringTypeInfo, so the value is normally a string;
+    // convert defensively to support numeric values as well (e.g. "7.0" parsed as a float)
+    QoreStringValueHelper str(val);
+    QoreString v(*str);
+    v.trim();
+    v.tolwr();
+    for (const TdsVersionMap& m : tds_version_map) {
+        if (!strcmp(v.c_str(), m.str)) {
+            ver = m.ver;
+            return 0;
+        }
+    }
+    xsink->raiseException("TDS-OPTION-ERROR", "invalid value '%s' for the '%s' option; expecting one of: "
+        "\"auto\", \"4.0\", \"4.2\", \"4.6\", \"4.9.5\", \"5.0\", \"7.0\", \"7.1\", \"7.2\", \"7.3\", \"7.4\"",
+        v.c_str(), SYBASE_OPT_TDS_VERSION);
+    return -1;
+}
+
+const char* connection::tdsVersionString(CS_INT ver) {
+    for (const TdsVersionMap& m : tds_version_map) {
+        if (m.ver == ver) {
+            return m.str;
+        }
+    }
+    return nullptr;
+}
+#endif
+
 DLLLOCAL int connection::setOption(const char* opt, QoreValue val, ExceptionSink* xsink) {
     if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
         numeric_support = OPT_NUM_OPTIMAL;
@@ -993,6 +1094,19 @@ DLLLOCAL int connection::setOption(const char* opt, QoreValue val, ExceptionSink
         return 0;
     }
 
+#ifndef SYBASE
+    if (!strcasecmp(opt, SYBASE_OPT_TDS_VERSION)) {
+        CS_INT ver;
+        if (parseTdsVersion(val, ver, xsink)) {
+            return -1;
+        }
+        tds_version = ver;
+        tds_version_set = true;
+        // note: takes effect on the next (re)connection
+        return 0;
+    }
+#endif
+
     assert(false);
     return 0;
 }
@@ -1017,6 +1131,16 @@ DLLLOCAL QoreValue connection::getOption(const char* opt) {
     if (!strcasecmp(opt, SYBASE_OPT_OPTIMIZED_DATE_BINDS)) {
         return optimized_date_binds;
     }
+
+#ifndef SYBASE
+    if (!strcasecmp(opt, SYBASE_OPT_TDS_VERSION)) {
+        if (!tds_version_set) {
+            return QoreValue();
+        }
+        const char* str = tdsVersionString(tds_version);
+        return str ? new QoreStringNode(str) : QoreValue();
+    }
+#endif
 
     assert(false);
     return QoreValue();

@@ -18,6 +18,9 @@ public class OptionsTest inherits QUnit::Test {
         addTestCase("string-numbers option", \testStringNumbers());
         addTestCase("numeric-numbers option", \testNumericNumbers());
         addTestCase("timezone option", \testTimezoneOption());
+        addTestCase("tds-version option", \testTdsVersionOption());
+        addTestCase("tds-version setOption", \testTdsVersionSetOption());
+        addTestCase("tds-version invalid value", \testTdsVersionInvalid());
 
         set_return_value(main());
     }
@@ -122,5 +125,49 @@ public class OptionsTest inherits QUnit::Test {
         # The timezone info should be accessible via info()
         hash<auto> info = row.server_time.info();
         assertTrue(info.hasKey("zone"), "timezone info present in date");
+    }
+
+    testTdsVersionOption() {
+        # issue #4321: the TDS protocol version can be set programmatically so ad-hoc
+        # connections work without a freetds.conf entry; MS SQL Server requires TDS 7.x
+        Datasource ds = getDs("tds-version=7.4");
+        on_exit ds.close();
+
+        # the connection must work with the explicitly-set protocol version
+        auto row = ds.selectRow("SELECT 1 AS test_value");
+        assertEq(1, row.test_value, "query works with explicit tds-version=7.4");
+
+        # the option must round-trip via getOption() in canonical form
+        assertEq("7.4", ds.getOption("tds-version"), "getOption returns canonical tds-version");
+    }
+
+    testTdsVersionSetOption() {
+        # issue #4321: the option can also be set via Datasource::setOption()
+        Datasource ds = getDs("tds-version=7.0");
+        on_exit ds.close();
+
+        # connect with 7.0
+        auto row = ds.selectRow("SELECT 1 AS test_value");
+        assertEq(1, row.test_value, "query works with explicit tds-version=7.0");
+        assertEq("7.0", ds.getOption("tds-version"), "getOption returns 7.0");
+
+        # setting a new value is accepted (takes effect on the next connection)
+        ds.setOption("tds-version", "7.3");
+        assertEq("7.3", ds.getOption("tds-version"), "setOption updates tds-version");
+
+        # an invalid value passed via setOption() must be rejected immediately
+        assertThrows("TDS-OPTION-ERROR", sub () { ds.setOption("tds-version", "9.9"); });
+    }
+
+    testTdsVersionInvalid() {
+        # issue #4321: an invalid value must raise an exception before any network I/O
+        # (the value is parsed before ct_connect()), so this is deterministic even
+        # without a reachable server
+        Datasource ds = getDs("tds-version=bogus");
+        on_exit ds.close();
+
+        assertThrows("TDS-OPTION-ERROR", "invalid value 'bogus'", sub () {
+            ds.selectRow("SELECT 1 AS test_value");
+        });
     }
 }

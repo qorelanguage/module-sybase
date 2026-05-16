@@ -121,6 +121,9 @@ Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.2
       however this will cause any operations with date/time values with microseconds bound for \c DATETIME columns to
       fail; if this is not set, then date/time values are bound with an approach that works for all columns but gives
       a maximum of 1/300 second resolution
+    - \c "tds-version": (\c freetds driver only) sets the TDS protocol version used for the connection; this allows
+      ad-hoc connections to be made without requiring a \c freetds.conf entry for the server; see
+      @ref sybase_tds_version_option
 
     Options can be set in the @ref Qore::SQL::Datasource or @ref Qore::SQL::DatasourcePool constructors as in the
     following examples:
@@ -146,6 +149,32 @@ DataourcePool dsp("freetds:user/pass@db%host.internal:1433{optimal-numbers}");
     - \c "optimal-numbers": return numeric values as an integer if possible, if not as an arbitrary-precision number
     - \c "string-numbers": return numeric values as strings (for backwards-compatibility)
     - \c "numeric-numbers": return numeric values as arbitrary-precision number values
+
+    @subsection sybase_tds_version_option TDS Protocol Version Option
+
+    The \c "tds-version" option (\c freetds driver only) sets the TDS protocol version used for the connection
+    before connecting.  This makes it possible to establish ad-hoc connections without requiring a \c freetds.conf
+    entry for the server (otherwise FreeTDS uses its compile-time default protocol version, which is frequently
+    incompatible with the target server).
+
+    The value must be a string; one of the following:
+    - \c "auto": negotiate the protocol version automatically
+    - \c "4.0", \c "4.2", \c "4.6", \c "4.9.5": legacy Sybase / TDS versions
+    - \c "5.0": use for Sybase Adaptive Server Enterprise (ASE)
+    - \c "7.0", \c "7.1", \c "7.2", \c "7.3", \c "7.4": use for Microsoft SQL Server (\c "7.4" is recommended
+      for recent versions of MS SQL Server)
+
+    If this option is not set, the FreeTDS default or the \c freetds.conf configuration is used.  Setting the
+    option after the connection is established takes effect on the next connection.  An invalid value raises a
+    \c TDS-OPTION-ERROR exception before any connection attempt is made.
+
+    @code{.py}
+# ad-hoc direct connection to MS SQL Server without a freetds.conf entry
+Datasource ds("freetds:user/pass@db%host.internal:1433{tds-version=7.4}");
+    @endcode
+
+    This option was added to address
+    <a href="https://github.com/qoretechnologies/qore/issues/4321">issue 4321</a>.
 
     @section sybasetrans Transaction Management
 
@@ -266,6 +295,10 @@ exec get_values :string output, :int output");
       \c freetds.conf entry; connection strings like <tt>freetds:user/pass\@dbname%hostname:port</tt>
       now work correctly
       (<a href="https://github.com/qoretechnologies/qore/issues/5103">issue 5103</a>)
+    - added the \c "tds-version" option (\c freetds driver only) to set the TDS protocol version
+      programmatically, allowing ad-hoc connections without a \c freetds.conf entry; see
+      @ref sybase_tds_version_option
+      (<a href="https://github.com/qoretechnologies/qore/issues/4321">issue 4321</a>)
     - added CMake build system as an alternative to autotools
 
     <b>Bug Fixes</b>

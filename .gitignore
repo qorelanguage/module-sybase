@@ -1,4 +1,5 @@
 build/
+build-debug/
 Makefile
 Makefile.in
 acinclude.m4

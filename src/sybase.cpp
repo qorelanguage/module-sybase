@@ -334,6 +334,14 @@ static void sybase_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink)
         "resolution including microseconds, however this will cause any operations with date/time values with "
         "microseconds bound for DATETIME columns to fail, if this is not set, then date/time values are bound with "
         "an approach that works for all columns but gives a maximum of 1/300 second resolution");
+#ifndef SYBASE
+    methods.registerOption(SYBASE_OPT_TDS_VERSION, "sets the TDS protocol version used for the connection; this "
+        "allows ad-hoc connections to be made without requiring a freetds.conf entry for the server; the value "
+        "must be a string: one of \"auto\", \"4.0\", \"4.2\", \"4.6\", \"4.9.5\", \"5.0\", \"7.0\", \"7.1\", "
+        "\"7.2\", \"7.3\", or \"7.4\"; use \"5.0\" for Sybase ASE or \"7.x\" for MS SQL Server; if not set, the "
+        "FreeTDS default or freetds.conf configuration is used; takes effect on the next connection",
+        stringTypeInfo);
+#endif
 
     ss::init(methods);
 

@@ -6,7 +6,7 @@
 
     Qore Programming language
 
-    Copyright (C) 2007 - 2023 Qore Technologies, s.r.o.
+    Copyright (C) 2007 - 2026 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -265,6 +265,14 @@ public:
         return optimized_date_binds;
     }
 
+#ifndef SYBASE
+    // issue #4321: parse a "tds-version" option value into a CS_TDS_* constant;
+    // returns 0 on success (sets ver), -1 on error (exception raised)
+    DLLLOCAL static int parseTdsVersion(QoreValue val, CS_INT& ver, ExceptionSink* xsink);
+    // issue #4321: return the canonical string for a CS_TDS_* constant or nullptr if unknown
+    DLLLOCAL static const char* tdsVersionString(CS_INT ver);
+#endif
+
 private:
     context m_context;
     CS_CONNECTION* m_connection = nullptr;
@@ -275,6 +283,12 @@ private:
     int numeric_support = OPT_NUM_OPTIMAL;
     const AbstractQoreZoneInfo* server_tz = nullptr;
     bool optimized_date_binds = false;
+#ifndef SYBASE
+    // issue #4321: TDS protocol version to set programmatically before connecting;
+    // tds_version_set is false when not configured (use freetds.conf / FreeTDS default)
+    CS_INT tds_version = CS_TDS_AUTO;
+    bool tds_version_set = false;
+#endif
 
     stmt_t* stmt = nullptr;
 
@@ -288,6 +302,11 @@ private:
 };
 
 constexpr const char* SYBASE_OPT_OPTIMIZED_DATE_BINDS = "optimized-date-binds";
+#ifndef SYBASE
+// issue #4321: option to set the TDS protocol version programmatically for ad-hoc
+// connections without requiring a freetds.conf entry
+constexpr const char* SYBASE_OPT_TDS_VERSION = "tds-version";
+#endif
 
 #endif
 
