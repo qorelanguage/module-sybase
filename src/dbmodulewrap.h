@@ -20,6 +20,9 @@
 #include "qore/Datasource.h"
 #include "qore/QoreListNode.h"
 #include "qore/QoreHashNode.h"
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#include "qore/QoreColumnarResult.h"
+#endif
 
 #include "error.h"
 
@@ -249,6 +252,29 @@ public:
         return run<QoreHashNode *>(&Module::fetch_columns, stmt, rows, xsink);
     }
 
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+    static QoreColumnarResult* fetch_columnar(SQLStatement* stmt, int rows,
+            ExceptionSink* xsink)
+    {
+        try {
+            if (xsink->isException()) return 0;
+            Module* m = module(stmt);
+            ReferenceHolder<QoreHashNode> columns((m->*(&Module::fetch_columns))(stmt, rows, xsink), xsink);
+            if (*xsink || !columns) {
+                return nullptr;
+            }
+            ReferenceHolder<QoreHashNode> desc((m->*(&Module::describe))(stmt, xsink), xsink);
+            if (*xsink) {
+                return nullptr;
+            }
+            return QoreColumnarResult::fromColumnHash(*columns, *desc, xsink);
+        } catch (const Error &e) {
+            e.raise(xsink);
+            return 0;
+        }
+    }
+#endif
+
     static QoreHashNode* describe(SQLStatement* stmt, ExceptionSink* xsink) {
         return run<QoreHashNode *>(&Module::describe, stmt, xsink);
     }
@@ -290,6 +316,9 @@ public:
         methods.add(QDBI_METHOD_STMT_FETCH_ROW, fetch_row);
         methods.add(QDBI_METHOD_STMT_FETCH_ROWS, fetch_rows);
         methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, fetch_columns);
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+        methods.add(QDBI_METHOD_STMT_FETCH_COLUMNAR, fetch_columnar);
+#endif
         methods.add(QDBI_METHOD_STMT_DESCRIBE, describe);
         methods.add(QDBI_METHOD_STMT_NEXT, next);
         methods.add(QDBI_METHOD_STMT_AFFECTED_ROWS, affected_rows);
