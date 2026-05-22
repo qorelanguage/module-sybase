@@ -20,7 +20,10 @@ int ss::Statement::exec(connection *conn, const QoreString *query, const QoreLis
 
    bool connection_reset = false;
    // not sure what to do with the return value here
-   conn->readNextResult(*context.get(), connection_reset, xsink);
+   command::ResType res = conn->readNextResult(*context.get(), connection_reset, xsink);
+   while (!*xsink && !connection_reset && res == command::RES_DONE) {
+      res = conn->readNextResult(*context.get(), connection_reset, xsink);
+   }
    return *xsink ? -1 : 0;
 }
 
