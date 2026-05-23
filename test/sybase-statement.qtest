@@ -64,6 +64,7 @@ public class SybaseStatementTest inherits QUnit::Test {
         addTestCase("stmt select values", \test_stmt_eq_select());
         addTestCase("stmt error", \test_error());
         addTestCase("stmt fetch columns", \test_fetch_columns());
+        addTestCase("columnar select", \test_columnar_select());
         addTestCase("delete rows", \test_delete());
 
         set_return_value(main());
@@ -248,6 +249,35 @@ public class SybaseStatementTest inherits QUnit::Test {
         stmt.exec();
         h = stmt.fetchColumns(-1);
         testAssertionValue("fetch columns 6", h.name.size(), 5);
+
+        stmt.commit();
+    }
+
+    list asList(auto value) {
+        return value.type() == Type::List ? value : value.toList();
+    }
+
+    test_columnar_select() {
+        string query = "select name, number from " + TableName + " order by number";
+
+        ColumnarResult direct = ds.selectColumnar(query);
+        testAssertionValue("direct columnar rows", direct.numRows(), 5);
+        testAssertionValue("direct columnar cols", direct.numCols(), 2);
+        testAssertionValue("direct columnar names", asList(direct.getColumn("name")),
+            ("zero", "one", "two", "three", "four"));
+        testAssertionValue("direct columnar numbers", asList(direct.getColumn("number")), (0, 1, 2, 3, 4));
+
+        SQLStatement stmt(ds);
+        on_exit stmt.rollback();
+
+        stmt.prepare(query);
+        stmt.exec();
+        ColumnarResult first = stmt.fetchColumnar(rows: 3);
+        ColumnarResult second = stmt.fetchColumnar(rows: -1);
+        testAssertionValue("stmt columnar first rows", first.numRows(), 3);
+        testAssertionValue("stmt columnar second rows", second.numRows(), 2);
+        testAssertionValue("stmt columnar first values", asList(first.getColumn("number")), (0, 1, 2));
+        testAssertionValue("stmt columnar second values", asList(second.getColumn("number")), (3, 4));
 
         stmt.commit();
     }
