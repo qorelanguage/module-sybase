@@ -30,6 +30,8 @@
 #include <string>
 #include <vector>
 
+#include <qore/QoreColumnarResult.h>
+
 #include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
@@ -190,6 +192,20 @@ static QoreValue sybase_select(Datasource *ds, const QoreString *qstr, const Qor
     END_CALLBACK(0);
 }
 
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+static QoreColumnarResult* sybase_select_columnar(Datasource *ds, const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink) {
+    BEGIN_CALLBACK;
+    connection* conn = (connection*)ds->getPrivateData();
+    ValueHolder value(conn->select(qstr, args, xsink), xsink);
+    if (*xsink) {
+        return nullptr;
+    }
+    return qore_columnar_result_from_value(*value, nullptr, "sybase select", xsink);
+    END_CALLBACK(0);
+}
+#endif
+
 static QoreHashNode* sybase_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args,
         ExceptionSink *xsink) {
     BEGIN_CALLBACK;
@@ -305,6 +321,9 @@ static void sybase_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink)
     methods.add(QDBI_METHOD_OPEN, sybase_open);
     methods.add(QDBI_METHOD_CLOSE, sybase_close);
     methods.add(QDBI_METHOD_SELECT, sybase_select);
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+    methods.add(QDBI_METHOD_SELECT_COLUMNAR, sybase_select_columnar);
+#endif
     methods.add(QDBI_METHOD_SELECT_ROW, sybase_select_row);
     methods.add(QDBI_METHOD_SELECT_ROWS, sybase_select_rows);
     methods.add(QDBI_METHOD_EXEC, sybase_exec);
