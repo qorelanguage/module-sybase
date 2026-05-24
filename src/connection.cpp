@@ -28,6 +28,10 @@
 
 #include <ctpublic.h>
 
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+#include <qore/QoreColumnarResult.h>
+#endif
+
 #include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
@@ -381,6 +385,63 @@ QoreValue connection::select(const QoreString *cmd, const QoreListNode* args, Ex
     purge_messages(xsink);
     return rv.release();
 }
+
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+QoreColumnarResult* connection::selectColumnar(const QoreString *cmd, const QoreListNode* args, ExceptionSink *xsink) {
+    QoreString *query = cmd->convertEncoding(enc, xsink);
+    if (!query) {
+        return nullptr;
+    }
+
+    std::unique_ptr<QoreString> tmp(query);
+
+    invalidateStatement();
+
+    std::unique_ptr<command> sql_command(setupCommand(query, args, false, xsink));
+    if (*xsink) {
+        purge_messages(xsink);
+        return nullptr;
+    }
+
+    bool connection_reset = false;
+    while (true) {
+        command::ResType rt = readNextResult(*sql_command, connection_reset, xsink);
+        if (*xsink || connection_reset) {
+            purge_messages(xsink);
+            return nullptr;
+        }
+
+        switch (rt) {
+            case command::RES_ROW: {
+                ReferenceHolder<QoreColumnarResult> rv(sql_command->read_columnar(nullptr, -1, xsink), xsink);
+                purge_messages(xsink);
+                return rv.release();
+            }
+
+            case command::RES_DONE:
+                continue;
+
+            case command::RES_STATUS:
+            case command::RES_PARAM:
+                xsink->raiseException("COLUMNAR-RESULT-ERROR",
+                    "Datasource::selectColumnar() requires an SQL statement returning result columns");
+                purge_messages(xsink);
+                return nullptr;
+
+            case command::RES_END:
+                xsink->raiseException("COLUMNAR-RESULT-ERROR",
+                    "Datasource::selectColumnar() requires an SQL statement returning result columns");
+                purge_messages(xsink);
+                return nullptr;
+
+            case command::RES_ERROR:
+            default:
+                purge_messages(xsink);
+                return nullptr;
+        }
+    }
+}
+#endif
 
 QoreValue connection::exec(const QoreString *cmd, const QoreListNode* args, ExceptionSink *xsink) {
     // copy the string here for intrusive editing, convert encoding too if necessary

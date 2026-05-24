@@ -197,11 +197,7 @@ static QoreColumnarResult* sybase_select_columnar(Datasource *ds, const QoreStri
         ExceptionSink *xsink) {
     BEGIN_CALLBACK;
     connection* conn = (connection*)ds->getPrivateData();
-    ValueHolder value(conn->select(qstr, args, xsink), xsink);
-    if (*xsink) {
-        return nullptr;
-    }
-    return qore_columnar_result_from_value(*value, nullptr, "sybase select", xsink);
+    return conn->selectColumnar(qstr, args, xsink);
     END_CALLBACK(0);
 }
 #endif

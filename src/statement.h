@@ -140,6 +140,14 @@ public:
         return context->read_cols(0, rows, false, xsink);
     }
 
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+    QoreColumnarResult* fetch_columnar(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
+        if (checkValid(xsink))
+           return 0;
+        return context->read_columnar(0, rows, xsink);
+    }
+#endif
+
     int bind_placeholders(SQLStatement* stmt, const QoreListNode& l, ExceptionSink* xsink) {
         if (checkValid(xsink))
            return -1;

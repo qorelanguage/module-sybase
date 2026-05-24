@@ -92,8 +92,11 @@ Sybase Client-Library/15.0/P-EBF13571 ESD #4/DRV.15.0.1/Linux x86_64/Linux 2.4.2
     new statement.
 
     When built against a %Qore library with columnar DBI support,
-    @ref Qore::SQL::SQLStatement::fetchColumnar() "SQLStatement::fetchColumnar()" returns
-    \c Qore::SQL::ColumnarResult objects for column-oriented batch processing.
+    \c Datasource::selectColumnar() and \c SQLStatement::fetchColumnar() return \c Qore::SQL::ColumnarResult
+    objects for column-oriented batch processing. Integer, floating-point, and safe
+    \c DECIMAL / \c NUMERIC result columns are returned as dense \c buffer<int64>, \c buffer<float64>, and
+    \c buffer<decimal128> columns, with nullable buffer variants when SQL \c NULL values are present; other values
+    are returned as typed column lists.
 
     Unlike many other Qore DBI drivers, this driver allows and can return results from multiple select statements
     issued with a single call. Additionally, it's possible for a stored procedure to return output paramters as well
@@ -304,7 +307,9 @@ exec get_values :string output, :int output");
       @ref sybase_tds_version_option
       (<a href="https://github.com/qoretechnologies/qore/issues/4321">issue 4321</a>)
     - added CMake build system as an alternative to autotools
-    - added \c SQLStatement::fetchColumnar() support when built against %Qore with columnar DBI APIs
+    - added \c Datasource::selectColumnar() and \c SQLStatement::fetchColumnar() support when built against %Qore
+      with columnar DBI APIs, including dense buffer columns for integer, floating-point, and safe
+      \c DECIMAL / \c NUMERIC result columns
 
     <b>Bug Fixes</b>
     - fixed character encoding handling with MS SQL Server so that Unicode data can be

@@ -256,22 +256,7 @@ public:
     static QoreColumnarResult* fetch_columnar(SQLStatement* stmt, int rows,
             ExceptionSink* xsink)
     {
-        try {
-            if (xsink->isException()) return 0;
-            Module* m = module(stmt);
-            ReferenceHolder<QoreHashNode> columns((m->*(&Module::fetch_columns))(stmt, rows, xsink), xsink);
-            if (*xsink || !columns) {
-                return nullptr;
-            }
-            ReferenceHolder<QoreHashNode> desc((m->*(&Module::describe))(stmt, xsink), xsink);
-            if (*xsink) {
-                return nullptr;
-            }
-            return QoreColumnarResult::fromColumnHash(*columns, *desc, xsink);
-        } catch (const Error &e) {
-            e.raise(xsink);
-            return 0;
-        }
+        return run<QoreColumnarResult *>(&Module::fetch_columnar, stmt, rows, xsink);
     }
 #endif
 

@@ -265,7 +265,34 @@ public class SybaseStatementTest inherits QUnit::Test {
         testAssertionValue("direct columnar cols", direct.numCols(), 2);
         testAssertionValue("direct columnar names", asList(direct.getColumn("name")),
             ("zero", "one", "two", "three", "four"));
+        testAssertionValue("direct columnar number type", direct.getColumn("number").fullType(), "buffer<int64>");
         testAssertionValue("direct columnar numbers", asList(direct.getColumn("number")), (0, 1, 2, 3, 4));
+
+        ColumnarResult nullable = ds.selectColumnar("
+            select cast(null as int) as number
+            union all select cast(7 as int) as number
+            order by number");
+        testAssertionValue("nullable columnar number type", nullable.getColumn("number").fullType(), "buffer<*int64>");
+        testAssertionValue("nullable columnar numbers", asList(nullable.getColumn("number")), (NOTHING, 7));
+
+        ColumnarResult floats = ds.selectColumnar("
+            select cast(1.5 as float) as score
+            union all select cast(2.25 as float) as score
+            order by score");
+        testAssertionValue("float columnar type", floats.getColumn("score").fullType(), "buffer<float64>");
+        testAssertionValue("float columnar values", asList(floats.getColumn("score")), (1.5, 2.25));
+
+        ColumnarResult decimals = ds.selectColumnar("
+            select cast(null as decimal(18,2)) as amount
+            union all select cast(1.50 as decimal(18,2)) as amount
+            union all select cast(2.25 as decimal(18,2)) as amount
+            order by amount");
+        testAssertionValue("decimal columnar type", decimals.getColumn("amount").fullType(), "buffer<*decimal128>");
+        testAssertionValue("decimal columnar values", asList(decimals.getColumn("amount")), (NOTHING, 1.5n, 2.25n));
+        list<hash<auto>> decimalSchema = decimals.schemaV2();
+        testAssertionValue("decimal columnar schema kind", decimalSchema[0].kind, "decimal128");
+        testAssertionValue("decimal columnar schema precision", decimalSchema[0].precision, 18);
+        testAssertionValue("decimal columnar schema scale", decimalSchema[0].scale, 2);
 
         SQLStatement stmt(ds);
         on_exit stmt.rollback();
@@ -276,6 +303,8 @@ public class SybaseStatementTest inherits QUnit::Test {
         ColumnarResult second = stmt.fetchColumnar(rows: -1);
         testAssertionValue("stmt columnar first rows", first.numRows(), 3);
         testAssertionValue("stmt columnar second rows", second.numRows(), 2);
+        testAssertionValue("stmt columnar first number type", first.getColumn("number").fullType(), "buffer<int64>");
+        testAssertionValue("stmt columnar second number type", second.getColumn("number").fullType(), "buffer<int64>");
         testAssertionValue("stmt columnar first values", asList(first.getColumn("number")), (0, 1, 2));
         testAssertionValue("stmt columnar second values", asList(second.getColumn("number")), (3, 4));
 

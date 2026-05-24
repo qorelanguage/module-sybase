@@ -36,6 +36,7 @@
 #include "conversions.h"
 #include "utils.h"
 
+class QoreColumnarResult;
 class connection;
 
 struct CS_DATAFMT_EX : public CS_DATAFMT {
@@ -134,6 +135,10 @@ public:
                                     int cnt,
                                     bool cols,
                                     ExceptionSink* xsink);
+
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+    DLLLOCAL QoreColumnarResult* read_columnar(const Placeholders* placeholder_list, int cnt, ExceptionSink* xsink);
+#endif
 
     DLLLOCAL QoreHashNode *read_cols(const Placeholders *placeholder_list,
                                     bool cols,

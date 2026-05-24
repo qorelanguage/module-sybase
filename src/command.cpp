@@ -27,16 +27,438 @@
 #include <assert.h>
 #include <cstypes.h>
 
+#include <cerrno>
+#include <cctype>
+#include <cstring>
 #include <memory>
 #include <iostream>
 #include <algorithm>
 #include <string>
+#include <vector>
+
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#include <qore/QoreBufferNode.h>
+#include <qore/QoreColumnarResult.h>
+#endif
 
 #include "sybase.h"
 #include "command.h"
 #include "connection.h"
 #include "utils.h"
 #include "resultfactory.h"
+
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+namespace {
+struct SybaseColumnarStorage {
+    std::vector<int64> int_values;
+    std::vector<double> float_values;
+    std::vector<QoreBufferDecimal128> decimal_values;
+    std::vector<uint8_t> validity;
+};
+
+static size_t sybase_columnar_bitmap_size(size_t size) {
+    return (size + 7) / 8;
+}
+
+static void sybase_columnar_set_validity_bit(std::vector<uint8_t>& validity, size_t index, bool valid) {
+    size_t byte = index / 8;
+    if (byte >= validity.size()) {
+        validity.resize(byte + 1, 0);
+    }
+
+    uint8_t mask = uint8_t(1) << (index % 8);
+    if (valid) {
+        validity[byte] |= mask;
+    } else {
+        validity[byte] &= ~mask;
+    }
+}
+
+static bool sybase_columnar_decimal_metadata_supported(const CS_DATAFMT_EX& datafmt) {
+    return (datafmt.origin_datatype == CS_DECIMAL_TYPE || datafmt.origin_datatype == CS_NUMERIC_TYPE)
+        && datafmt.precision > 0 && datafmt.precision <= 38 && datafmt.scale >= 0
+        && datafmt.scale <= datafmt.precision;
+}
+
+static __int128 sybase_columnar_decimal_abs(__int128 value) {
+    return value < 0 ? -value : value;
+}
+
+static __int128 sybase_columnar_decimal_pow10(int32_t exponent) {
+    __int128 rv = 1;
+    for (int32_t i = 0; i < exponent; ++i) {
+        rv *= 10;
+    }
+    return rv;
+}
+
+static int32_t sybase_columnar_decimal_precision(__int128 value) {
+    value = sybase_columnar_decimal_abs(value);
+    int32_t rv = 1;
+    while (value >= 10) {
+        value /= 10;
+        ++rv;
+    }
+    return rv;
+}
+
+static QoreBufferDecimal128 sybase_columnar_decimal_storage(__int128 value) {
+    unsigned __int128 bits = static_cast<unsigned __int128>(value);
+    return QoreBufferDecimal128{static_cast<uint64_t>(bits), static_cast<int64_t>(bits >> 64)};
+}
+
+static bool sybase_columnar_parse_int64(const char* input, int64& value) {
+    if (!input || !*input || strchr(input, '.') || strchr(input, 'e') || strchr(input, 'E')) {
+        return false;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    long long rv = strtoll(input, &end, 10);
+    if (errno == ERANGE || !end || *end) {
+        return false;
+    }
+
+    value = static_cast<int64>(rv);
+    return true;
+}
+
+static int sybase_columnar_parse_decimal128(const char* input, int32_t target_precision, int32_t target_scale,
+        const char* column_name, QoreBufferDecimal128& out, ExceptionSink* xsink) {
+    assert(target_precision > 0 && target_precision <= 38 && target_scale >= 0 && target_scale <= target_precision);
+    if (!input) {
+        xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+            "cannot convert DECIMAL(%d,%d) column '%s' to decimal128; value is not available",
+            target_precision, target_scale, column_name);
+        return -1;
+    }
+
+    size_t begin = 0;
+    size_t input_size = strlen(input);
+    while (begin < input_size && std::isspace(static_cast<unsigned char>(input[begin]))) {
+        ++begin;
+    }
+
+    size_t end = input_size;
+    while (end > begin && std::isspace(static_cast<unsigned char>(input[end - 1]))) {
+        --end;
+    }
+    if (begin == end) {
+        xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+            "cannot convert DECIMAL(%d,%d) column '%s' empty value to decimal128",
+            target_precision, target_scale, column_name);
+        return -1;
+    }
+
+    bool negative = false;
+    size_t pos = begin;
+    if (input[pos] == '+' || input[pos] == '-') {
+        negative = input[pos] == '-';
+        ++pos;
+    }
+
+    bool seen_digit = false;
+    bool seen_dot = false;
+    int64_t fractional_digits = 0;
+    std::string digits;
+    for (; pos < end; ++pos) {
+        unsigned char c = static_cast<unsigned char>(input[pos]);
+        if (std::isdigit(c)) {
+            seen_digit = true;
+            digits.push_back(static_cast<char>(c));
+            if (seen_dot) {
+                ++fractional_digits;
+            }
+            continue;
+        }
+        if (input[pos] == '.' && !seen_dot) {
+            seen_dot = true;
+            continue;
+        }
+        break;
+    }
+
+    if (!seen_digit) {
+        xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+            "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; expected at least one digit",
+            target_precision, target_scale, column_name, input);
+        return -1;
+    }
+
+    int64_t exponent = 0;
+    if (pos < end && (input[pos] == 'e' || input[pos] == 'E')) {
+        ++pos;
+        bool exponent_negative = false;
+        if (pos < end && (input[pos] == '+' || input[pos] == '-')) {
+            exponent_negative = input[pos] == '-';
+            ++pos;
+        }
+        if (pos == end || !std::isdigit(static_cast<unsigned char>(input[pos]))) {
+            xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+                "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; invalid exponent",
+                target_precision, target_scale, column_name, input);
+            return -1;
+        }
+        while (pos < end && std::isdigit(static_cast<unsigned char>(input[pos]))) {
+            exponent = (exponent * 10) + (input[pos] - '0');
+            if (exponent > 76) {
+                xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+                    "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; exponent is too large",
+                    target_precision, target_scale, column_name, input);
+                return -1;
+            }
+            ++pos;
+        }
+        if (exponent_negative) {
+            exponent = -exponent;
+        }
+    }
+
+    if (pos != end) {
+        xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+            "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; unexpected character '%c'",
+            target_precision, target_scale, column_name, input, input[pos]);
+        return -1;
+    }
+
+    int64_t source_scale = fractional_digits - exponent;
+    if (source_scale < 0) {
+        digits.append(static_cast<size_t>(-source_scale), '0');
+        source_scale = 0;
+    }
+
+    size_t first_non_zero = digits.find_first_not_of('0');
+    if (first_non_zero == std::string::npos) {
+        out = sybase_columnar_decimal_storage(0);
+        return 0;
+    }
+
+    size_t significant_digits = digits.size() - first_non_zero;
+    if (significant_digits > 38) {
+        xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+            "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; precision %zu"
+            " exceeds decimal128 maximum precision 38", target_precision, target_scale, column_name, input,
+            significant_digits);
+        return -1;
+    }
+
+    __int128 unscaled = 0;
+    for (size_t i = first_non_zero; i < digits.size(); ++i) {
+        unscaled = (unscaled * 10) + (digits[i] - '0');
+    }
+    if (negative) {
+        unscaled = -unscaled;
+    }
+
+    if (source_scale < target_scale) {
+        int64_t scale_delta = target_scale - source_scale;
+        if (sybase_columnar_decimal_precision(unscaled) + scale_delta > target_precision) {
+            xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+                "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; value exceeds declared precision",
+                target_precision, target_scale, column_name, input);
+            return -1;
+        }
+        unscaled *= sybase_columnar_decimal_pow10(static_cast<int32_t>(scale_delta));
+    } else if (source_scale > target_scale) {
+        int64_t scale_delta = source_scale - target_scale;
+        if (scale_delta > 38) {
+            xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+                "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128 without losing precision",
+                target_precision, target_scale, column_name, input);
+            return -1;
+        }
+
+        __int128 divisor = sybase_columnar_decimal_pow10(static_cast<int32_t>(scale_delta));
+        if (unscaled % divisor) {
+            xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+                "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128 without losing precision",
+                target_precision, target_scale, column_name, input);
+            return -1;
+        }
+        unscaled /= divisor;
+    }
+
+    if (sybase_columnar_decimal_precision(unscaled) > target_precision) {
+        xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+            "cannot convert DECIMAL(%d,%d) column '%s' value '%s' to decimal128; value exceeds declared precision",
+            target_precision, target_scale, column_name, input);
+        return -1;
+    }
+
+    out = sybase_columnar_decimal_storage(unscaled);
+    return 0;
+}
+
+enum class SybaseColumnarKind {
+    Int64,
+    Float64,
+    Decimal128,
+    List,
+};
+
+class SybaseColumnarBuilder {
+public:
+    SybaseColumnarBuilder(const CS_DATAFMT_EX& datafmt, const char* n_name, int numeric_option, ExceptionSink* xsink)
+        : name(n_name), list(xsink) {
+        switch (datafmt.datatype) {
+            case CS_TINYINT_TYPE:
+            case CS_SMALLINT_TYPE:
+            case CS_INT_TYPE:
+#ifdef CS_BIGINT_TYPE
+            case CS_BIGINT_TYPE:
+#endif
+                kind = SybaseColumnarKind::Int64;
+                storage.reset(new SybaseColumnarStorage);
+                break;
+
+            case CS_REAL_TYPE:
+            case CS_FLOAT_TYPE:
+                kind = SybaseColumnarKind::Float64;
+                storage.reset(new SybaseColumnarStorage);
+                break;
+
+            case CS_CHAR_TYPE:
+                if (numeric_option != connection::OPT_NUM_STRING && sybase_columnar_decimal_metadata_supported(datafmt)) {
+                    precision = datafmt.precision;
+                    scale = datafmt.scale;
+                    kind = numeric_option == connection::OPT_NUM_OPTIMAL && !scale && precision <= 18
+                        ? SybaseColumnarKind::Int64
+                        : SybaseColumnarKind::Decimal128;
+                    storage.reset(new SybaseColumnarStorage);
+                    break;
+                }
+                [[fallthrough]];
+
+            default:
+                kind = SybaseColumnarKind::List;
+                list = new QoreListNode(autoTypeInfo);
+                break;
+        }
+    }
+
+    const char* getName() const {
+        return name.c_str();
+    }
+
+    SybaseColumnarKind getKind() const {
+        return kind;
+    }
+
+    int appendNull() {
+        ensureValidity();
+        sybase_columnar_set_validity_bit(storage->validity, row_count, false);
+        switch (kind) {
+            case SybaseColumnarKind::Float64:
+                storage->float_values.push_back(0.0);
+                break;
+            case SybaseColumnarKind::Decimal128:
+                storage->decimal_values.push_back(QoreBufferDecimal128{0, 0});
+                break;
+            default:
+                storage->int_values.push_back(0);
+                break;
+        }
+        ++null_count;
+        ++row_count;
+        return 0;
+    }
+
+    int appendInt64(int64 value) {
+        storage->int_values.push_back(value);
+        appendValid();
+        return 0;
+    }
+
+    int appendFloat64(double value) {
+        storage->float_values.push_back(value);
+        appendValid();
+        return 0;
+    }
+
+    int appendDecimal128(const char* value, ExceptionSink* xsink) {
+        QoreBufferDecimal128 decimal;
+        if (sybase_columnar_parse_decimal128(value, precision, scale, name.c_str(), decimal, xsink)) {
+            return -1;
+        }
+        storage->decimal_values.push_back(decimal);
+        appendValid();
+        return 0;
+    }
+
+    int appendList(QoreValue value, ExceptionSink* xsink) {
+        assert(kind == SybaseColumnarKind::List);
+        ValueHolder holder(value, xsink);
+        if (*xsink) {
+            return -1;
+        }
+        list->push(holder.release(), xsink);
+        if (*xsink) {
+            return -1;
+        }
+        ++row_count;
+        return 0;
+    }
+
+    QoreValue finish(ExceptionSink* xsink) {
+        if (kind == SybaseColumnarKind::List) {
+            return list.release();
+        }
+
+        QoreBufferElementType element_type = kind == SybaseColumnarKind::Float64
+            ? QoreBufferElementType::Float64
+            : (kind == SybaseColumnarKind::Decimal128 ? QoreBufferElementType::Decimal128
+                : QoreBufferElementType::Int64);
+        const void* data;
+        switch (element_type) {
+            case QoreBufferElementType::Float64:
+                data = storage->float_values.empty() ? nullptr : storage->float_values.data();
+                break;
+            case QoreBufferElementType::Decimal128:
+                data = storage->decimal_values.empty() ? nullptr : storage->decimal_values.data();
+                break;
+            default:
+                data = storage->int_values.empty() ? nullptr : storage->int_values.data();
+                break;
+        }
+
+        bool nullable = null_count > 0;
+        const uint8_t* validity = nullable && !storage->validity.empty() ? storage->validity.data() : nullptr;
+        if (element_type == QoreBufferElementType::Decimal128) {
+            return QoreBufferNode::wrapExternalStorage(element_type, nullable, row_count, data, validity, storage,
+                null_count, precision, scale, xsink);
+        }
+        return QoreBufferNode::wrapExternalStorage(element_type, nullable, row_count, data, validity, storage,
+            null_count, xsink);
+    }
+
+private:
+    void ensureValidity() {
+        if (!storage->validity.empty()) {
+            storage->validity.resize(sybase_columnar_bitmap_size(row_count + 1), 0);
+            return;
+        }
+
+        storage->validity.resize(sybase_columnar_bitmap_size(row_count + 1), 0xff);
+    }
+
+    void appendValid() {
+        if (!storage->validity.empty()) {
+            sybase_columnar_set_validity_bit(storage->validity, row_count, true);
+        }
+        ++row_count;
+    }
+
+    std::string name;
+    SybaseColumnarKind kind = SybaseColumnarKind::List;
+    std::shared_ptr<SybaseColumnarStorage> storage;
+    ReferenceHolder<QoreListNode> list;
+    size_t row_count = 0;
+    int64_t null_count = 0;
+    int32_t precision = 0;
+    int32_t scale = 0;
+};
+}
+#endif
 
 static std::string get_placeholder_at(const Placeholders *ph, size_t i) {
    if (!ph || ph->size() <= i) return ss::string_cast(i);
@@ -994,6 +1416,147 @@ QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_bu
             return QoreValue();
     } // switch
 }
+
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+QoreColumnarResult* command::read_columnar(const Placeholders* ph, int cnt, ExceptionSink* xsink) {
+    if (ensure_colinfo(xsink)) {
+        return nullptr;
+    }
+
+    row_result_t& descriptions = colinfo.datafmt;
+    std::vector<std::unique_ptr<SybaseColumnarBuilder>> builders;
+    builders.reserve(descriptions.size());
+    for (size_t i = 0; i < descriptions.size(); ++i) {
+        if (i && !(i % 100) && qore_check_cancel(xsink, "initializing Sybase columnar result")) {
+            return nullptr;
+        }
+
+        std::string col_name;
+        if (!ss::is_empty(descriptions[i].name)) {
+            col_name = descriptions[i].name;
+            std::transform(col_name.begin(), col_name.end(), col_name.begin(), ::tolower);
+        } else {
+            col_name = get_placeholder_at(ph, i);
+        }
+        builders.emplace_back(new SybaseColumnarBuilder(descriptions[i], col_name.c_str(), m_conn.getNumeric(), xsink));
+    }
+
+    int row_count = 0;
+    while (fetch_row_into_buffers(xsink)) {
+        if ((row_count % 100) == 0 && qore_check_cancel(xsink)) {
+            return nullptr;
+        }
+
+        for (size_t i = 0; i < descriptions.size(); ++i) {
+            if (i && !(i % 100) && qore_check_cancel(xsink, "fetching Sybase columnar row")) {
+                return nullptr;
+            }
+
+            const output_value_buffer& buff = *out_buffers[i];
+            SybaseColumnarBuilder& builder = *builders[i];
+            if (builder.getKind() == SybaseColumnarKind::List) {
+                if (builder.appendList(get_value(descriptions[i], buff, xsink), xsink)) {
+                    return nullptr;
+                }
+                continue;
+            }
+
+            if (buff.indicator == -1) {
+                builder.appendNull();
+                continue;
+            }
+
+            switch (descriptions[i].datatype) {
+                case CS_TINYINT_TYPE:
+                    builder.appendInt64(static_cast<int64>(*reinterpret_cast<CS_TINYINT*>(buff.value)));
+                    break;
+
+                case CS_SMALLINT_TYPE:
+                    builder.appendInt64(static_cast<int64>(*reinterpret_cast<CS_SMALLINT*>(buff.value)));
+                    break;
+
+                case CS_INT_TYPE:
+                    builder.appendInt64(static_cast<int64>(*reinterpret_cast<CS_INT*>(buff.value)));
+                    break;
+
+#ifdef CS_BIGINT_TYPE
+                case CS_BIGINT_TYPE:
+                    builder.appendInt64(static_cast<int64>(*reinterpret_cast<int64*>(buff.value)));
+                    break;
+#endif
+
+                case CS_REAL_TYPE:
+                    builder.appendFloat64(static_cast<double>(*reinterpret_cast<CS_REAL*>(buff.value)));
+                    break;
+
+                case CS_FLOAT_TYPE:
+                    builder.appendFloat64(static_cast<double>(*reinterpret_cast<CS_FLOAT*>(buff.value)));
+                    break;
+
+                case CS_CHAR_TYPE: {
+                    QoreString tmp(reinterpret_cast<const char*>(buff.value), buff.value_len);
+                    if (need_trim(descriptions[i])) {
+                        tmp.trim_trailing(' ');
+                    }
+                    if (builder.getKind() == SybaseColumnarKind::Int64) {
+                        int64 value;
+                        if (!sybase_columnar_parse_int64(tmp.c_str(), value)) {
+                            xsink->raiseException("SYBASE-COLUMNAR-DECIMAL-ERROR",
+                                "cannot convert DECIMAL column '%s' value '%s' to int64 without losing precision",
+                                builder.getName(), tmp.c_str());
+                            return nullptr;
+                        }
+                        builder.appendInt64(value);
+                    } else if (builder.appendDecimal128(tmp.c_str(), xsink)) {
+                        return nullptr;
+                    }
+                    break;
+                }
+
+                default:
+                    assert(false);
+                    break;
+            }
+        }
+
+        ++row_count;
+        if (--cnt == 0) {
+            break;
+        }
+    }
+
+    ReferenceHolder<QoreHashNode> columns(new QoreHashNode, xsink);
+    for (size_t i = 0; i < builders.size(); ++i) {
+        if (i && !(i % 100) && qore_check_cancel(xsink, "finalizing Sybase columnar result")) {
+            return nullptr;
+        }
+
+        HashAssignmentHelper hah(**columns, builders[i]->getName());
+        if (*hah) {
+            unsigned num = 1;
+            while (true) {
+                if (!(num % 100) && qore_check_cancel(xsink, "deduplicating Sybase columnar column names")) {
+                    return nullptr;
+                }
+
+                QoreStringMaker tmp("%s_%d", builders[i]->getName(), num);
+                hah.reassign(tmp.c_str());
+                if (*hah) {
+                    ++num;
+                    continue;
+                }
+                break;
+            }
+        }
+        hah.assign(builders[i]->finish(xsink), xsink);
+        if (*xsink) {
+            return nullptr;
+        }
+    }
+
+    return QoreColumnarResult::fromColumnHash(*columns, nullptr, xsink);
+}
+#endif
 
 int command::bind_query(std::unique_ptr<sybase_query>& q, const QoreListNode* args, ExceptionSink* xsink) {
     query.reset(q.release());

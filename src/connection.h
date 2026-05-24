@@ -209,6 +209,10 @@ public:
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
     DLLLOCAL QoreValue select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+    DLLLOCAL QoreColumnarResult* selectColumnar(const QoreString *cmd, const QoreListNode *parameters,
+            ExceptionSink *xsink);
+#endif
 
     DLLLOCAL QoreValue exec(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
     DLLLOCAL QoreValue execRaw(const QoreString *cmd, ExceptionSink *xsink);
