@@ -25,6 +25,9 @@
 /* Define if QDBI_METHOD_EXECRAW is available */
 #cmakedefine _QORE_HAS_DBI_EXECRAW
 
+/* Define if Qore has columnar DBI result APIs */
+#cmakedefine HAVE_QORE_COLUMNAR_RESULT
+
 /* Define if freetds ct-lib cs_loc_alloc, cs_locale are implemented */
 #cmakedefine FREETDS_LOCALE
 

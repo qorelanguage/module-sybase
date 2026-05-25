@@ -28,11 +28,12 @@
 
 #include <ctpublic.h>
 
-#ifdef QDBI_METHOD_SELECT_COLUMNAR
+#include "sybase.h"
+
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 #include <qore/QoreColumnarResult.h>
 #endif
 
-#include "sybase.h"
 #include "connection.h"
 #include "encoding_helpers.h"
 #include "sybase_query.h"
@@ -386,7 +387,7 @@ QoreValue connection::select(const QoreString *cmd, const QoreListNode* args, Ex
     return rv.release();
 }
 
-#ifdef QDBI_METHOD_SELECT_COLUMNAR
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 QoreColumnarResult* connection::selectColumnar(const QoreString *cmd, const QoreListNode* args, ExceptionSink *xsink) {
     QoreString *query = cmd->convertEncoding(enc, xsink);
     if (!query) {

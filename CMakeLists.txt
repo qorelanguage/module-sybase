@@ -82,6 +82,24 @@ methods.add(QDBI_METHOD_EXECRAW, nullptr);
 return 0;
 }" _QORE_HAS_DBI_EXECRAW)
 
+check_cxx_source_compiles("
+#include <qore/Qore.h>
+#include <qore/DBI.h>
+#include <qore/QoreColumnarResult.h>
+int main(void){
+#ifndef QORE_HAVE_COLUMNAR_RESULT_V2
+#error missing QORE_HAVE_COLUMNAR_RESULT_V2
+#endif
+#ifndef QDBI_METHOD_SELECT_COLUMNAR
+#error missing QDBI_METHOD_SELECT_COLUMNAR
+#endif
+#ifndef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#error missing QDBI_METHOD_STMT_FETCH_COLUMNAR
+#endif
+QoreColumnarResult* result = nullptr;
+return result ? 1 : 0;
+}" HAVE_QORE_COLUMNAR_RESULT)
+
 unset(CMAKE_REQUIRED_INCLUDES)
 unset(CMAKE_REQUIRED_LIBRARIES)
 

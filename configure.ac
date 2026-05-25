@@ -467,6 +467,33 @@ else
 
    AC_SUBST(MODULE_API)
 
+   AC_MSG_CHECKING([for Qore columnar DBI APIs])
+   save_CPPFLAGS="$CPPFLAGS"
+   CPPFLAGS="$CPPFLAGS $QORE_CPPFLAGS"
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <qore/Qore.h>
+#include <qore/DBI.h>
+#include <qore/QoreColumnarResult.h>
+]], [[
+#ifndef QORE_HAVE_COLUMNAR_RESULT_V2
+#error missing QORE_HAVE_COLUMNAR_RESULT_V2
+#endif
+#ifndef QDBI_METHOD_SELECT_COLUMNAR
+#error missing QDBI_METHOD_SELECT_COLUMNAR
+#endif
+#ifndef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#error missing QDBI_METHOD_STMT_FETCH_COLUMNAR
+#endif
+QoreColumnarResult* result = nullptr;
+return result ? 1 : 0;
+]])], [
+      AC_MSG_RESULT([yes])
+      AC_DEFINE([HAVE_QORE_COLUMNAR_RESULT], [1], [define if Qore has columnar DBI result APIs])
+   ], [
+      AC_MSG_RESULT([no])
+   ])
+   CPPFLAGS="$save_CPPFLAGS"
+
    if test -z "${prefix}" -o "${prefix}" = "NONE"; then
       libdir=`qore --module-dir`
       userlibdir=`qore --user-module-dir 2>/dev/null`

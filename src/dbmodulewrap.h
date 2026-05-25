@@ -3,6 +3,8 @@
 #ifndef SYBASE_SRC_DBMODULEWRAP_H
 #define SYBASE_SRC_DBMODULEWRAP_H
 
+#include "config.h"
+
 #include <assert.h>
 #include <iostream>
 #include <memory>
@@ -20,7 +22,7 @@
 #include "qore/Datasource.h"
 #include "qore/QoreListNode.h"
 #include "qore/QoreHashNode.h"
-#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 #include "qore/QoreColumnarResult.h"
 #endif
 
@@ -252,7 +254,7 @@ public:
         return run<QoreHashNode *>(&Module::fetch_columns, stmt, rows, xsink);
     }
 
-#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#ifdef HAVE_QORE_COLUMNAR_RESULT
     static QoreColumnarResult* fetch_columnar(SQLStatement* stmt, int rows,
             ExceptionSink* xsink)
     {
@@ -301,7 +303,7 @@ public:
         methods.add(QDBI_METHOD_STMT_FETCH_ROW, fetch_row);
         methods.add(QDBI_METHOD_STMT_FETCH_ROWS, fetch_rows);
         methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, fetch_columns);
-#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#ifdef HAVE_QORE_COLUMNAR_RESULT
         methods.add(QDBI_METHOD_STMT_FETCH_COLUMNAR, fetch_columnar);
 #endif
         methods.add(QDBI_METHOD_STMT_DESCRIBE, describe);

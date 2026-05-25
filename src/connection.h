@@ -26,6 +26,8 @@
 #ifndef SYBASE_CONNECTION_H_
 #define SYBASE_CONNECTION_H_
 
+#include "config.h"
+
 #include <cstypes.h>
 #include <ctpublic.h>
 #include <stdarg.h>
@@ -209,7 +211,7 @@ public:
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
     DLLLOCAL QoreValue select(const QoreString *cmd, const QoreListNode *parameters, ExceptionSink *xsink);
-#ifdef QDBI_METHOD_SELECT_COLUMNAR
+#ifdef HAVE_QORE_COLUMNAR_RESULT
     DLLLOCAL QoreColumnarResult* selectColumnar(const QoreString *cmd, const QoreListNode *parameters,
             ExceptionSink *xsink);
 #endif

@@ -4,6 +4,8 @@
 
 #define _QORE_SYBASE_STATEMENT_H_
 
+#include "config.h"
+
 #include <qore/common.h>
 #include <qore/QoreValue.h>
 #include <qore/DBI.h>
@@ -140,7 +142,7 @@ public:
         return context->read_cols(0, rows, false, xsink);
     }
 
-#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+#ifdef HAVE_QORE_COLUMNAR_RESULT
     QoreColumnarResult* fetch_columnar(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
         if (checkValid(xsink))
            return 0;

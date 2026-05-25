@@ -27,6 +27,8 @@
 #ifndef SYBASE_COMMAND_H_
 #define SYBASE_COMMAND_H_
 
+#include "config.h"
+
 #include <ctpublic.h>
 
 #include <memory>
@@ -36,7 +38,9 @@
 #include "conversions.h"
 #include "utils.h"
 
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 class QoreColumnarResult;
+#endif
 class connection;
 
 struct CS_DATAFMT_EX : public CS_DATAFMT {
@@ -136,7 +140,7 @@ public:
                                     bool cols,
                                     ExceptionSink* xsink);
 
-#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#ifdef HAVE_QORE_COLUMNAR_RESULT
     DLLLOCAL QoreColumnarResult* read_columnar(const Placeholders* placeholder_list, int cnt, ExceptionSink* xsink);
 #endif
 

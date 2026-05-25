@@ -36,18 +36,19 @@
 #include <string>
 #include <vector>
 
-#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#include "sybase.h"
+
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 #include <qore/QoreBufferNode.h>
 #include <qore/QoreColumnarResult.h>
 #endif
 
-#include "sybase.h"
 #include "command.h"
 #include "connection.h"
 #include "utils.h"
 #include "resultfactory.h"
 
-#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 namespace {
 struct SybaseColumnarStorage {
     std::vector<int64> int_values;
@@ -1417,7 +1418,7 @@ QoreValue command::get_value(const CS_DATAFMT_EX& datafmt, const output_value_bu
     } // switch
 }
 
-#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#ifdef HAVE_QORE_COLUMNAR_RESULT
 QoreColumnarResult* command::read_columnar(const Placeholders* ph, int cnt, ExceptionSink* xsink) {
     if (ensure_colinfo(xsink)) {
         return nullptr;

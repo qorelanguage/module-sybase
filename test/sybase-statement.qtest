@@ -257,57 +257,70 @@ public class SybaseStatementTest inherits QUnit::Test {
         return value.type() == Type::List ? value : value.toList();
     }
 
+    bool isMissingColumnarApi(hash<ExceptionInfo> ex) {
+        return ex.err == "METHOD-DOES-NOT-EXIST" || ex.err == "UNKNOWN-METHOD";
+    }
+
     test_columnar_select() {
         string query = "select name, number from " + TableName + " order by number";
 
-        ColumnarResult direct = ds.selectColumnar(query);
-        testAssertionValue("direct columnar rows", direct.numRows(), 5);
-        testAssertionValue("direct columnar cols", direct.numCols(), 2);
-        testAssertionValue("direct columnar names", asList(direct.getColumn("name")),
-            ("zero", "one", "two", "three", "four"));
-        testAssertionValue("direct columnar number type", direct.getColumn("number").fullType(), "buffer<int64>");
-        testAssertionValue("direct columnar numbers", asList(direct.getColumn("number")), (0, 1, 2, 3, 4));
+        try {
+            auto columnar_ds = ds;
+            auto direct = columnar_ds.selectColumnar(query);
+            testAssertionValue("direct columnar rows", direct.numRows(), 5);
+            testAssertionValue("direct columnar cols", direct.numCols(), 2);
+            testAssertionValue("direct columnar names", asList(direct.getColumn("name")),
+                ("zero", "one", "two", "three", "four"));
+            testAssertionValue("direct columnar number type", direct.getColumn("number").fullType(), "buffer<int64>");
+            testAssertionValue("direct columnar numbers", asList(direct.getColumn("number")), (0, 1, 2, 3, 4));
 
-        ColumnarResult nullable = ds.selectColumnar("
-            select cast(null as int) as number
-            union all select cast(7 as int) as number
-            order by number");
-        testAssertionValue("nullable columnar number type", nullable.getColumn("number").fullType(), "buffer<*int64>");
-        testAssertionValue("nullable columnar numbers", asList(nullable.getColumn("number")), (NOTHING, 7));
+            auto nullable = columnar_ds.selectColumnar("
+                select cast(null as int) as number
+                union all select cast(7 as int) as number
+                order by number");
+            testAssertionValue("nullable columnar number type", nullable.getColumn("number").fullType(), "buffer<*int64>");
+            testAssertionValue("nullable columnar numbers", asList(nullable.getColumn("number")), (NOTHING, 7));
 
-        ColumnarResult floats = ds.selectColumnar("
-            select cast(1.5 as float) as score
-            union all select cast(2.25 as float) as score
-            order by score");
-        testAssertionValue("float columnar type", floats.getColumn("score").fullType(), "buffer<float64>");
-        testAssertionValue("float columnar values", asList(floats.getColumn("score")), (1.5, 2.25));
+            auto floats = columnar_ds.selectColumnar("
+                select cast(1.5 as float) as score
+                union all select cast(2.25 as float) as score
+                order by score");
+            testAssertionValue("float columnar type", floats.getColumn("score").fullType(), "buffer<float64>");
+            testAssertionValue("float columnar values", asList(floats.getColumn("score")), (1.5, 2.25));
 
-        ColumnarResult decimals = ds.selectColumnar("
-            select cast(null as decimal(18,2)) as amount
-            union all select cast(1.50 as decimal(18,2)) as amount
-            union all select cast(2.25 as decimal(18,2)) as amount
-            order by amount");
-        testAssertionValue("decimal columnar type", decimals.getColumn("amount").fullType(), "buffer<*decimal128>");
-        testAssertionValue("decimal columnar values", asList(decimals.getColumn("amount")), (NOTHING, 1.5n, 2.25n));
-        list<hash<auto>> decimalSchema = decimals.schemaV2();
-        testAssertionValue("decimal columnar schema kind", decimalSchema[0].kind, "decimal128");
-        testAssertionValue("decimal columnar schema precision", decimalSchema[0].precision, 18);
-        testAssertionValue("decimal columnar schema scale", decimalSchema[0].scale, 2);
+            auto decimals = columnar_ds.selectColumnar("
+                select cast(null as decimal(18,2)) as amount
+                union all select cast(1.50 as decimal(18,2)) as amount
+                union all select cast(2.25 as decimal(18,2)) as amount
+                order by amount");
+            testAssertionValue("decimal columnar type", decimals.getColumn("amount").fullType(), "buffer<*decimal128>");
+            testAssertionValue("decimal columnar values", asList(decimals.getColumn("amount")), (NOTHING, 1.5n, 2.25n));
+            list<hash<auto>> decimalSchema = decimals.schemaV2();
+            testAssertionValue("decimal columnar schema kind", decimalSchema[0].kind, "decimal128");
+            testAssertionValue("decimal columnar schema precision", decimalSchema[0].precision, 18);
+            testAssertionValue("decimal columnar schema scale", decimalSchema[0].scale, 2);
 
-        SQLStatement stmt(ds);
-        on_exit stmt.rollback();
+            SQLStatement stmt(ds);
+            on_exit stmt.rollback();
 
-        stmt.prepare(query);
-        stmt.exec();
-        ColumnarResult first = stmt.fetchColumnar(rows: 3);
-        ColumnarResult second = stmt.fetchColumnar(rows: -1);
-        testAssertionValue("stmt columnar first rows", first.numRows(), 3);
-        testAssertionValue("stmt columnar second rows", second.numRows(), 2);
-        testAssertionValue("stmt columnar first number type", first.getColumn("number").fullType(), "buffer<int64>");
-        testAssertionValue("stmt columnar second number type", second.getColumn("number").fullType(), "buffer<int64>");
-        testAssertionValue("stmt columnar first values", asList(first.getColumn("number")), (0, 1, 2));
-        testAssertionValue("stmt columnar second values", asList(second.getColumn("number")), (3, 4));
+            stmt.prepare(query);
+            stmt.exec();
+            auto columnar_stmt = stmt;
+            auto first = columnar_stmt.fetchColumnar(3);
+            auto second = columnar_stmt.fetchColumnar(-1);
+            testAssertionValue("stmt columnar first rows", first.numRows(), 3);
+            testAssertionValue("stmt columnar second rows", second.numRows(), 2);
+            testAssertionValue("stmt columnar first number type", first.getColumn("number").fullType(), "buffer<int64>");
+            testAssertionValue("stmt columnar second number type", second.getColumn("number").fullType(), "buffer<int64>");
+            testAssertionValue("stmt columnar first values", asList(first.getColumn("number")), (0, 1, 2));
+            testAssertionValue("stmt columnar second values", asList(second.getColumn("number")), (3, 4));
 
-        stmt.commit();
+            stmt.commit();
+        } catch (hash<ExceptionInfo> ex) {
+            if (isMissingColumnarApi(ex)) {
+                testSkip("Qore columnar DBI APIs are not available in this Qore build");
+            }
+            rethrow;
+        }
     }
 }
