@@ -109,7 +109,7 @@ sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
     select_stmt.close();
 
     select_stmt.exec();
-    any v = select_stmt.fetchRows(-1);
+    auto v = select_stmt.fetchRows(-1);
     unit.cmp(elements v, 4, "fetch rows");
 
     select_stmt.close();
@@ -135,7 +135,7 @@ sub test3(SQLStatement stmt) {
     try {
         on_success stmt.commit();
         on_error stmt.rollback();
-        any rv = stmt.fetchColumns(-1);
+        auto rv = stmt.fetchColumns(-1);
         unit.cmp(True, False, "second negative select");
     }
     catch (ex) {
@@ -154,10 +154,9 @@ sub test4(SQLStatement delete_stmt, SQLStatement select_stmt) {
 
     select_stmt.exec();
     on_exit select_stmt.commit();
-    any rv = select_stmt.fetchRows();
+    auto rv = select_stmt.fetchRows();
     unit.cmp(rv, (), "select after delete");
 }
 
 main();
-
 

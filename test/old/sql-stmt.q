@@ -153,7 +153,7 @@ sub test1(SQLStatement insert_stmt, SQLStatement select_stmt) {
     info("closed");
 
     select_stmt.exec();
-    any v = select_stmt.fetchRows(-1);
+    auto v = select_stmt.fetchRows(-1);
     test_value(elements v, 4, "fetch rows");
     info("rows: %N", v);
 
@@ -176,7 +176,7 @@ sub test2(SQLStatement stmt) {
 
     stmt.bindPlaceholders(Type::Date);
     #stmt.exec();
-    any v = stmt.getOutput();
+    auto v = stmt.getOutput();
     test_value(elements v, 1, "first get output");
     info("output: %n", v);
 
@@ -205,7 +205,7 @@ sub test3(SQLStatement stmt) {
     try {
         on_success stmt.commit();
         on_error stmt.rollback();
-        any rv = stmt.fetchColumns(-1);
+        auto rv = stmt.fetchColumns(-1);
         info("ERR rows=%N", rv);
         test_value(True, False, "second negative select");
     }
@@ -229,7 +229,7 @@ sub test4(SQLStatement delete_stmt, SQLStatement select_stmt) {
 
     select_stmt.exec();
     on_exit select_stmt.commit();
-    any rv = select_stmt.fetchRows();
+    auto rv = select_stmt.fetchRows();
     test_value(rv, (), "select after delete");
     #info("test: %N", stmt.fetchRows());
 }
