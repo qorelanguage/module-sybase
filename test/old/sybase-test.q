@@ -742,9 +742,9 @@ exec get_values_and_multiple_select :string output, :int output");
 }
 
 sub statement_test(Datasource db) {
-    any res1;
-    any res2;
-    any res3;
+    auto res1;
+    auto res2;
+    auto res3;
     string query = "select * from people";
     {
     res1 = db.selectRows(query);
@@ -752,7 +752,7 @@ sub statement_test(Datasource db) {
     stmt.prepare(query);
     res2 = list();
     while (stmt.next()) {
-        any row = stmt.fetchRow();
+        auto row = stmt.fetchRow();
         push res2, row;
     }
     stmt.commit();
