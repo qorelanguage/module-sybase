@@ -69,7 +69,7 @@ variables:
 
 test-ubuntu:
   stage: test
-  image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:jit
+  image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:develop
   services:
     - name: mcr.microsoft.com/mssql/server:2022-latest
       alias: mssql
@@ -95,7 +95,7 @@ test-ubuntu:
 
 test-alpine:
   stage: test
-  image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:jit-alpine
+  image: $CI_REGISTRY/infrastructure/qore-test-base/qore-test-base:develop-alpine
   services:
     - name: mcr.microsoft.com/mssql/server:2022-latest
       alias: mssql
