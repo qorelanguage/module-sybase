@@ -35,6 +35,9 @@
 #endif
 
 #include "connection.h"
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+#include "bulk_load.h"
+#endif
 #include "encoding_helpers.h"
 #include "sybase_query.h"
 #include "command.h"
@@ -84,6 +87,9 @@ connection::connection(Datasource *n_ds, ExceptionSink *xsink) :
 
 connection::~connection() {
     invalidateStatement();
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+    bulk_load.reset();
+#endif
     CS_RETCODE ret = CS_SUCCEED;
 
     if (m_connection) {
@@ -160,7 +166,7 @@ int connection::direct_execute(const char* sql_text, ExceptionSink* xsink) {
 }
 
 static inline bool wasInTransaction(Datasource *ds) {
-#ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
+#if defined(_QORE_HAS_DATASOURCE_ACTIVETRANSACTION) || defined(HAVE_QORE_DATASOURCE_ACTIVE_TRANSACTION)
     return ds->activeTransaction();
 #else
     return ds->isInTransaction();
@@ -497,6 +503,13 @@ QoreValue connection::exec_row(const QoreString *cmd, const QoreListNode *parame
 
 // returns 0=OK, -1=error (exception raised)
 int connection::commit(ExceptionSink *xsink) {
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+    if (bulk_load) {
+        xsink->raiseException("DBI:FREETDS:BULK-LOAD-ERROR",
+            "cannot commit while a native FreeTDS bulk-load operation is active");
+        return -1;
+    }
+#endif
     // first clear any pending results in case a statement was in progress (does not clear any actions already effected with exec())
     ct_cancel(m_connection, 0, CS_CANCEL_ALL);
     return direct_execute("commit", xsink);
@@ -504,6 +517,13 @@ int connection::commit(ExceptionSink *xsink) {
 
 // returns 0=OK, -1=error (exception raised)
 int connection::rollback(ExceptionSink *xsink) {
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+    if (bulk_load) {
+        xsink->raiseException("DBI:FREETDS:BULK-LOAD-ERROR",
+            "cannot roll back while a native FreeTDS bulk-load operation is active; abort it first");
+        return -1;
+    }
+#endif
     // first clear any pending results in case a statement was in progress
     ct_cancel(m_connection, 0, CS_CANCEL_ALL);
     return direct_execute("rollback", xsink);

@@ -5,14 +5,16 @@ SINGLE_UNIT_DEPS = sybase.cpp connection.cpp conversions.cpp command.cpp \
 				   encoding_helpers.cpp sybase_query.cpp row_output_buffers.cpp statement.cpp \
 				   sybase.h connection.h conversions.h command.h encoding_helpers.h \
 				   sybase_query.h row_output_buffers.h statement.h emptystatement.h \
-				   resultfactory.h dbmodulewrap.h error.h utils.h common_constants.h
+				   resultfactory.h dbmodulewrap.h error.h utils.h common_constants.h \
+				   bulk_load.cpp bulk_load.h
 single-compilation-unit.cpp: $(SINGLE_UNIT_DEPS)
 	@touch $@
 else
 SYBASE_SOURCES = sybase.cpp connection.cpp\
 				 conversions.cpp command.cpp\
 				 encoding_helpers.cpp sybase_query.cpp\
-				 row_output_buffers.cpp statement.cpp
+				 row_output_buffers.cpp statement.cpp \
+				 bulk_load.cpp
 endif
 
 lib_LTLIBRARIES =

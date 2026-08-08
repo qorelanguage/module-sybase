@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 #AC_PREREQ([2.72])
-AC_INIT([qore-sybase-modules],[1.3],[David Nichols <david@qore.org>],[qore-sybase-modules])
+AC_INIT([qore-sybase-modules],[1.4],[David Nichols <david@qore.org>],[qore-sybase-modules])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
 AC_CONFIG_HEADERS([config.h])
 
@@ -298,7 +298,7 @@ fi
 
 # checks for how to build threads
 if test "$mingw" != yes; then
-    AX_PTHREAD
+    ACX_PTHREAD
     if test "$acx_pthread_ok" = "no"; then
         AC_MSG_ERROR(POSIX threads do not seem to be supported on this platform, aborting)
     fi
@@ -489,6 +489,31 @@ return result ? 1 : 0;
 ]])], [
       AC_MSG_RESULT([yes])
       AC_DEFINE([HAVE_QORE_COLUMNAR_RESULT], [1], [define if Qore has columnar DBI result APIs])
+   ], [
+      AC_MSG_RESULT([no])
+   ])
+   CPPFLAGS="$save_CPPFLAGS"
+
+   AC_MSG_CHECKING([for Qore native bulk-load DBI APIs])
+   save_CPPFLAGS="$CPPFLAGS"
+   CPPFLAGS="$CPPFLAGS $QORE_CPPFLAGS"
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <qore/Qore.h>
+#include <qore/DBI.h>
+static int begin(Datasource*, const QoreString*, const QoreListNode*, const QoreHashNode*, ExceptionSink*) {
+    return 0;
+}
+static int rows(Datasource*, const QoreHashNode*, ExceptionSink*) { return 0; }
+static int end(Datasource*, bool, ExceptionSink*) { return 0; }
+]], [[
+qore_dbi_method_list methods;
+methods.add(QDBI_METHOD_BULK_LOAD_BEGIN, begin);
+methods.add(QDBI_METHOD_BULK_LOAD_ROWS, rows);
+methods.add(QDBI_METHOD_BULK_LOAD_END, end);
+return DBI_CAP_HAS_BULK_LOAD ? 0 : 1;
+]])], [
+      AC_MSG_RESULT([yes])
+      AC_DEFINE([HAVE_QORE_BULK_LOAD], [1], [define if Qore has native bulk-load DBI APIs])
    ], [
       AC_MSG_RESULT([no])
    ])
@@ -747,6 +772,29 @@ CS_CONTEXT *m_context = 0; ct_init(m_context, CS_VERSION_100);
 
       if test "$freetds_locale" = "yes"; then
          AC_DEFINE(FREETDS_LOCALE, 1, [define if freetds ct-lib cs_loc_alloc, cs_locale are (at least partially) implemented])
+      fi
+
+      AC_MSG_CHECKING([for FreeTDS CT-Library bulk APIs])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <bkpublic.h>
+      ]], [[
+CS_CONNECTION* connection = nullptr;
+CS_BLKDESC* descriptor = nullptr;
+CS_DATAFMT format = {};
+CS_INT length = 0;
+CS_SMALLINT indicator = 0;
+CS_INT rows = 0;
+blk_alloc(connection, BLK_VERSION_100, &descriptor);
+blk_init(descriptor, CS_BLK_IN, nullptr, CS_NULLTERM);
+blk_describe(descriptor, 1, &format);
+blk_bind(descriptor, 1, &format, nullptr, &length, &indicator);
+blk_rowxfer(descriptor);
+blk_done(descriptor, CS_BLK_ALL, &rows);
+blk_drop(descriptor);
+      ]])], freetds_bulk=yes, freetds_bulk=no)
+      AC_MSG_RESULT([$freetds_bulk])
+      if test "$freetds_bulk" = "yes"; then
+         AC_DEFINE(HAVE_FREETDS_BULK, 1, [define if FreeTDS provides the CT-Library bulk APIs])
       fi
 
       AC_SUBST(FREETDS_INCLUDES)

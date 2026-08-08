@@ -20,13 +20,19 @@
 #cmakedefine QORE_HAS_DATASOURCE_PORT
 
 /* Define if Datasource::activeTransaction() is available */
-#cmakedefine _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
+#cmakedefine HAVE_QORE_DATASOURCE_ACTIVE_TRANSACTION
 
 /* Define if QDBI_METHOD_EXECRAW is available */
 #cmakedefine _QORE_HAS_DBI_EXECRAW
 
 /* Define if Qore has columnar DBI result APIs */
 #cmakedefine HAVE_QORE_COLUMNAR_RESULT
+
+/* Define if Qore has the native bulk-load DBI APIs */
+#cmakedefine HAVE_QORE_BULK_LOAD
+
+/* Define if FreeTDS provides the CT-Library bulk APIs */
+#cmakedefine HAVE_FREETDS_BULK
 
 /* Define if freetds ct-lib cs_loc_alloc, cs_locale are implemented */
 #cmakedefine FREETDS_LOCALE
@@ -35,10 +41,14 @@
 #cmakedefine SYB_LP64
 
 /* Define if debugging support should be included */
+#ifndef DEBUG
 #cmakedefine DEBUG
+#endif
 
 /* Define if assert() declarations should be suppressed */
+#ifndef NDEBUG
 #cmakedefine NDEBUG
+#endif
 
 /* Host architecture */
 #define MODULE_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}"

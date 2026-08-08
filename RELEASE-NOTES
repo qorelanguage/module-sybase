@@ -1,3 +1,9 @@
-For release notes, please see the Doxygen-generated HTML documentation.
+Version 1.4 adds opt-in native Microsoft SQL Server bulk loading to the
+FreeTDS driver through the CT-Library BCP API.  The implementation provides
+bounded mutation-stream events, exact serialized-payload byte accounting,
+automatic fallback for ineligible tables, and savepoint-based abort cleanup
+without committing the caller's transaction.
 
-See docs/sybase/html/index.html or https://qoretechnologies.github.io/module-sybase/
+For complete release notes and restrictions, see the Doxygen-generated HTML
+documentation in docs/sybase/html/index.html or at
+https://qoretechnologies.github.io/module-sybase/.

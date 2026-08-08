@@ -36,7 +36,7 @@
 
 Summary: Sybase and FreeTDS Modules for Qore
 Name: qore-sybase-modules
-Version: 1.3
+Version: 1.4
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -105,7 +105,7 @@ databases.
 %defattr(-,root,root,-)
 %dir %{module_dir}
 %{module_dir}/freetds-api-%{module_api}.qmod
-%doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS test/sybase-statement.qtest test/sybase-types.qtest docs/sybase/html
+%doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS test/freetds-native-bulk-load.qtest test/sybase-statement.qtest test/sybase-types.qtest docs/sybase/html
 
 %prep
 %setup -q
@@ -123,6 +123,11 @@ make install DESTDIR=$RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 
 %changelog
+* Sat Aug 08 2026 David Nichols <david@qore.org> 1.4
+- added opt-in native Microsoft SQL Server BCP loading through FreeTDS
+- added bounded mutation-stream reporting and transactional abort cleanup for native loading
+- refs https://github.com/qoretechnologies/qore/issues/5389
+
 * Thu Jan 02 2026 David Nichols <david@qore.org> 1.3
 - added direct connection support (hostname:port without freetds.conf)
 - added CMake build system as alternative to autotools

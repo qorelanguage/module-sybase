@@ -273,6 +273,30 @@ static int sybase_rollback(Datasource *ds, ExceptionSink *xsink) {
     END_CALLBACK(0);
 }
 
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+static int sybase_bulk_load_begin(Datasource* ds, const QoreString* table, const QoreListNode* columns,
+        const QoreHashNode* options, ExceptionSink* xsink) {
+    BEGIN_CALLBACK;
+    connection* conn = static_cast<connection*>(ds->getPrivateData());
+    return conn->bulkLoadBegin(table, columns, options, xsink);
+    END_CALLBACK(-1);
+}
+
+static int sybase_bulk_load_rows(Datasource* ds, const QoreHashNode* rows, ExceptionSink* xsink) {
+    BEGIN_CALLBACK;
+    connection* conn = static_cast<connection*>(ds->getPrivateData());
+    return conn->bulkLoadRows(rows, xsink);
+    END_CALLBACK(-1);
+}
+
+static int sybase_bulk_load_end(Datasource* ds, bool success, ExceptionSink* xsink) {
+    BEGIN_CALLBACK;
+    connection* conn = static_cast<connection*>(ds->getPrivateData());
+    return conn->bulkLoadEnd(success, xsink);
+    END_CALLBACK(-1);
+}
+#endif
+
 static QoreValue sybase_get_client_version(const Datasource *ds, ExceptionSink *xsink) {
     BEGIN_CALLBACK;
     context m_context(xsink);
@@ -329,6 +353,11 @@ static void sybase_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink)
     methods.add(QDBI_METHOD_EXECRAW, sybase_execRaw);
     methods.add(QDBI_METHOD_COMMIT, sybase_commit);
     methods.add(QDBI_METHOD_ROLLBACK, sybase_rollback);
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+    methods.add(QDBI_METHOD_BULK_LOAD_BEGIN, sybase_bulk_load_begin);
+    methods.add(QDBI_METHOD_BULK_LOAD_ROWS, sybase_bulk_load_rows);
+    methods.add(QDBI_METHOD_BULK_LOAD_END, sybase_bulk_load_end);
+#endif
     methods.add(QDBI_METHOD_GET_CLIENT_VERSION, sybase_get_client_version);
     methods.add(QDBI_METHOD_GET_SERVER_VERSION, sybase_get_server_version);
 

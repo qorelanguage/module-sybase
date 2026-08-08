@@ -1,0 +1,457 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%modern
+
+%requires qore >= 3.0
+
+%prepend-module-path "${SCRIPT_DIR}/../build"
+%requires QUnit
+%requires freetds
+%requires SqlUtil
+%requires BulkSqlUtil
+
+%exec-class FreetdsNativeBulkLoadTest
+
+#! collects native FreeTDS BCP stream events and can reject an oversized stream
+class FreetdsNativeBulkStreamCollector {
+    public {
+        list<hash<SqlMutationEventInfo>> events();
+        int abort_after = 0;
+    }
+
+    *hash<SqlMutationDecisionInfo> event(hash<SqlMutationEventInfo> ev) {
+        events += ev;
+        if (abort_after && ev.event == SQL_MUTATION_EVENT_STREAM_PROGRESS
+            && ev.consumed_bytes > abort_after) {
+            return <SqlMutationDecisionInfo>{
+                "admit": False,
+                "err": "FREETDS-NATIVE-BULK-OVER-BUDGET",
+                "desc": sprintf("FreeTDS native bulk load consumed %d bytes", ev.consumed_bytes),
+            };
+        }
+        return NOTHING;
+    }
+
+    list<hash<SqlMutationEventInfo>> streamEvents() {
+        return map $1, events, $1.event >= SQL_MUTATION_EVENT_STREAM_BEGIN
+            && $1.event <= SQL_MUTATION_EVENT_STREAM_END;
+    }
+}
+
+#! verifies CT-Library BCP against a live Microsoft SQL Server
+public class FreetdsNativeBulkLoadTest inherits QUnit::Test {
+    public {
+        const TableName = "qore_freetds_native_bulk_test";
+        const TypedTableName = "qore_freetds_native_types_test";
+        const TemporalTableName = "qore_freetds_native_temporal_test";
+        const FallbackTableName = "qore_freetds_native_fallback_test";
+        const Rows = 4000;
+        const BlockSize = 1000;
+        const TextWidth = 200;
+
+        const LoadInfo = <SqlMutationInfo>{
+            "op_id": "freetds-native-bcp-1",
+            "path_id": TableName + ".insert",
+            "op_code": 9,
+            "effect": SQL_MUTATION_EFFECT_MAY_GROW,
+            "max_growth_bytes": 2097152,
+        };
+    }
+
+    private {
+        *string connstr;
+        FreetdsNativeBulkStreamCollector obs();
+    }
+
+    constructor() : Test("FreetdsNativeBulkLoadTest", "1.0", \ARGV) {
+        connstr = ENV.QORE_DB_CONNSTR_FREETDS ?? shift ARGV;
+
+        addTestCase("native capability and scalar rows", \capabilityAndScalarTest());
+        addTestCase("native FreeTDS supported types", \supportedTypesTest());
+        addTestCase("BulkSqlUtil native FreeTDS BCP", \nativeBulkSqlUtilTest());
+        addTestCase("native abort preserves prior transaction work", \savepointAbortTest());
+        addTestCase("native finish participates in transaction", \transactionParticipationTest());
+        addTestCase("native type error cleanup and reuse", \conversionErrorTest());
+        addTestCase("native observer refusal", \observerRefusalTest());
+        addTestCase("native stream reporting disabled", \streamBoundsDisabledTest());
+        addTestCase("native row and option validation", \validationTest());
+        addTestCase("generated and default column automatic fallback", \generatedFallbackTest());
+        addTestCase("close aborts native load", \closeAbortTest());
+
+        set_return_value(main());
+    }
+
+    private Datasource setupTable() {
+        if (!connstr.val()) {
+            testSkip("no FreeTDS connection; set QORE_DB_CONNSTR_FREETDS");
+        }
+        Datasource ds;
+        try {
+            ds = new Datasource(connstr);
+            if (ds.getDriverName() != "freetds") {
+                testSkip(sprintf("connection is for the %y driver, not freetds", ds.getDriverName()));
+            }
+            ds.setAutoCommit(False);
+            ds.open();
+            if (ds.getServerVersion() !~ /Microsoft SQL Server/) {
+                testSkip("native FreeTDS bulk loading requires Microsoft SQL Server");
+            }
+        } catch (hash<ExceptionInfo> ex) {
+            testSkip("no FreeTDS connection: " + ex.err + ": " + ex.desc);
+        }
+        dropObjects(ds);
+        ds.execRaw(sprintf("create table %s (id int primary key, text_col nvarchar(1000) not null)",
+            TableName));
+        ds.commit();
+        obs.events = ();
+        obs.abort_after = 0;
+        return ds;
+    }
+
+    private dropObjects(Datasource ds) {
+        ds.clearMutationObserver();
+        try {
+            ds.rollback();
+            ds.execRaw(sprintf("if object_id('%s', 'U') is not null drop table %s", TableName, TableName));
+            ds.execRaw(sprintf("if object_id('%s', 'U') is not null drop table %s",
+                TypedTableName, TypedTableName));
+            ds.execRaw(sprintf("if object_id('%s', 'U') is not null drop table %s",
+                TemporalTableName, TemporalTableName));
+            ds.execRaw(sprintf("if object_id('%s', 'U') is not null drop table %s",
+                FallbackTableName, FallbackTableName));
+            ds.commit();
+        } catch (hash<ExceptionInfo> ex) {
+            ds.rollback();
+        }
+    }
+
+    private dropTables(Datasource ds) {
+        dropObjects(ds);
+        try {
+            ds.close();
+        } catch (hash<ExceptionInfo> ex) {
+        }
+    }
+
+    private SqlUtil::AbstractTable getTable(Datasource ds, string table = TableName) {
+        return (new SqlUtil::Table(ds, table)).getTable();
+    }
+
+    private queueRows(BulkSqlUtil::BulkInsertOperation op) {
+        for (int i = 0; i < Rows; ++i) {
+            op.queueData({"id": 1000 + i, "text_col": strmul("x", TextWidth)});
+        }
+    }
+
+    private int payloadBytes() {
+        # Four ASCII bytes for each integer plus UTF-16LE bytes for the Unicode text field.
+        # FreeTDS reports field payload only and excludes TDS/BCP framing.
+        return Rows * (4 + (TextWidth * 2));
+    }
+
+    capabilityAndScalarTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+
+        assertTrue((ds.getCapabilities() & DBI_CAP_HAS_BULK_LOAD) != 0);
+        assertTrue(ds.bulkLoadBegin(TableName, ("text_col", "id"), NOTHING));
+        ds.bulkLoadRows({"id": (1, 2, 3), "text_col": "constant"});
+        ds.bulkLoadRows({"id": (), "text_col": ()});
+        ds.bulkLoadEnd(True);
+
+        hash<auto> rows = ds.select(sprintf("select id, text_col from %s order by id", TableName));
+        assertEq((1, 2, 3), rows.id);
+        assertEq(("constant", "constant", "constant"), rows.text_col);
+        ds.rollback();
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s", TableName)).c);
+        ds.commit();
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        ds.bulkLoadRows({"id": (), "text_col": ()});
+        ds.bulkLoadEnd(True);
+        ds.rollback();
+    }
+
+    supportedTypesTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+        ds.execRaw(sprintf("create table %s (id bigint not null, text_col nvarchar(100) not null, "
+            "binary_col varbinary(100) null, date_col datetime2(6) null, float_col float null, "
+            "number_col decimal(20,6) null, nullable_col nvarchar(100) null, flag_col bit not null)",
+            TypedTableName));
+        ds.commit();
+
+        assertTrue(ds.bulkLoadBegin(TypedTableName,
+            ("flag_col", "nullable_col", "number_col", "float_col", "date_col", "binary_col",
+                "text_col", "id"), NOTHING));
+        ds.bulkLoadRows({
+            "id": (10, 11),
+            "text_col": ("Příliš žluťoučký", ""),
+            "binary_col": (<00090a0d1a5c>, NOTHING),
+            "date_col": (2026-08-08T12:34:56.123456, NOTHING),
+            "float_col": (1.25, -2.5),
+            "number_col": (123.45n, -7n),
+            "nullable_col": (NOTHING, "žluť"),
+            "flag_col": (True, False),
+        });
+        ds.bulkLoadEnd(True);
+
+        hash<auto> rows = ds.select(sprintf("select id, text_col, convert(varchar(max), binary_col, 2) binary_value, "
+            "convert(varchar(30), date_col, 121) date_value, float_col, "
+            "convert(varchar(40), number_col) number_value, nullable_col, flag_col "
+            "from %s order by id", TypedTableName));
+        assertEq((10, 11), rows.id);
+        assertEq(("Příliš žluťoučký", ""), rows.text_col);
+        assertEq(("00090A0D1A5C", NULL), rows.binary_value);
+        assertEq(("2026-08-08 12:34:56.123456", NULL), rows.date_value);
+        assertEq((1.25, -2.5), rows.float_col);
+        assertEq(("123.450000", "-7.000000"), rows.number_value);
+        assertEq((NULL, "žluť"), rows.nullable_col);
+        assertEq((True, False), rows.flag_col);
+
+        assertTrue(ds.bulkLoadBegin(TypedTableName,
+            ("id", "text_col", "binary_col", "date_col", "float_col", "number_col", "nullable_col",
+                "flag_col"), NOTHING));
+        ds.bulkLoadRows({
+            "id": 12,
+            "text_col": "scalar nulls",
+            "binary_col": NOTHING,
+            "date_col": NOTHING,
+            "float_col": 3.5,
+            "number_col": 1n,
+            "nullable_col": NOTHING,
+            "flag_col": True,
+        });
+        ds.bulkLoadEnd(True);
+        hash<auto> scalar_nulls = ds.selectRow(sprintf("select binary_col, date_col, nullable_col from %s "
+            "where id = 12", TypedTableName));
+        assertEq(NULL, scalar_nulls.binary_col);
+        assertEq(NULL, scalar_nulls.date_col);
+        assertEq(NULL, scalar_nulls.nullable_col);
+
+        ds.execRaw(sprintf("create table %s (id int not null, date_col date not null, time_col time(6) not null, "
+            "datetime_col datetime not null, small_datetime_col smalldatetime not null)", TemporalTableName));
+        assertTrue(ds.bulkLoadBegin(TemporalTableName,
+            ("id", "date_col", "time_col", "datetime_col", "small_datetime_col"), NOTHING));
+        date value = 2026-08-08T12:34:56.123456;
+        ds.bulkLoadRows({
+            "id": (1,),
+            "date_col": (value,),
+            "time_col": (value,),
+            "datetime_col": (value,),
+            "small_datetime_col": (value,),
+        });
+        ds.bulkLoadEnd(True);
+        hash<auto> temporal = ds.selectRow(sprintf("select year(date_col) date_year, "
+            "datepart(hour, time_col) time_hour, datepart(microsecond, time_col) time_us, "
+            "year(datetime_col) datetime_year, year(small_datetime_col) small_datetime_year from %s",
+            TemporalTableName));
+        assertEq(2026, temporal.date_year);
+        assertEq(12, temporal.time_hour);
+        assertEq(123456, temporal.time_us);
+        assertEq(2026, temporal.datetime_year);
+        assertEq(2026, temporal.small_datetime_year);
+        ds.rollback();
+    }
+
+    nativeBulkSqlUtilTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+        ds.setMutationObserver(\obs.event(), SQL_MUTATION_MASK_ALL);
+
+        {
+            SqlMutationDeclaration decl(ds, LoadInfo);
+            BulkSqlUtil::BulkInsertOperation op(getTable(ds), {
+                "bulk_load": True,
+                "block_size": BlockSize,
+            });
+            on_error op.discard();
+            queueRows(op);
+            op.flush();
+            op.endStream();
+        }
+
+        list<hash<SqlMutationEventInfo>> stream = obs.streamEvents();
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_BEGIN).size());
+        assertGt(0, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS).size());
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_END).size());
+        assertEq(payloadBytes(), stream.last().consumed_bytes);
+        assertEq(SQL_MUTATION_OUTCOME_OK, stream.last().outcome);
+        assertEq(Rows, ds.selectRow(sprintf("select count(*) c from %s", TableName)).c);
+        ds.rollback();
+    }
+
+    savepointAbortTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+        ds.execRaw(sprintf("insert into %s (id, text_col) values (10, 'before')", TableName));
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        ds.bulkLoadRows({"id": (11, 12), "text_col": ("native", "native")});
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () { ds.commit(); });
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () { ds.rollback(); });
+        ds.bulkLoadEnd(False);
+
+        assertEq(1, ds.selectRow(sprintf("select count(*) c from %s where id = 10", TableName)).c);
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s where id in (11, 12)", TableName)).c);
+        ds.rollback();
+    }
+
+    transactionParticipationTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        ds.bulkLoadRows({"id": (20,), "text_col": ("rollback",)});
+        ds.bulkLoadEnd(True);
+        ds.rollback();
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s where id = 20", TableName)).c);
+        ds.commit();
+    }
+
+    conversionErrorTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        bool caught = False;
+        try {
+            ds.bulkLoadRows({"id": (25, "not-an-integer"), "text_col": ("first", "bad")});
+        } catch (hash<ExceptionInfo> ex) {
+            caught = True;
+        }
+        assertTrue(caught, "invalid native type throws");
+        ds.bulkLoadEnd(False);
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s", TableName)).c);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        ds.bulkLoadRows({"id": (26,), "text_col": ("reused",)});
+        ds.bulkLoadEnd(True);
+        assertEq("reused", ds.selectRow(sprintf("select text_col from %s where id = 26", TableName)).text_col);
+        ds.rollback();
+    }
+
+    observerRefusalTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+        obs.abort_after = 65536;
+        ds.setMutationObserver(\obs.event(), SQL_MUTATION_MASK_ALL);
+
+        {
+            SqlMutationDeclaration decl(ds, LoadInfo);
+            BulkSqlUtil::BulkInsertOperation op(getTable(ds), {
+                "bulk_load": True,
+                "block_size": BlockSize,
+            });
+            on_error op.discard();
+            assertThrows("FREETDS-NATIVE-BULK-OVER-BUDGET", sub () { queueRows(op); });
+            op.discard();
+        }
+
+        list<hash<SqlMutationEventInfo>> stream = obs.streamEvents();
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_BEGIN).size());
+        assertGt(0, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS).size());
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_END).size());
+        assertEq(SQL_MUTATION_OUTCOME_NOT_EXECUTED, stream.last().outcome);
+        ds.clearMutationObserver();
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    streamBoundsDisabledTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+        ds.setMutationObserver(\obs.event(), SQL_MUTATION_MASK_ALL);
+
+        BulkSqlUtil::BulkInsertOperation op(getTable(ds), {
+            "bulk_load": True,
+            "block_size": BlockSize,
+            "stream_bounds": False,
+        });
+        on_error op.discard();
+        queueRows(op);
+        op.endStream();
+
+        assertEq((), obs.streamEvents());
+        assertEq(Rows, ds.selectRow(sprintf("select count(*) c from %s", TableName)).c);
+        ds.rollback();
+    }
+
+    validationTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadBegin(TableName, ("id", "text_col"), {"stream_bounds": "yes"});
+        });
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadBegin(TableName, ("id", "id"), NOTHING);
+        });
+        assertFalse(ds.bulkLoadBegin("[" + TableName + "]", ("id", "text_col"), NOTHING));
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadRows({"id": (1, 2), "text_col": ("one",)});
+        });
+        ds.bulkLoadEnd(False);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadRows({"id": (3,), "text_col": ({"bad": "container"},)});
+        });
+        ds.bulkLoadEnd(False);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadRows({"id": (2147483648,), "text_col": ("out of range",)});
+        });
+        ds.bulkLoadEnd(False);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadRows({"id": (NOTHING,), "text_col": ("null id",)});
+        });
+        ds.bulkLoadEnd(False);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        assertThrows("DBI:FREETDS:BULK-LOAD-ERROR", sub () {
+            ds.bulkLoadRows({"id": (4,), "text_col": (strmul("x", 1001),)});
+        });
+        ds.bulkLoadEnd(False);
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    generatedFallbackTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+        ds.execRaw(sprintf("create table %s (id int identity primary key, data_col nvarchar(100) not null, "
+            "default_col int not null default 42, xml_col xml null)", FallbackTableName));
+        ds.commit();
+
+        assertFalse(ds.bulkLoadBegin(FallbackTableName, ("data_col", "default_col"), NOTHING));
+        assertFalse(ds.bulkLoadBegin(FallbackTableName, ("data_col",), NOTHING));
+        BulkSqlUtil::BulkInsertOperation op(getTable(ds, FallbackTableName), {"bulk_load": "auto"});
+        on_error op.discard();
+        op.queueData({"data_col": "fallback"});
+        op.flush();
+        op.endStream();
+        hash<auto> row = ds.selectRow(sprintf("select data_col, default_col from %s", FallbackTableName));
+        assertEq("fallback", row.data_col);
+        assertEq(42, row.default_col);
+        ds.rollback();
+    }
+
+    closeAbortTest() {
+        Datasource ds = setupTable();
+        on_exit dropTables(ds);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("id", "text_col"), NOTHING));
+        ds.bulkLoadRows({"id": (40, 41), "text_col": "close abort"});
+        assertThrows("DATASOURCE-TRANSACTION-EXCEPTION", sub () { ds.close(); });
+        ds.open();
+        assertEq(0, ds.selectRow(sprintf("select count(*) c from %s where id in (40, 41)", TableName)).c);
+        ds.commit();
+    }
+}

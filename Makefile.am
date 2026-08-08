@@ -2,7 +2,8 @@ AUTOMAKE_OPTIONS = foreign
 
 SUBDIRS = src
 
-noinst_HEADERS = src/command.h \
+noinst_HEADERS = src/bulk_load.h \
+	src/command.h \
 	src/common_constants.h \
 	src/connection.h \
 	src/conversions.h \
@@ -21,6 +22,7 @@ noinst_HEADERS = src/command.h \
 
 EXTRA_DIST = COPYING.MIT COPYING.LGPL AUTHORS README \
 	RELEASE-NOTES \
+	test/freetds-native-bulk-load.qtest \
 	test/sybase-statement.qtest \
 	test/sybase-types.qtest \
 	qore-sybase-modules.spec

@@ -33,6 +33,7 @@
 #include <stdarg.h>
 
 #include <atomic>
+#include <memory>
 
 #include "qore/common.h"
 #include "qore/ExceptionSink.h"
@@ -58,6 +59,10 @@ extern QoreThreadLock cs_lock;
 #endif
 
 class AbstractQoreZoneInfo;
+
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+class QoreSybaseBulkLoadState;
+#endif
 
 typedef ss::DBModuleWrap<ss::Statement>::ModuleWrap stmt_t;
 
@@ -207,6 +212,13 @@ public:
     // returns 0=OK, -1=error (exception raised)
     DLLLOCAL int rollback(ExceptionSink *xsink);
 
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+    DLLLOCAL int bulkLoadBegin(const QoreString* table, const QoreListNode* columns,
+            const QoreHashNode* options, ExceptionSink* xsink);
+    DLLLOCAL int bulkLoadRows(const QoreHashNode* rows, ExceptionSink* xsink);
+    DLLLOCAL int bulkLoadEnd(bool success, ExceptionSink* xsink);
+#endif
+
     DLLLOCAL QoreValue execReadOutput(QoreString *cmd_text, const QoreListNode *qore_args, bool need_list, bool doBinding, bool cols, ExceptionSink* xsink, bool single_row = false);
     DLLLOCAL command::ResType readNextResult(command& cmd, bool& connection_reset, ExceptionSink* xsink);
 
@@ -256,6 +268,7 @@ public:
     DLLLOCAL CS_CONNECTION* getConnection() const { return m_connection; }
     DLLLOCAL CS_CONTEXT* getContext() { return m_context.get_context(); }
     DLLLOCAL const QoreEncoding *getEncoding() const { return enc; }
+    DLLLOCAL Datasource* getDatasource() const { return ds; }
 
     DLLLOCAL QoreStringNode *get_client_version(ExceptionSink *xsink);
     DLLLOCAL QoreValue get_server_version(ExceptionSink *xsink);
@@ -302,6 +315,10 @@ private:
 #endif
 
     stmt_t* stmt = nullptr;
+
+#if defined(FREETDS) && defined(HAVE_QORE_BULK_LOAD) && defined(HAVE_FREETDS_BULK)
+    std::unique_ptr<QoreSybaseBulkLoadState> bulk_load;
+#endif
 
     // returns -1 if an exception was thrown, 0 if all errors were ignored
     DLLLOCAL void do_check_exception(ExceptionSink *xsink, bool check, const char *err, const char *fmt, ...);

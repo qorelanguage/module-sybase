@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5...3.29)
 
-project(qore-sybase-modules VERSION 1.3)
+project(qore-sybase-modules VERSION 1.4)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
@@ -72,7 +72,7 @@ int main(void){
 Datasource *ds = nullptr;
 ds->activeTransaction();
 return 0;
-}" _QORE_HAS_DATASOURCE_ACTIVETRANSACTION)
+}" HAVE_QORE_DATASOURCE_ACTIVE_TRANSACTION)
 
 check_cxx_source_compiles("
 #include <qore/DBI.h>
@@ -100,6 +100,22 @@ QoreColumnarResult* result = nullptr;
 return result ? 1 : 0;
 }" HAVE_QORE_COLUMNAR_RESULT)
 
+check_cxx_source_compiles("
+#include <qore/Qore.h>
+#include <qore/DBI.h>
+static int begin(Datasource*, const QoreString*, const QoreListNode*, const QoreHashNode*, ExceptionSink*) {
+    return 0;
+}
+static int rows(Datasource*, const QoreHashNode*, ExceptionSink*) { return 0; }
+static int end(Datasource*, bool, ExceptionSink*) { return 0; }
+int main(void) {
+    qore_dbi_method_list methods;
+    methods.add(QDBI_METHOD_BULK_LOAD_BEGIN, begin);
+    methods.add(QDBI_METHOD_BULK_LOAD_ROWS, rows);
+    methods.add(QDBI_METHOD_BULK_LOAD_END, end);
+    return DBI_CAP_HAS_BULK_LOAD ? 0 : 1;
+}" HAVE_QORE_BULK_LOAD)
+
 unset(CMAKE_REQUIRED_INCLUDES)
 unset(CMAKE_REQUIRED_LIBRARIES)
 
@@ -108,6 +124,7 @@ check_cxx_compiler_flag(-fvisibility=hidden HAVE_GCC_VISIBILITY)
 # Check for FreeTDS locale support
 if(WITH_FREETDS)
     set(CMAKE_REQUIRED_INCLUDES ${FreeTDS_INCLUDE_DIR})
+    set(CMAKE_REQUIRED_LIBRARIES ${FreeTDS_LIBS})
     check_cxx_source_compiles("
     #include <cspublic.h>
     int main(void){
@@ -116,7 +133,26 @@ if(WITH_FREETDS)
     #endif
     return 0;
     }" FREETDS_LOCALE)
+    check_cxx_source_compiles("
+    #include <bkpublic.h>
+    int main(void) {
+        CS_CONNECTION* connection = nullptr;
+        CS_BLKDESC* descriptor = nullptr;
+        CS_DATAFMT format = {};
+        CS_INT length = 0;
+        CS_SMALLINT indicator = 0;
+        CS_INT rows = 0;
+        blk_alloc(connection, BLK_VERSION_100, &descriptor);
+        blk_init(descriptor, CS_BLK_IN, nullptr, CS_NULLTERM);
+        blk_describe(descriptor, 1, &format);
+        blk_bind(descriptor, 1, &format, nullptr, &length, &indicator);
+        blk_rowxfer(descriptor);
+        blk_done(descriptor, CS_BLK_ALL, &rows);
+        blk_drop(descriptor);
+        return 0;
+    }" HAVE_FREETDS_BULK)
     unset(CMAKE_REQUIRED_INCLUDES)
+    unset(CMAKE_REQUIRED_LIBRARIES)
 endif()
 
 # Platform detection
