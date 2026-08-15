@@ -240,10 +240,10 @@ int QoreSybaseBulkLoadState::initialize(const QoreString* table, const QoreListN
         std::string normalized = qoreSybaseLowerIdentifier(name.c_str(), name.size());
         if (!requested.insert(normalized).second) {
             xsink->raiseException("DBI:FREETDS:BULK-LOAD-ERROR",
-                "column '%s' occurs more than once in the native FreeTDS bulk-load column list", name->c_str());
+                "column '%s' occurs more than once in the native FreeTDS bulk-load column list", name.c_str());
             return -1;
         }
-        columns.push_back({std::string(name->c_str(), name->size())});
+        columns.push_back({std::string(name.c_str(), name.size())});
     }
 
     // The CT-Library metadata returned by blk_describe() does not distinguish SQL Server
@@ -310,7 +310,7 @@ int QoreSybaseBulkLoadState::initialize(const QoreString* table, const QoreListN
         if (max_length < -1 || max_length > std::numeric_limits<CS_INT>::max()) {
             xsink->raiseException("DBI:FREETDS:BULK-LOAD-ERROR",
                 "SQL Server returned invalid maximum length %lld for native bulk-load column '%s'",
-                static_cast<long long>(max_length), name->c_str());
+                static_cast<long long>(max_length), name.c_str());
             return -1;
         }
         bool nullable = row->getKeyValue("is_nullable").getAsBool();
