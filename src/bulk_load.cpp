@@ -231,11 +231,13 @@ int QoreSybaseBulkLoadState::initialize(const QoreString* table, const QoreListN
                 columns.size() + 1, value.getTypeName());
             return -1;
         }
-        const QoreStringNode* name = value.get<const QoreStringNode>();
-        if (!qoreSybaseParseIdentifier(name->c_str(), false, xsink)) {
+        // note: column names are short enough to be held in inline short string storage (ex:
+        // "id"), which has no QoreStringNode, so the data helper must be used to read the bytes
+        QoreStringDataHelper name(value);
+        if (!qoreSybaseParseIdentifier(name.c_str(), false, xsink)) {
             return *xsink ? -1 : 1;
         }
-        std::string normalized = qoreSybaseLowerIdentifier(name->c_str(), name->size());
+        std::string normalized = qoreSybaseLowerIdentifier(name.c_str(), name.size());
         if (!requested.insert(normalized).second) {
             xsink->raiseException("DBI:FREETDS:BULK-LOAD-ERROR",
                 "column '%s' occurs more than once in the native FreeTDS bulk-load column list", name->c_str());
@@ -284,14 +286,16 @@ int QoreSybaseBulkLoadState::initialize(const QoreString* table, const QoreListN
         bool identity = row->getKeyValue("is_identity").getAsBool();
         bool computed = row->getKeyValue("is_computed").getAsBool();
         bool generated = row->getKeyValue("generated_always_type").getAsBigInt() != 0;
-        const QoreStringNode* type = type_value.get<const QoreStringNode>();
-        std::string type_name(type->c_str(), type->size());
+        // note: these values can be held in inline short string storage, which has no
+        // QoreStringNode, so the data helper must be used to read the bytes
+        QoreStringDataHelper type(type_value);
+        std::string type_name(type.c_str(), type.size());
         if (identity || computed || generated || type_name == "timestamp" || type_name == "rowversion") {
             return 0;
         }
         ++insertable_column_count;
-        const QoreStringNode* name = name_value.get<const QoreStringNode>();
-        std::string normalized = qoreSybaseLowerIdentifier(name->c_str(), name->size());
+        QoreStringDataHelper name(name_value);
+        std::string normalized = qoreSybaseLowerIdentifier(name.c_str(), name.size());
         CS_INT ordinal = static_cast<CS_INT>(ordinal_value.getAsBigInt());
         if (ordinal < 1 || ordinal > QORE_FREETDS_MAX_TABLE_COLUMNS) {
             xsink->raiseException("DBI:FREETDS:BULK-LOAD-ERROR",
